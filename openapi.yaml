@@ -1,0 +1,2279 @@
+openapi: 3.1.0
+info:
+  title: WAVE Enterprise Streaming Platform API
+  description: |
+    Complete API reference for WAVE Enterprise Streaming Platform.
+
+    ## Authentication
+    All API requests require a Bearer token in the Authorization header:
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+
+    ## Rate Limiting
+    API requests are rate limited. When rate limited, you'll receive a 429 response
+    with a `Retry-After` header indicating when to retry.
+
+    ## Pagination
+    List endpoints support pagination via `page` and `perPage` query parameters.
+    Responses include pagination metadata.
+
+    ## Errors
+    All errors return a JSON body with `message` and optional `errors` array.
+  version: 1.0.0
+  contact:
+    name: WAVE Developer Support
+    url: https://wave.online/developers
+    email: developers@wave.online
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.wave.online/v1
+    description: Production API
+  - url: https://api.staging.wave.online/v1
+    description: Staging API
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Clips
+    description: AI-powered highlight detection and clip management
+  - name: Voice
+    description: Text-to-speech synthesis and voice cloning
+  - name: Captions
+    description: Auto-captioning and multi-language translation
+  - name: Chapters
+    description: AI chapter detection and video segmentation
+  - name: Editor
+    description: Cloud video editing projects
+  - name: Phone
+    description: VoIP phone lines and call management
+  - name: Collab
+    description: Real-time collaboration rooms
+  - name: Podcast
+    description: Podcast show and episode management
+  - name: Studio AI
+    description: Video enhancement and AI processing
+  - name: Transcribe
+    description: Speech-to-text transcription
+  - name: Sentiment
+    description: Sentiment and emotion analysis
+  - name: Search
+    description: Semantic content search
+
+paths:
+  # Clips API
+  /clips:
+    get:
+      tags: [Clips]
+      summary: List clips
+      operationId: listClips
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: videoId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobStatus'
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of clips
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Clip'
+    post:
+      tags: [Clips]
+      summary: Create a clip
+      operationId: createClip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClipCreate'
+      responses:
+        '201':
+          description: Clip created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clip'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /clips/{clipId}:
+    get:
+      tags: [Clips]
+      summary: Get a clip
+      operationId: getClip
+      parameters:
+        - name: clipId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Clip details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clip'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      tags: [Clips]
+      summary: Update a clip
+      operationId: updateClip
+      parameters:
+        - name: clipId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClipUpdate'
+      responses:
+        '200':
+          description: Clip updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clip'
+    delete:
+      tags: [Clips]
+      summary: Delete a clip
+      operationId: deleteClip
+      parameters:
+        - name: clipId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Clip deleted
+
+  /clips/detect:
+    post:
+      tags: [Clips]
+      summary: Start AI clip detection
+      operationId: detectClips
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClipDetectRequest'
+      responses:
+        '202':
+          description: Detection job started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectionJob'
+
+  # Voice API
+  /voice/voices:
+    get:
+      tags: [Voice]
+      summary: List available voices
+      operationId: listVoices
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [premade, cloned, professional]
+        - name: language
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of voices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  voices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Voice'
+
+  /voice/generate:
+    post:
+      tags: [Voice]
+      summary: Generate speech from text
+      operationId: generateSpeech
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoiceGenerateRequest'
+      responses:
+        '200':
+          description: Voice generation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoiceGeneration'
+
+  /voice/clone:
+    post:
+      tags: [Voice]
+      summary: Clone a voice from audio samples
+      operationId: cloneVoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoiceCloneRequest'
+      responses:
+        '201':
+          description: Voice cloned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Voice'
+
+  # Captions API
+  /captions:
+    get:
+      tags: [Captions]
+      summary: List caption jobs
+      operationId: listCaptions
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: videoId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobStatus'
+      responses:
+        '200':
+          description: Paginated list of caption jobs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CaptionJob'
+    post:
+      tags: [Captions]
+      summary: Create a caption job
+      operationId: createCaptionJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaptionJobCreate'
+      responses:
+        '201':
+          description: Caption job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptionJob'
+
+  /captions/{jobId}:
+    get:
+      tags: [Captions]
+      summary: Get a caption job
+      operationId: getCaptionJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Caption job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptionJob'
+    delete:
+      tags: [Captions]
+      summary: Delete a caption job
+      operationId: deleteCaptionJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Caption job deleted
+
+  /captions/{jobId}/download:
+    get:
+      tags: [Captions]
+      summary: Download captions
+      operationId: downloadCaptions
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: language
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [srt, vtt, txt, json]
+            default: srt
+      responses:
+        '200':
+          description: Caption download
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                  content:
+                    type: string
+
+  # Chapters API
+  /videos/{videoId}/chapters:
+    get:
+      tags: [Chapters]
+      summary: List chapters for a video
+      operationId: listChapters
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of chapters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chapters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Chapter'
+    post:
+      tags: [Chapters]
+      summary: Create a chapter
+      operationId: createChapter
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterCreate'
+      responses:
+        '201':
+          description: Chapter created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+
+  /videos/{videoId}/chapters/detect:
+    post:
+      tags: [Chapters]
+      summary: Start AI chapter detection
+      operationId: detectChapters
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterDetectRequest'
+      responses:
+        '202':
+          description: Detection job started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectionJob'
+
+  # Editor API
+  /editor/projects:
+    get:
+      tags: [Editor]
+      summary: List editor projects
+      operationId: listProjects
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of projects
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/EditorProject'
+    post:
+      tags: [Editor]
+      summary: Create an editor project
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditorProjectCreate'
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditorProject'
+
+  /editor/projects/{projectId}:
+    get:
+      tags: [Editor]
+      summary: Get a project
+      operationId: getProject
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditorProject'
+    patch:
+      tags: [Editor]
+      summary: Update a project
+      operationId: updateProject
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditorProjectUpdate'
+      responses:
+        '200':
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditorProject'
+    delete:
+      tags: [Editor]
+      summary: Delete a project
+      operationId: deleteProject
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Project deleted
+
+  /editor/projects/{projectId}/export:
+    post:
+      tags: [Editor]
+      summary: Export a project
+      operationId: exportProject
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '202':
+          description: Export started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJob'
+
+  # Phone API
+  /phone/lines:
+    get:
+      tags: [Phone]
+      summary: List phone lines
+      operationId: listPhoneLines
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Paginated list of phone lines
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PhoneLine'
+    post:
+      tags: [Phone]
+      summary: Provision a phone line
+      operationId: provisionPhoneLine
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneLineProvision'
+      responses:
+        '201':
+          description: Phone line provisioned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneLine'
+
+  /phone/calls:
+    get:
+      tags: [Phone]
+      summary: List calls
+      operationId: listCalls
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: lineId
+          in: query
+          schema:
+            type: string
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [inbound, outbound]
+      responses:
+        '200':
+          description: Paginated list of calls
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Call'
+    post:
+      tags: [Phone]
+      summary: Make a call
+      operationId: makeCall
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallCreate'
+      responses:
+        '201':
+          description: Call initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Call'
+
+  # Collab API
+  /collab/rooms:
+    get:
+      tags: [Collab]
+      summary: List collaboration rooms
+      operationId: listCollabRooms
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [waiting, active, ended]
+      responses:
+        '200':
+          description: Paginated list of rooms
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CollabRoom'
+    post:
+      tags: [Collab]
+      summary: Create a collaboration room
+      operationId: createCollabRoom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollabRoomCreate'
+      responses:
+        '201':
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollabRoom'
+
+  /collab/rooms/{roomId}:
+    get:
+      tags: [Collab]
+      summary: Get a room
+      operationId: getCollabRoom
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollabRoom'
+    delete:
+      tags: [Collab]
+      summary: Delete a room
+      operationId: deleteCollabRoom
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Room deleted
+
+  # Podcast API
+  /podcast/shows:
+    get:
+      tags: [Podcast]
+      summary: List podcast shows
+      operationId: listPodcastShows
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Paginated list of shows
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PodcastShow'
+    post:
+      tags: [Podcast]
+      summary: Create a podcast show
+      operationId: createPodcastShow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PodcastShowCreate'
+      responses:
+        '201':
+          description: Show created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastShow'
+
+  /podcast/shows/{showId}/episodes:
+    get:
+      tags: [Podcast]
+      summary: List episodes for a show
+      operationId: listPodcastEpisodes
+      parameters:
+        - name: showId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Paginated list of episodes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PodcastEpisode'
+    post:
+      tags: [Podcast]
+      summary: Create an episode
+      operationId: createPodcastEpisode
+      parameters:
+        - name: showId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PodcastEpisodeCreate'
+      responses:
+        '201':
+          description: Episode created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastEpisode'
+
+  # Studio AI API
+  /studio-ai/enhancements:
+    get:
+      tags: [Studio AI]
+      summary: List enhancement jobs
+      operationId: listEnhancements
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [upscale, denoise, stabilize, color_correct, super_resolution]
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobStatus'
+      responses:
+        '200':
+          description: Paginated list of enhancements
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Enhancement'
+    post:
+      tags: [Studio AI]
+      summary: Create an enhancement job
+      operationId: createEnhancement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnhancementCreate'
+      responses:
+        '201':
+          description: Enhancement created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Enhancement'
+
+  /studio-ai/preview:
+    post:
+      tags: [Studio AI]
+      summary: Generate enhancement preview
+      operationId: previewEnhancement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnhancementPreviewRequest'
+      responses:
+        '200':
+          description: Preview generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  beforeUrl:
+                    type: string
+                    format: uri
+                  afterUrl:
+                    type: string
+                    format: uri
+
+  # Transcribe API
+  /transcribe:
+    get:
+      tags: [Transcribe]
+      summary: List transcriptions
+      operationId: listTranscriptions
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobStatus'
+      responses:
+        '200':
+          description: Paginated list of transcriptions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Transcription'
+    post:
+      tags: [Transcribe]
+      summary: Create a transcription
+      operationId: createTranscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranscriptionCreate'
+      responses:
+        '201':
+          description: Transcription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transcription'
+
+  /transcribe/{transcriptionId}:
+    get:
+      tags: [Transcribe]
+      summary: Get a transcription
+      operationId: getTranscription
+      parameters:
+        - name: transcriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Transcription details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transcription'
+    delete:
+      tags: [Transcribe]
+      summary: Delete a transcription
+      operationId: deleteTranscription
+      parameters:
+        - name: transcriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Transcription deleted
+
+  # Sentiment API
+  /sentiment:
+    get:
+      tags: [Sentiment]
+      summary: List sentiment analyses
+      operationId: listSentimentAnalyses
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobStatus'
+      responses:
+        '200':
+          description: Paginated list of analyses
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SentimentAnalysis'
+    post:
+      tags: [Sentiment]
+      summary: Create a sentiment analysis
+      operationId: createSentimentAnalysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SentimentAnalysisCreate'
+      responses:
+        '201':
+          description: Analysis created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SentimentAnalysis'
+
+  /sentiment/analyze:
+    post:
+      tags: [Sentiment]
+      summary: Analyze text directly
+      operationId: analyzeText
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                includeEmotions:
+                  type: boolean
+                  default: false
+                includeTopics:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sentiment:
+                    type: string
+                    enum: [positive, negative, neutral]
+                  score:
+                    type: number
+                  confidence:
+                    type: number
+                  emotions:
+                    $ref: '#/components/schemas/EmotionBreakdown'
+                  topics:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TopicSentiment'
+
+  # Search API
+  /search:
+    post:
+      tags: [Search]
+      summary: Search content
+      operationId: search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SearchResult'
+                      facets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SearchFacet'
+
+  /search/quick:
+    get:
+      tags: [Search]
+      summary: Quick search
+      operationId: quickSearch
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchResult'
+
+  /search/suggest:
+    get:
+      tags: [Search]
+      summary: Get search suggestions
+      operationId: searchSuggest
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Search suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchSuggestion'
+
+  /search/semantic:
+    post:
+      tags: [Search]
+      summary: Semantic search
+      operationId: semanticSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                types:
+                  type: array
+                  items:
+                    type: string
+                limit:
+                  type: integer
+                  default: 10
+      responses:
+        '200':
+          description: Semantic search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchResult'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        API key authentication. Get your API key from the WAVE Developer Portal.
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PerPageParam:
+      name: perPage
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimitError:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        perPage:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: {}
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    JobStatus:
+      type: string
+      enum: [pending, processing, completed, failed, cancelled]
+
+    # Clip schemas
+    Clip:
+      type: object
+      properties:
+        id:
+          type: string
+        videoId:
+          type: string
+        startTime:
+          type: number
+        endTime:
+          type: number
+        duration:
+          type: number
+        title:
+          type: string
+        description:
+          type: string
+        score:
+          type: number
+        category:
+          type: string
+        thumbnailUrl:
+          type: string
+          format: uri
+        previewUrl:
+          type: string
+          format: uri
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        organizationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ClipCreate:
+      type: object
+      required: [videoId, startTime, endTime]
+      properties:
+        videoId:
+          type: string
+        startTime:
+          type: number
+        endTime:
+          type: number
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+
+    ClipUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        startTime:
+          type: number
+        endTime:
+          type: number
+
+    ClipDetectRequest:
+      type: object
+      required: [videoId]
+      properties:
+        videoId:
+          type: string
+        minDuration:
+          type: number
+          default: 5
+        maxDuration:
+          type: number
+          default: 60
+        categories:
+          type: array
+          items:
+            type: string
+        sensitivity:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.5
+        maxClips:
+          type: integer
+
+    DetectionJob:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        progress:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    # Voice schemas
+    Voice:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        previewUrl:
+          type: string
+          format: uri
+        category:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+
+    VoiceGeneration:
+      type: object
+      properties:
+        id:
+          type: string
+        voiceId:
+          type: string
+        text:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        audioUrl:
+          type: string
+          format: uri
+        duration:
+          type: number
+        characterCount:
+          type: integer
+        model:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    VoiceGenerateRequest:
+      type: object
+      required: [voiceId, text]
+      properties:
+        voiceId:
+          type: string
+        text:
+          type: string
+        stability:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.5
+        similarityBoost:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.75
+        style:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0
+        model:
+          type: string
+          default: eleven_multilingual_v2
+        outputFormat:
+          type: string
+          default: mp3_44100_128
+
+    VoiceCloneRequest:
+      type: object
+      required: [name, audioFiles]
+      properties:
+        name:
+          type: string
+        audioFiles:
+          type: array
+          items:
+            type: string
+            format: uri
+          minItems: 1
+          maxItems: 25
+        description:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+
+    # Caption schemas
+    CaptionJob:
+      type: object
+      properties:
+        id:
+          type: string
+        videoId:
+          type: string
+        sourceLanguage:
+          type: string
+        targetLanguages:
+          type: array
+          items:
+            type: string
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        progress:
+          type: integer
+        outputs:
+          type: object
+          additionalProperties:
+            type: string
+        errorMessage:
+          type: string
+        organizationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CaptionJobCreate:
+      type: object
+      required: [videoId]
+      properties:
+        videoId:
+          type: string
+        sourceLanguage:
+          type: string
+          default: en
+        targetLanguages:
+          type: array
+          items:
+            type: string
+        style:
+          type: string
+          default: default
+        speakerLabels:
+          type: boolean
+          default: false
+
+    # Chapter schemas
+    Chapter:
+      type: object
+      properties:
+        id:
+          type: string
+        videoId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        startTime:
+          type: number
+        endTime:
+          type: number
+        thumbnailUrl:
+          type: string
+          format: uri
+
+    ChapterCreate:
+      type: object
+      required: [title, startTime, endTime]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        startTime:
+          type: number
+        endTime:
+          type: number
+
+    ChapterDetectRequest:
+      type: object
+      properties:
+        minDuration:
+          type: number
+          default: 30
+        maxChapters:
+          type: integer
+        includeDescriptions:
+          type: boolean
+          default: true
+        includeThumbnails:
+          type: boolean
+          default: true
+
+    # Editor schemas
+    EditorProject:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        duration:
+          type: number
+        resolution:
+          type: string
+        frameRate:
+          type: number
+        thumbnailUrl:
+          type: string
+          format: uri
+        exportUrl:
+          type: string
+          format: uri
+        organizationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    EditorProjectCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        resolution:
+          type: string
+          default: '1920x1080'
+        frameRate:
+          type: number
+          default: 30
+        aspectRatio:
+          type: string
+          default: '16:9'
+
+    EditorProjectUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    ExportRequest:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [mp4, webm, mov]
+          default: mp4
+        resolution:
+          type: string
+        quality:
+          type: string
+          enum: [low, medium, high, ultra]
+          default: high
+
+    ExportJob:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        progress:
+          type: integer
+        outputUrl:
+          type: string
+          format: uri
+
+    # Phone schemas
+    PhoneLine:
+      type: object
+      properties:
+        id:
+          type: string
+        number:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        monthlyCost:
+          type: number
+        organizationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PhoneLineProvision:
+      type: object
+      properties:
+        areaCode:
+          type: string
+        country:
+          type: string
+          default: US
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum: [voice, sms, mms, fax]
+        name:
+          type: string
+
+    Call:
+      type: object
+      properties:
+        id:
+          type: string
+        lineId:
+          type: string
+        direction:
+          type: string
+          enum: [inbound, outbound]
+        fromNumber:
+          type: string
+        toNumber:
+          type: string
+        status:
+          type: string
+        duration:
+          type: integer
+        recordingUrl:
+          type: string
+          format: uri
+        transcript:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CallCreate:
+      type: object
+      required: [fromLineId, toNumber]
+      properties:
+        fromLineId:
+          type: string
+        toNumber:
+          type: string
+        record:
+          type: boolean
+          default: false
+        transcribe:
+          type: boolean
+          default: false
+        webhookUrl:
+          type: string
+          format: uri
+
+    # Collab schemas
+    CollabRoom:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [video, audio, whiteboard, screen]
+        status:
+          type: string
+          enum: [waiting, active, ended]
+        maxParticipants:
+          type: integer
+        currentParticipants:
+          type: integer
+        scheduledStart:
+          type: string
+          format: date-time
+        joinUrl:
+          type: string
+          format: uri
+        organizationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CollabRoomCreate:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [video, audio, whiteboard, screen]
+        maxParticipants:
+          type: integer
+          default: 10
+        scheduledStart:
+          type: string
+          format: date-time
+        settings:
+          type: object
+
+    # Podcast schemas
+    PodcastShow:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        coverUrl:
+          type: string
+          format: uri
+        rssUrl:
+          type: string
+          format: uri
+        category:
+          type: string
+        language:
+          type: string
+        explicit:
+          type: boolean
+        episodeCount:
+          type: integer
+        organizationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PodcastShowCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        language:
+          type: string
+          default: en
+        explicit:
+          type: boolean
+          default: false
+        coverUrl:
+          type: string
+          format: uri
+
+    PodcastEpisode:
+      type: object
+      properties:
+        id:
+          type: string
+        showId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        audioUrl:
+          type: string
+          format: uri
+        duration:
+          type: number
+        episodeNumber:
+          type: integer
+        seasonNumber:
+          type: integer
+        publishedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PodcastEpisodeCreate:
+      type: object
+      required: [title, audioUrl]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        audioUrl:
+          type: string
+          format: uri
+        episodeNumber:
+          type: integer
+        seasonNumber:
+          type: integer
+        publishedAt:
+          type: string
+          format: date-time
+
+    # Studio AI schemas
+    Enhancement:
+      type: object
+      properties:
+        id:
+          type: string
+        videoId:
+          type: string
+        type:
+          type: string
+          enum: [upscale, denoise, stabilize, color_correct, super_resolution]
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        progress:
+          type: integer
+        inputUrl:
+          type: string
+          format: uri
+        outputUrl:
+          type: string
+          format: uri
+        settings:
+          type: object
+        creditsUsed:
+          type: integer
+        organizationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    EnhancementCreate:
+      type: object
+      required: [videoId, type]
+      properties:
+        videoId:
+          type: string
+        type:
+          type: string
+          enum: [upscale, denoise, stabilize, color_correct, super_resolution]
+        settings:
+          type: object
+        priority:
+          type: string
+          enum: [low, normal, high]
+          default: normal
+
+    EnhancementPreviewRequest:
+      type: object
+      required: [videoId, type]
+      properties:
+        videoId:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: number
+          default: 0
+        settings:
+          type: object
+
+    # Transcription schemas
+    Transcription:
+      type: object
+      properties:
+        id:
+          type: string
+        sourceId:
+          type: string
+        sourceType:
+          type: string
+          enum: [video, audio]
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        language:
+          type: string
+        text:
+          type: string
+        duration:
+          type: number
+        wordCount:
+          type: integer
+        confidence:
+          type: number
+        organizationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TranscriptionCreate:
+      type: object
+      required: [sourceId, sourceType]
+      properties:
+        sourceId:
+          type: string
+        sourceType:
+          type: string
+          enum: [video, audio]
+        language:
+          type: string
+        speakerLabels:
+          type: boolean
+          default: false
+        wordTimestamps:
+          type: boolean
+          default: false
+        punctuation:
+          type: boolean
+          default: true
+        model:
+          type: string
+          default: default
+
+    # Sentiment schemas
+    SentimentAnalysis:
+      type: object
+      properties:
+        id:
+          type: string
+        sourceId:
+          type: string
+        sourceType:
+          type: string
+          enum: [video, audio, text, chat]
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        overallSentiment:
+          type: string
+          enum: [positive, negative, neutral, mixed]
+        overallScore:
+          type: number
+        confidence:
+          type: number
+        summary:
+          type: string
+        organizationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SentimentAnalysisCreate:
+      type: object
+      required: [sourceId, sourceType]
+      properties:
+        sourceId:
+          type: string
+        sourceType:
+          type: string
+          enum: [video, audio, text, chat]
+        text:
+          type: string
+        includeEmotions:
+          type: boolean
+          default: false
+        includeTopics:
+          type: boolean
+          default: false
+        includeSummary:
+          type: boolean
+          default: false
+        segmentAnalysis:
+          type: boolean
+          default: false
+
+    EmotionBreakdown:
+      type: object
+      properties:
+        joy:
+          type: number
+        sadness:
+          type: number
+        anger:
+          type: number
+        fear:
+          type: number
+        surprise:
+          type: number
+        disgust:
+          type: number
+        trust:
+          type: number
+        anticipation:
+          type: number
+
+    TopicSentiment:
+      type: object
+      properties:
+        topic:
+          type: string
+        sentiment:
+          type: string
+          enum: [positive, negative, neutral]
+        score:
+          type: number
+        mentions:
+          type: integer
+        keywords:
+          type: array
+          items:
+            type: string
+
+    # Search schemas
+    SearchResult:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [video, clip, chapter, transcript, episode]
+        title:
+          type: string
+        description:
+          type: string
+        thumbnailUrl:
+          type: string
+          format: uri
+        url:
+          type: string
+          format: uri
+        score:
+          type: number
+        highlights:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHighlight'
+        metadata:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    SearchHighlight:
+      type: object
+      properties:
+        field:
+          type: string
+        snippet:
+          type: string
+        positions:
+          type: array
+          items:
+            type: object
+            properties:
+              start:
+                type: integer
+              end:
+                type: integer
+
+    SearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+        types:
+          type: array
+          items:
+            type: string
+            enum: [video, clip, chapter, transcript, episode]
+        filters:
+          type: object
+          properties:
+            dateFrom:
+              type: string
+              format: date
+            dateTo:
+              type: string
+              format: date
+            duration:
+              type: object
+              properties:
+                min:
+                  type: number
+                max:
+                  type: number
+            tags:
+              type: array
+              items:
+                type: string
+            categories:
+              type: array
+              items:
+                type: string
+            language:
+              type: string
+        sort:
+          type: object
+          properties:
+            field:
+              type: string
+              enum: [relevance, date, views, duration, title]
+              default: relevance
+            order:
+              type: string
+              enum: [asc, desc]
+              default: desc
+        highlight:
+          type: boolean
+          default: true
+        fuzzy:
+          type: boolean
+          default: false
+        semanticSearch:
+          type: boolean
+          default: false
+        page:
+          type: integer
+          default: 1
+        perPage:
+          type: integer
+          default: 20
+
+    SearchSuggestion:
+      type: object
+      properties:
+        text:
+          type: string
+        type:
+          type: string
+          enum: [query, title, tag]
+        score:
+          type: number
+
+    SearchFacet:
+      type: object
+      properties:
+        field:
+          type: string
+        values:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+              count:
+                type: integer
