@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "repo": "wave-av/api-spec",
+  "version": "3.0.0",
+  "lifecycle": "ga",
+  "planeLayer": null,
+  "foundationPin": "v1",
+  "maintainers": [{ "team": "core" }],
+  "exposes": {},
+  "consumes": {
+    "foundationFrameworks": ["frameworks/platform-registry"]
+  },
+  "tags": ["api-spec", "public", "openapi", "source-of-truth"]
+}
