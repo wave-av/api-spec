@@ -63,6 +63,11 @@ tags:
     description: Sentiment and emotion analysis
   - name: Search
     description: Semantic content search
+  - name: Realtime
+    description: >-
+      Live control & event plane — presence, pub/sub broadcast, and the streaming-event bus the WAVE
+      AI products push into. Served at realtime.wave.online (not the api host); subscribe over one
+      WebSocket, producers publish over REST. Auth federates to the gateway.
 
 paths:
   # Clips API
@@ -1197,6 +1202,136 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/SearchResult'
+
+  # Realtime API — served at realtime.wave.online (per-operation server override). WebSocket subscribe
+  # is documented descriptively (OpenAPI has no native WS); REST publish/presence/history are first-class.
+  /realtime/connect:
+    get:
+      tags: [Realtime]
+      summary: Subscribe to a channel (WebSocket)
+      operationId: realtimeConnect
+      description: >-
+        Open a WebSocket to subscribe to a channel. This is a WebSocket upgrade (HTTP 101), not a normal
+        GET — clients send `Upgrade: websocket`. Browser/SDK clients that cannot set headers may pass the
+        key as `?access_token=`. On connect the server sends a `welcome` frame (current presence +
+        recent history), then live frames: `message` (a published event), `join`/`leave` (presence),
+        `presence` (full list). The real path is `/v1/connect?channel=<id>`.
+      servers:
+        - url: https://realtime.wave.online
+          description: WAVE Realtime edge
+      parameters:
+        - name: channel
+          in: query
+          required: true
+          schema: { type: string, pattern: '^[a-z0-9][a-z0-9:_-]{0,127}$' }
+          description: Namespaced channel id, e.g. `stream:abc`, `room:xyz`.
+        - name: as
+          in: query
+          required: false
+          schema: { type: string }
+          description: Member id to present as (defaults to the caller's key prefix).
+      responses:
+        '101':
+          description: Switching Protocols — WebSocket established.
+        '401': { description: Authentication required }
+        '426': { description: Upgrade required (not a WebSocket request) }
+  /realtime/channels/{channel}/publish:
+    post:
+      tags: [Realtime]
+      summary: Publish an event to a channel
+      operationId: realtimePublish
+      description: Producer endpoint — publish one event to every subscriber of a channel. The real path is `/v1/channels/{channel}/publish`.
+      servers:
+        - url: https://realtime.wave.online
+          description: WAVE Realtime edge
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event]
+              properties:
+                event:
+                  type: string
+                  description: Event name, e.g. `caption.cue`, `sentiment.tick`, `clip.created`, `stream.started`.
+                data:
+                  description: Arbitrary JSON payload for the event.
+      responses:
+        '200':
+          description: Published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  delivered: { type: integer, description: Number of subscribers the event reached }
+        '401': { description: Authentication required }
+  /realtime/channels/{channel}/presence:
+    get:
+      tags: [Realtime]
+      summary: Current presence for a channel
+      operationId: realtimePresence
+      description: The real path is `/v1/channels/{channel}/presence`.
+      servers:
+        - url: https://realtime.wave.online
+          description: WAVE Realtime edge
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Presence list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  channel: { type: string }
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+  /realtime/channels/{channel}/history:
+    get:
+      tags: [Realtime]
+      summary: Recent event history for a channel
+      operationId: realtimeHistory
+      description: Last-N events (≤50). The real path is `/v1/channels/{channel}/history`.
+      servers:
+        - url: https://realtime.wave.online
+          description: WAVE Realtime edge
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50, maximum: 50 }
+      responses:
+        '200':
+          description: Recent events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  channel: { type: string }
+                  events:
+                    type: array
+                    items: { type: object }
 
 components:
   securitySchemes:
