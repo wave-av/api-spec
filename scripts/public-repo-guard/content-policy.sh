@@ -90,9 +90,15 @@ check BLOCK aws-akid         'AKIA[0-9A-Z]{16}'                                 
 check BLOCK private-key      '-----BEGIN [A-Z ]*PRIVATE KEY-----'                 'Embedded private key material'
 
 # --- Committed dotenv (real env, not templates) ------------------------------
-ENVHITS="$(find . -path ./.git -prune -o -type f \
-  \( -name '.env' -o -name '.env.local' -o -name '.env.production' -o -name '.env.prod' -o -name '.env.staging' \) \
-  -print 2>/dev/null)"
+# List candidate files with the SAME ignore filtering as check() so .guardignore
+# and the standard excludes apply to this BLOCK rule too. Include-globs come first
+# (restrict to dotenv basenames at any depth), then the IGNORE excludes (last match
+# wins, so a .env under e.g. node_modules stays excluded). --hidden is required
+# because these are dotfiles; --no-ignore-vcs ensures a committed-but-gitignored
+# .env is still caught.
+ENVHITS="$(rg --files --hidden --no-ignore-vcs \
+  -g '.env' -g '.env.local' -g '.env.production' -g '.env.prod' -g '.env.staging' \
+  "${IGNORE[@]}" 2>/dev/null || true)"
 if [[ -n "$ENVHITS" ]]; then
   echo "::group::[BLOCK] committed-dotenv — real .env files must not be committed"
   printf '%s\n' "$ENVHITS"
