@@ -38,4 +38,4 @@ Get your API key at [wave.online/developers](https://wave.online/developers).
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
