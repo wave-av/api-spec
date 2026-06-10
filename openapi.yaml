@@ -1567,6 +1567,8 @@ components:
         audioUrl:
           type: string
           format: uri
+        alignment:
+          $ref: '#/components/schemas/VoiceAlignment'
         duration:
           type: number
         characterCount:
@@ -1579,6 +1581,27 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    VoiceAlignment:
+      type: object
+      description: >
+        Character-level timing for the generated audio, present only when the
+        request set `timestamps: true`. A direct passthrough of the engine's
+        alignment, so clients can render karaoke highlighting and derive caption
+        cues. The three arrays are parallel (same length).
+      properties:
+        characters:
+          type: array
+          items:
+            type: string
+        character_start_times_seconds:
+          type: array
+          items:
+            type: number
+        character_end_times_seconds:
+          type: array
+          items:
+            type: number
 
     VoiceGenerateRequest:
       type: object
@@ -1609,6 +1632,13 @@ components:
         outputFormat:
           type: string
           default: mp3_44100_128
+        timestamps:
+          type: boolean
+          default: false
+          description: >
+            When true, the resulting VoiceGeneration includes character-level
+            `alignment` (start/end times) so clients can render karaoke highlighting
+            and derive caption cues. Backed by the engine's with-timestamps mode.
 
     VoiceCloneRequest:
       type: object
