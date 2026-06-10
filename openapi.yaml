@@ -1640,7 +1640,11 @@ components:
         Character-level timing for the generated audio, present only when the
         request set `timestamps: true`. A direct passthrough of the engine's
         alignment, so clients can render karaoke highlighting and derive caption
-        cues. The three arrays are parallel (same length).
+        cues. The three arrays are parallel (same length, always present together).
+        Property names are snake_case because this is a verbatim passthrough of the
+        speech engine's alignment, which downstream caption/karaoke consumers parse
+        by these exact keys.
+      required: [characters, character_start_times_seconds, character_end_times_seconds]
       properties:
         characters:
           type: array
