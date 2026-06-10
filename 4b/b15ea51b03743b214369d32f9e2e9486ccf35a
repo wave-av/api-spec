@@ -1,0 +1,22 @@
+openapi.yaml
+  s_6c1c1be138dfd4::t_5c07e64b796387 1658-1677
+  s_6c1c1be138dfd4::t_37a76e7d51987d 1432-1439,1441-1456
+  s_6c1c1be138dfd4::t_479042e888c2d5 245-249,253-267
+  s_6c1c1be138dfd4::t_89c5cab3bbf459 1404-1427
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "4bb15ea51b03743b214369d32f9e2e9486ccf35a",
+  "prompts": {},
+  "sessions": {
+    "s_6c1c1be138dfd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a5dffe1-aa2a-4164-bcf4-2a833c950ff4",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
