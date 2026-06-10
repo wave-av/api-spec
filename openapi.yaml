@@ -242,11 +242,29 @@ paths:
               $ref: '#/components/schemas/VoiceGenerateRequest'
       responses:
         '200':
-          description: Voice generation created
+          description: >
+            Speech generated. The gateway returns one of three shapes depending on
+            the engine path: an inline JSON payload with base64 audio + character
+            `alignment` (single round-trip, carries word timestamps), an async job
+            to poll, or raw audio bytes when timestamps were not requested.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VoiceGeneration'
+                oneOf:
+                  - $ref: '#/components/schemas/VoiceSynthesisInline'
+                  - $ref: '#/components/schemas/VoiceGeneration'
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
 
   /voice/clone:
     post:
@@ -1383,25 +1401,59 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication required, or the API key / token is invalid or expired.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: >
+        The key is valid but lacks the scope or entitlement for this operation
+        (e.g. SCOPE_OVERREACH, quota tier exhausted).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UpstreamError:
+      description: >
+        An upstream capability provider (e.g. the speech engine) failed. The
+        gateway interprets the failure and returns this normalized WAVE error
+        instead of the raw upstream response, so the caller always sees a stable
+        shape it can act on.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
 
   schemas:
     Error:
       type: object
-      required: [message]
+      description: >
+        WAVE-normalized error envelope returned by the api.wave.online gateway.
+        Upstream provider, auth, and quota failures are *interpreted* into this
+        single shape — raw upstream errors (stack traces, vendor SDK objects) are
+        never leaked to the caller. `error.code` is a stable machine-readable code
+        (e.g. AUTH_REQUIRED, SCOPE_OVERREACH, RATE_LIMIT_EXCEEDED, UPSTREAM_ERROR);
+        `error.message` is human-readable.
+      required: [error]
       properties:
-        message:
-          type: string
-        code:
-          type: string
-        errors:
-          type: array
-          items:
-            type: object
-            properties:
-              field:
-                type: string
-              message:
-                type: string
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable error code.
+            message:
+              type: string
+              description: Human-readable explanation, safe to surface to end users.
+            details:
+              type: object
+              additionalProperties: true
+              description: >
+                Optional structured context (e.g. failing field, retry limit,
+                requested scopes) — never raw upstream payloads.
 
     Pagination:
       type: object
@@ -1602,6 +1654,26 @@ components:
           type: array
           items:
             type: number
+
+    VoiceSynthesisInline:
+      type: object
+      description: >
+        Synchronous voice synthesis result returned inline in a single round-trip.
+        Used when `timestamps: true`, so the caller receives audio and character-level
+        `alignment` together with no polling — the shape the blog karaoke/caption
+        pipeline consumes. When timestamps are not requested the gateway may instead
+        return raw audio bytes (audio/mpeg) or an async VoiceGeneration job.
+      required: [audio_base64]
+      properties:
+        audio_base64:
+          type: string
+          format: byte
+          description: Base64-encoded audio payload (container/codec per `outputFormat`).
+        alignment:
+          $ref: '#/components/schemas/VoiceAlignment'
+        format:
+          type: string
+          description: Audio container/codec of the decoded bytes (e.g. mp3_44100_128).
 
     VoiceGenerateRequest:
       type: object
