@@ -19,7 +19,8 @@ info:
     Responses include pagination metadata.
 
     ## Errors
-    All errors return a JSON body with `message` and optional `errors` array.
+    All errors return the normalized WAVE envelope `{ "error": { "code", "message" } }`,
+    optionally enriched with `details`, `suggestions`, `did_you_mean`, and `doc_url`.
   version: 1.0.0
   contact:
     name: WAVE Developer Support
@@ -1452,6 +1453,24 @@ components:
               description: >
                 Optional structured context (e.g. failing field, retry limit,
                 requested scopes) — never raw upstream payloads.
+            suggestions:
+              type: array
+              description: >
+                Actionable next steps, ordered most→least likely to resolve the
+                error. Written to be acted on by a human OR an agent.
+              items:
+                type: string
+            did_you_mean:
+              type: array
+              description: >
+                Closest valid alternatives when the caller likely made a typo or
+                wrong choice (e.g. an unknown scope, product, or route).
+              items:
+                type: string
+            doc_url:
+              type: string
+              format: uri
+              description: Documentation link for this error.
 
     Pagination:
       type: object
