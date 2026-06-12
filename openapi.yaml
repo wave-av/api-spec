@@ -1497,6 +1497,93 @@ components:
       type: string
       enum: [pending, processing, completed, failed, cancelled]
 
+    Receipt:
+      type: object
+      description: >
+        WAVE Receipts envelope — a signed, verifiable record of a completed
+        operation. One shape, three instances: the Render Receipt (wave-video),
+        the Payment Receipt (agent-money / x402), and the Context Receipt
+        (wave-dispatch). The bytes that are signed and verified are the
+        *canonical* JSON of `receipt` (sorted keys, no whitespace), so any
+        verifier reproduces exactly what the signer signed.
+      required: [schema, receipt, alg]
+      properties:
+        schema:
+          type: string
+          description: Receipt payload schema id + version (matches the payload's own `schema_version`).
+          examples: [wave.context-receipt/v0]
+        receipt:
+          type: object
+          description: >
+            The receipt payload — one of the instance schemas (e.g.
+            `#/components/schemas/ContextReceipt`).
+          additionalProperties: true
+        sig:
+          type: [string, 'null']
+          description: >
+            Detached signature over the canonical JSON of `receipt`, encoded per
+            `alg`, or null when the receipt is unsigned (`alg: none`).
+        alg:
+          type: string
+          description: >
+            Signature algorithm (e.g. `ed25519`). `none` means the receipt is
+            honestly unsigned; a present signature is trusted ONLY when a verifier
+            confirms it over the canonical body — a signature that cannot be
+            checked is never trusted.
+          examples: [ed25519, none]
+
+    ContextReceipt:
+      type: object
+      description: >
+        Proof of exactly what context a single model invocation was given — the
+        Context Integrity instance of the WAVE Receipts standard. Travels as the
+        `receipt` payload of a `Receipt` envelope (`schema: wave.context-receipt/v0`).
+        The platform measures the window each model REALLY serves (not the
+        advertised one) and either fits the prompt, routes up to a bigger window,
+        or refuses — it never silently front-truncates.
+      required:
+        [model, served_window, effective_window, input_tokens, decision_kind, truncated, ts, schema_version]
+      properties:
+        model:
+          type: string
+          description: Target model identifier.
+        served_window:
+          type: integer
+          description: >
+            The context window the model ACTUALLY served, as measured by the Fleet
+            Probe — not the advertised window. Trusting the measured value over the
+            advertised one is the guarantee this receipt attests to.
+        effective_window:
+          type: integer
+          description: >
+            Window available for input after carving out reserved output headroom,
+            chat-template overhead, and tool/MCP schema tokens.
+        input_tokens:
+          type: integer
+          description: >
+            Conservative estimate of the prompt's input tokens (chars/token margin
+            biased to never under-count).
+        decision_kind:
+          type: string
+          enum: [fit, route_up, refuse]
+          description: >
+            The Truncation Guard's decision: `fit` (prompt fits), `route_up`
+            (escalate to a bigger window), or `refuse` (loud — chunk or raise the
+            window). Never silently truncates.
+        truncated:
+          type: boolean
+          description: >
+            True only if a downstream stage forced a truncation the guard would
+            have refused. Normally false.
+        ts:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp of the decision.
+        schema_version:
+          type: string
+          description: Payload schema version (equals the envelope `schema`).
+          examples: [wave.context-receipt/v0]
+
     # Clip schemas
     Clip:
       type: object
