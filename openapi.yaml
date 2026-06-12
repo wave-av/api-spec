@@ -1501,11 +1501,10 @@ components:
       type: object
       description: >
         WAVE Receipts envelope — a signed, verifiable record of a completed
-        operation. One shape, three instances: the Render Receipt (wave-video),
-        the Payment Receipt (agent-money / x402), and the Context Receipt
-        (wave-dispatch). The bytes that are signed and verified are the
-        *canonical* JSON of `receipt` (sorted keys, no whitespace), so any
-        verifier reproduces exactly what the signer signed.
+        operation. One shape, three instances: the Render Receipt, the Payment
+        Receipt (x402), and the Context Receipt. The bytes that are signed and
+        verified are the *canonical* JSON of `receipt` (sorted keys, no
+        whitespace), so any verifier reproduces exactly what the signer signed.
       required: [schema, receipt, alg]
       properties:
         schema:
