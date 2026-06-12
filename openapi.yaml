@@ -1530,6 +1530,22 @@ components:
             confirms it over the canonical body — a signature that cannot be
             checked is never trusted.
           examples: [ed25519, none]
+      allOf:
+        # alg and sig MUST agree — making "signed but unsigned" un-representable:
+        # unsigned  <=> alg == "none" AND sig == null
+        # signed    <=> a concrete alg AND a present string sig
+        # (the engine enforces this in receipt.envelope; the schema mirrors it so
+        # a client can never read alg != "none" and then find sig absent/null.)
+        - if:
+            properties:
+              alg: {const: none}
+          then:
+            properties:
+              sig: {type: 'null'}
+          else:
+            required: [sig]
+            properties:
+              sig: {type: string}
 
     ContextReceipt:
       type: object
