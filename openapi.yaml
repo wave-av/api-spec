@@ -1497,6 +1497,112 @@ components:
       type: string
       enum: [pending, processing, completed, failed, cancelled]
 
+    Attestation:
+      type: object
+      description: >
+        WAVE Attestation envelope — a signed, verifiable record of exactly what a
+        capability DID. This is NOT a financial receipt: customer payment receipts
+        and invoices live in the billing domain (`Invoice`); an Attestation proves
+        platform behaviour, not money owed. One shape, three instances: the Render
+        Attestation, the Settlement Attestation (proof an x402 spend executed), and
+        the Context Attestation. The bytes that are signed and verified are the
+        *canonical* JSON of `attestation` (sorted keys, no whitespace), so any
+        verifier reproduces exactly what the signer signed.
+      required: [schema, attestation, alg]
+      properties:
+        schema:
+          type: string
+          description: Attestation payload schema id + version (matches the payload's own `schema_version`).
+          examples: [wave.context-attestation/v0]
+        attestation:
+          type: object
+          description: >
+            The attested facts — one of the instance payload schemas (e.g.
+            `#/components/schemas/ContextAttestation`).
+          additionalProperties: true
+        sig:
+          type: [string, 'null']
+          description: >
+            Detached signature over the canonical JSON of `attestation`, encoded
+            per `alg`, or null when unsigned (`alg: none`).
+        alg:
+          type: string
+          description: >
+            Signature algorithm (e.g. `ed25519`). `none` means the attestation is
+            honestly unsigned; a present signature is trusted ONLY when a verifier
+            confirms it over the canonical body — a signature that cannot be
+            checked is never trusted.
+          examples: [ed25519, none]
+      allOf:
+        # alg and sig MUST agree — making "signed but unsigned" un-representable:
+        # unsigned  <=> alg == "none" AND sig == null
+        # signed    <=> a concrete alg AND a present string sig
+        # (the engine enforces this in attestation.envelope; the schema mirrors it
+        # so a client can never read alg != "none" and then find sig absent/null.)
+        - if:
+            properties:
+              alg: {const: none}
+          then:
+            properties:
+              sig: {type: 'null'}
+          else:
+            required: [sig]
+            properties:
+              sig: {type: string}
+
+    ContextAttestation:
+      type: object
+      description: >
+        Proof of exactly what context a single model invocation was given — the
+        Context Integrity instance of the WAVE Attestation standard. Travels as the
+        `attestation` payload of an `Attestation` envelope
+        (`schema: wave.context-attestation/v0`). The platform measures the window
+        each model REALLY serves (not the advertised one) and either fits the
+        prompt, routes up to a bigger window, or refuses — it never silently
+        front-truncates.
+      required:
+        [model, served_window, effective_window, input_tokens, decision_kind, truncated, ts, schema_version]
+      properties:
+        model:
+          type: string
+          description: Target model identifier.
+        served_window:
+          type: integer
+          description: >
+            The context window the model ACTUALLY served, as measured by the Fleet
+            Probe — not the advertised window. Trusting the measured value over the
+            advertised one is the guarantee this attestation makes.
+        effective_window:
+          type: integer
+          description: >
+            Window available for input after carving out reserved output headroom,
+            chat-template overhead, and tool/MCP schema tokens.
+        input_tokens:
+          type: integer
+          description: >
+            Conservative estimate of the prompt's input tokens (chars/token margin
+            biased to never under-count).
+        decision_kind:
+          type: string
+          enum: [fit, route_up, refuse]
+          description: >
+            The Truncation Guard's decision: `fit` (prompt fits), `route_up`
+            (escalate to a bigger window), or `refuse` (loud — chunk or raise the
+            window). Never silently truncates.
+        truncated:
+          type: boolean
+          description: >
+            True only if a downstream stage forced a truncation the guard would
+            have refused. Normally false.
+        ts:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp of the decision.
+        schema_version:
+          type: string
+          description: Payload schema version (equals the envelope `schema`).
+          examples: [wave.context-attestation/v0]
+
     # Clip schemas
     Clip:
       type: object
