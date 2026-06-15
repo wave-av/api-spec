@@ -68,7 +68,77 @@ tags:
       AI products push into. Served at realtime.wave.online (not the api host); subscribe over one
       WebSocket, producers publish over REST. Auth federates to the gateway.
 
+  - name: Render
+    description: >-
+      Code-defined video — render a branded, deterministic MP4 (or alpha ProRes) from a typed
+      Brief. Pay-per-render over x402 (no signup); the payment proof is the identity. The same
+      Brief renders to the same bytes on any host. Reference renderer is source-available (BSL).
 paths:
+  # Render API
+  /render:
+    post:
+      tags: [Render]
+      summary: Render a video from a Brief (x402-payable)
+      operationId: renderVideo
+      description: >-
+        POST a typed Brief. Unpaid → 402 with a `WWW-Authenticate` x402 challenge; pay and retry.
+        A bad brief → 400 before any charge. Paid → 200: the binary `video/mp4` by default, or a
+        RenderResult envelope when you send `Accept: application/json` (always for 4K / alpha,
+        delivered via a signed, expiring URL). Deterministic within a renderer version; `sha256`
+        is the determinism receipt (also on the `x-wave-sha256` header).
+      security: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: A replayed key returns the original result without re-charging.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenderBrief'
+      responses:
+        '200':
+          description: The rendered video — binary, or a RenderResult envelope under Accept application/json.
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '402':
+          description: Payment required — pay the x402 challenge and retry.
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+              description: The x402 challenge, including the quoted price.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Output too large to return inline and no hosted delivery configured (OUTPUT_TOO_LARGE).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '451':
+          description: Content is on the operator deny/takedown list and will not be rendered (CONTENT_BLOCKED).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   # Clips API
   /clips:
     get:
@@ -2641,3 +2711,72 @@ components:
                 type: string
               count:
                 type: integer
+    RenderTemplate:
+      type: string
+      description: >-
+        The render template. Per-template prop shapes are published in the live contract
+        (GET /render/openapi.json) so this enum can never drift from what the renderer accepts.
+      enum:
+        - slate
+        - lowerThird
+        - announce
+        - stat
+        - hero
+        - quote
+        - backdrop
+        - field
+        - badge
+        - endcard
+        - sting
+        - ident
+        - kinetic
+        - ticker
+        - countdown
+        - receipt
+        - code
+        - session
+        - chart
+        - audiogram
+        - manifesto
+        - changelog
+    RenderBrief:
+      type: object
+      description: >-
+        A render Brief — a template plus its props. Brand-parametric: an optional BYO `brandKit`
+        (logo SVG, fonts as data URLs, colors) renders any template on a tenant's brand.
+      required: [template, props]
+      properties:
+        template:
+          $ref: '#/components/schemas/RenderTemplate'
+        props:
+          type: object
+          description: >-
+            Template-specific props (see the live contract for per-template shapes). All string
+            props are HTML-escaped; width/height ≤ 4096, durationMs ≤ 60000, fps ≤ 60.
+          additionalProperties: true
+    RenderResult:
+      description: The delivery envelope (Accept application/json). `sha256` is the determinism receipt.
+      oneOf:
+        - $ref: '#/components/schemas/RenderResultInline'
+        - $ref: '#/components/schemas/RenderResultUrl'
+    RenderResultInline:
+      type: object
+      required: [delivery, format, sha256, bytes, contentType]
+      properties:
+        delivery: { type: string, enum: [inline] }
+        format: { type: string, enum: [mp4] }
+        sha256: { type: string, description: sha256 of the output bytes (determinism receipt). }
+        bytes: { type: integer }
+        contentType: { type: string, enum: [video/mp4] }
+        dataUrl: { type: string, description: base64 data URL of the output (small MP4s only). }
+    RenderResultUrl:
+      type: object
+      required: [delivery, format, sha256, bytes, url, expiresAtSec, contentType]
+      properties:
+        delivery: { type: string, enum: [url] }
+        format: { type: string, enum: [mp4, alpha] }
+        sha256: { type: string, description: sha256 of the output bytes (determinism receipt). }
+        bytes: { type: integer }
+        url: { type: string, description: Signed, single-object, expiring URL on downloads.wave.online. }
+        expiresAtSec: { type: integer, description: Absolute Unix expiry of the signed URL. }
+        contentType: { type: string, enum: [video/mp4, video/quicktime] }
