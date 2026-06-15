@@ -2761,7 +2761,7 @@ components:
         - $ref: '#/components/schemas/RenderResultUrl'
     RenderResultInline:
       type: object
-      required: [delivery, format, sha256, bytes, contentType]
+      required: [delivery, format, sha256, bytes, contentType, dataUrl]
       properties:
         delivery: { type: string, enum: [inline] }
         format: { type: string, enum: [mp4] }
