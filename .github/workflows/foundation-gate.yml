@@ -1,7 +1,15 @@
-name: foundation-gate
+# foundation-gate.yml — calls the INLINED checks at ./.github/workflows/_checks.yml.
+#
+# WHY INLINED: this repo is PUBLIC; wave-av/wave-foundation is PRIVATE. GitHub Actions does
+# NOT permit a public repo to consume a private repo's reusable workflow — the call fails in
+# 0s with 0 jobs (workflow_run never starts). `_checks.yml` mirrors
+# wave-foundation/.github/workflows/checks.yml@v1. Keep them in sync on every v1.x bump (no
+# consume-not-copy here; the consume path is structurally impossible for a public repo).
+#
+# Required check name ("gate / checks") resolves from the outer job "gate" + the inner job
+# name "checks" in `_checks.yml` — same shape branch protection has been requiring all along.
 
-# Inherits the wave-foundation cross-org gate (secret-scan + file-size + SKILL.md frontmatter).
-# Required status check on the default branch (added once this lands).
+name: foundation-gate
 
 on:
   pull_request:
@@ -12,7 +20,7 @@ permissions:
   contents: read
 
 jobs:
-  foundation-gate:
-    uses: wave-av/wave-foundation/.github/workflows/checks.yml@v1
+  gate:
+    uses: ./.github/workflows/_checks.yml
     with:
       max_lines: 800
