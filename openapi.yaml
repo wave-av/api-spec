@@ -67,6 +67,12 @@ tags:
       Live control & event plane — presence, pub/sub broadcast, and the streaming-event bus the WAVE
       AI products push into. Served at realtime.wave.online (not the api host); subscribe over one
       WebSocket, producers publish over REST. Auth federates to the gateway.
+  - name: Braided Audio
+    description: >-
+      On-demand WAVE Braided Audio publish — mixes multiple named audio sources into one
+      MoQ-native braided track (single interleaved multichannel stream, not N independent
+      streams). Requires the `moq:write` entitlement. Publishing spins up an on-demand machine;
+      the same namespace can be republished (replacing the prior machine) or explicitly stopped.
 
   - name: Render
     description: >-
@@ -1419,6 +1425,84 @@ paths:
                   events:
                     type: array
                     items: { type: object }
+
+  # Braided Audio API
+  /braid/publish:
+    post:
+      tags: [Braided Audio]
+      summary: Publish a braided audio track
+      operationId: publishBraidAudio
+      description: >-
+        Starts (or replaces) an on-demand braid publisher for `ns`, mixing `sources` into one
+        interleaved multichannel MoQ track. Requires the `moq:write` entitlement. If a machine is
+        already live for this `org`/`ns`, it is torn down and replaced. Subject to per-org
+        concurrency and creation-rate limits (429 `QUOTA_EXCEEDED` when exceeded).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BraidPublishRequest'
+      responses:
+        '201':
+          description: Braid machine starting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BraidPublishResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          description: Per-org concurrency or creation-rate limit exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Braid publish unavailable — the worker is not provisioned for on-demand publish.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /braid/publish/{ns}:
+    delete:
+      tags: [Braided Audio]
+      summary: Stop a braided audio publish
+      operationId: stopBraidAudio
+      description: >-
+        Explicit early stop for a live braid machine in this namespace. Requires the `moq:write`
+        entitlement. Tears down the machine via the same path `publishBraidAudio`'s replace
+        action uses, so usage accounting is always consistent.
+      parameters:
+        - name: ns
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Braid machine stopped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BraidStopResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: No live braid machine for this namespace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Braid publish unavailable — the worker is not provisioned for on-demand publish.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
   securitySchemes:
@@ -2812,6 +2896,73 @@ components:
                 type: string
               count:
                 type: integer
+
+    # Braided Audio schemas
+    BraidPublishRequest:
+      type: object
+      required: [ns, sources]
+      description: >-
+        `org` is derived from the caller's authenticated principal, not sent in the body.
+      properties:
+        ns:
+          type: string
+          description: Namespace for the published track. Republishing the same ns replaces the prior machine.
+        sources:
+          type: array
+          description: >-
+            Named audio sources to braid into one interleaved multichannel track. Each source needs
+            a `label`/`track` and either a `url` or a `path`.
+          items:
+            type: object
+            required: [label, track]
+            properties:
+              label:
+                type: string
+              track:
+                type: string
+              url:
+                type: string
+                format: uri
+              path:
+                type: string
+        windowMs:
+          type: integer
+          description: Braid window size in milliseconds. Defaults to the machine-config default when omitted.
+        sampleRate:
+          type: integer
+          description: Sample rate for the braided track. Defaults to the machine-config default when omitted.
+
+    BraidPublishResult:
+      type: object
+      required: [ns, track, channels, windowMs, objectBytes, machineId, status]
+      properties:
+        ns:
+          type: string
+        track:
+          type: string
+        channels:
+          type: integer
+        windowMs:
+          type: integer
+        objectBytes:
+          type: integer
+        machineId:
+          type: string
+        status:
+          type: string
+          enum: [starting]
+
+    BraidStopResult:
+      type: object
+      required: [ns, machineId, status]
+      properties:
+        ns:
+          type: string
+        machineId:
+          type: string
+        status:
+          type: string
+          enum: [stopped]
     RenderTemplate:
       type: string
       description: >-
