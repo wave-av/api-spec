@@ -67,6 +67,11 @@ tags:
       Live control & event plane — presence, pub/sub broadcast, and the streaming-event bus the WAVE
       AI products push into. Served at realtime.wave.online (not the api host); subscribe over one
       WebSocket, producers publish over REST. Auth federates to the gateway.
+  - name: AV Mux/Demux
+    description: >-
+      Synchronous container-transform for local IP video + Dante/AES67 audio: mux separate RTP H.264
+      video and Dante audio into one sync-locked MPEG-TS or fMP4 stream, and demux the inverse. x402
+      metered per minute (`wave_av_minutes`) plus per transform-second (`wave_av_transform_seconds`).
   - name: Braided Audio
     description: >-
       On-demand WAVE Braided Audio publish — mixes multiple named audio sources into one
@@ -1499,6 +1504,100 @@ paths:
                 $ref: '#/components/schemas/Error'
         '501':
           description: Braid publish unavailable — the worker is not provisioned for on-demand publish.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # AV Mux/Demux API — synchronous container-transform path (RTP H.264 video + Dante/AES67 audio).
+  /av/remux:
+    post:
+      tags: [AV Mux/Demux]
+      summary: Mux synchronized IP video + Dante audio into one container
+      operationId: avRemux
+      description: >-
+        Synchronizes local IP video (RTP H.264) and separate Dante/AES67 audio into one sync-locked
+        container stream (MPEG-TS or fMP4). Requires the `av:write` entitlement. x402-gated; billed
+        per-minute (`wave_av_minutes`) plus per transform-second (`wave_av_transform_seconds`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvRemuxRequest'
+      responses:
+        '200':
+          description: Muxed container stream — binary, or an AvTransformResult envelope under Accept application/json.
+          content:
+            video/mp2t:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvTransformResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '402':
+          description: Payment required — pay the x402 challenge and retry.
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+              description: The x402 challenge, including the quoted price.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '501':
+          description: AV mux/demux unavailable — the spoke is not provisioned (AV_ORIGIN unset).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /av/demux:
+    post:
+      tags: [AV Mux/Demux]
+      summary: Demux one container back into separate video + Dante audio
+      operationId: avDemux
+      description: >-
+        Inverse of `/av/remux` — splits a synchronized MPEG-TS/fMP4 container back into local IP video
+        (RTP H.264 out) and Dante/AES67 audio out, preserving sub-millisecond sync. Requires the
+        `av:write` entitlement. x402-gated; billed per-minute (`wave_av_minutes`) plus per
+        transform-second (`wave_av_transform_seconds`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvDemuxRequest'
+      responses:
+        '200':
+          description: Demux result — routed IP-video + Dante sink status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvTransformResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '402':
+          description: Payment required — pay the x402 challenge and retry.
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+              description: The x402 challenge, including the quoted price.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '501':
+          description: AV mux/demux unavailable — the spoke is not provisioned (AV_ORIGIN unset).
           content:
             application/json:
               schema:
@@ -2963,6 +3062,66 @@ components:
         status:
           type: string
           enum: [stopped]
+
+    # AV Mux/Demux schemas
+    AvRemuxRequest:
+      type: object
+      required: [videoUrl, audioUrl, container]
+      description: >-
+        `org` is derived from the caller's authenticated principal, not sent in the body.
+      properties:
+        videoUrl:
+          type: string
+          format: uri
+          description: Source for local IP video (RTP H.264).
+        audioUrl:
+          type: string
+          format: uri
+          description: Source for the separate Dante/AES67 audio track.
+        container:
+          type: string
+          description: Output container for the synchronized stream.
+          enum: [mpegts, fmp4]
+        outputUrl:
+          type: string
+          format: uri
+          description: Optional presigned destination to PUT the resulting container to. Omitted → returned inline.
+
+    AvDemuxRequest:
+      type: object
+      required: [sourceUrl]
+      description: >-
+        `org` is derived from the caller's authenticated principal, not sent in the body.
+      properties:
+        sourceUrl:
+          type: string
+          format: uri
+          description: Synchronized MPEG-TS or fMP4 container to split back into video + Dante audio.
+        videoOutputUrl:
+          type: string
+          format: uri
+          description: Optional presigned destination for the demuxed RTP H.264 video output.
+        audioOutputUrl:
+          type: string
+          format: uri
+          description: Optional presigned destination for the demuxed Dante/AES67 audio output.
+
+    AvTransformResult:
+      type: object
+      required: [ok, container, durationSeconds]
+      properties:
+        ok:
+          type: boolean
+        container:
+          type: string
+          enum: [mpegts, fmp4]
+        durationSeconds:
+          type: number
+          description: Duration of the transformed stream, in seconds — the basis for wave_av_transform_seconds billing.
+        syncOffsetMs:
+          type: number
+          description: Measured audio/video sync offset after alignment, in milliseconds (sub-millisecond target).
+
     RenderTemplate:
       type: string
       description: >-
