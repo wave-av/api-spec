@@ -78,6 +78,24 @@ tags:
       MoQ-native braided track (single interleaved multichannel stream, not N independent
       streams). Requires the `moq:write` entitlement. Publishing spins up an on-demand machine;
       the same namespace can be republished (replacing the prior machine) or explicitly stopped.
+  - name: MoQ
+    description: >-
+      Media over QUIC join-token mint — the only HTTP surface of the MoQ product. These two
+      endpoints authorize the caller on the api host and return a short-lived signed join-token
+      plus the relay URL to connect to; media never transits the API gateway, because the client
+      opens the MoQ session DIRECTLY to the relay at moq.wave.online carrying that token. The media
+      session itself is not an HTTP surface and is deliberately not modelled in this document: it
+      is the IETF Media over QUIC Transport protocol (control + object frames over WebTransport /
+      QUIC, with a WebSocket fallback for browsers that cannot open a raw QUIC session). To use it,
+      point a MoQ client at `relayWsUrl` and pass the token as the `join` query parameter (browser
+      WebSocket clients cannot set request headers) or, server-to-server, as the `x-wave-moq-join`
+      request header — SDK clients mint the token; carrying it over the wire is the MoQ client's
+      job. DRAFT VERSION: this surface corresponds to draft-ietf-moq-transport-18
+      (https://datatracker.ietf.org/doc/draft-ietf-moq-transport/18/), which is what the WAVE relay
+      currently speaks (preferred draft-18, negotiating draft-07..draft-18 over ALPN). draft-19 was
+      published 2026-07-06 and is NOT yet deployed; adopting it is tracked in wave-moq-edge#114.
+      The join-token mint is transport-version independent — a draft bump changes the wire session,
+      not this HTTP contract.
 
   - name: Render
     description: >-
@@ -1603,6 +1621,110 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  # MoQ API — join-token mint. The media session runs DIRECT to the relay (see the MoQ tag).
+  /moq/publish/{ns}/{track}:
+    post:
+      tags: [MoQ]
+      summary: Mint a MoQ publish join-token
+      operationId: mintMoqPublishToken
+      description: >-
+        Authorizes the caller to PUBLISH to `ns`/`track` and returns a short-lived signed join-token
+        (`role: publish`, `scope: moq:write`) plus the `relayWsUrl` to connect to. Requires the
+        `moq:write` scope. The token is a bearer credential valid for `expiresIn` seconds — mint one
+        per session immediately before connecting; do not cache or log it (the response is served
+        `cache-control: no-store`). The durable API key never leaves the client. A publisher may
+        declare the origin protocol of the stream it is about to publish with the
+        `x-wave-declare-protocol` header so usage is billed against that protocol dimension. The
+        declaration is only honoured on this publish leg, only for a recognized protocol, and only
+        for orgs the operator has allowlisted; an unrecognized or unauthorized value is silently
+        ignored and the session bills as plain `moq` — it never fails the mint.
+      parameters:
+        - $ref: '#/components/parameters/MoqNamespaceParam'
+        - $ref: '#/components/parameters/MoqTrackParam'
+        - name: x-wave-declare-protocol
+          in: header
+          required: false
+          schema:
+            type: string
+          description: >-
+            Optional declared origin protocol for billing (e.g. `moq`). Ignored unless recognized and
+            authorized for this org; never rejects the mint.
+      responses:
+        '200':
+          description: >-
+            Join-token minted. Served `cache-control: no-store` — never cache or log `joinToken`.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              description: Always `no-store` — the response carries a short-lived bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MoqJoinToken'
+        '400':
+          description: >-
+            `MOQ_JOIN_BAD_RESOURCE` — `ns` or `track` does not match `^[a-z0-9-]{1,64}$`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          $ref: '#/components/responses/MoqJoinUnconfigured'
+
+  /moq/subscribe/{ns}/{track}:
+    get:
+      tags: [MoQ]
+      summary: Mint a MoQ subscribe join-token
+      operationId: mintMoqSubscribeToken
+      description: >-
+        Authorizes the caller to SUBSCRIBE to `ns`/`track` and returns a short-lived signed
+        join-token (`role: subscribe`, `scope: moq:read`) plus the `relayWsUrl` to connect to.
+        Requires the `moq:read` scope. Least-privilege: a subscribe token grants read only — it
+        cannot be replayed to publish, and the relay re-checks the signed `ns`/`track` against the
+        session it is actually opening, so a token is bound to exactly one resource.
+      parameters:
+        - $ref: '#/components/parameters/MoqNamespaceParam'
+        - $ref: '#/components/parameters/MoqTrackParam'
+      responses:
+        '200':
+          description: >-
+            Join-token minted. Served `cache-control: no-store` — never cache or log `joinToken`.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              description: Always `no-store` — the response carries a short-lived bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MoqJoinToken'
+        '400':
+          description: >-
+            `MOQ_JOIN_BAD_RESOURCE` — `ns` or `track` does not match `^[a-z0-9-]{1,64}$`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          $ref: '#/components/responses/MoqJoinUnconfigured'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1613,6 +1735,31 @@ components:
         API key authentication. Get your API key from the WAVE Developer Portal.
 
   parameters:
+    MoqNamespaceParam:
+      name: ns
+      in: path
+      required: true
+      description: >-
+        MoQ namespace. Lowercase alphanumeric and dashes, 1–64 characters. The same value is bound
+        into the minted token's claims and re-checked by the relay against the session it opens.
+      schema:
+        type: string
+        pattern: '^[a-z0-9-]{1,64}$'
+        minLength: 1
+        maxLength: 64
+      example: demo-ns
+    MoqTrackParam:
+      name: track
+      in: path
+      required: true
+      description: >-
+        MoQ track name within the namespace. Lowercase alphanumeric and dashes, 1–64 characters.
+      schema:
+        type: string
+        pattern: '^[a-z0-9-]{1,64}$'
+        minLength: 1
+        maxLength: 64
+      example: cam-1
     PageParam:
       name: page
       in: query
@@ -1663,6 +1810,28 @@ components:
       description: >
         The key is valid but lacks the scope or entitlement for this operation
         (e.g. SCOPE_OVERREACH, quota tier exhausted).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    PaymentRequired:
+      description: >
+        Payment required — the gateway answers with an x402 challenge instead of serving the
+        request. **This response does NOT use the `Error` envelope.** Its `error` member is a plain
+        string (`"payment required"`); the normalized WAVE error object is nested under
+        `error_detail`. Complete the challenge in `accepts[0]` and retry with the `x-payment`
+        header. Observed on `api.wave.online` 2026-07-25: a request with no API key AND a request
+        with an unrecognized API key both receive this 402 (not a 401) on the MoQ mint routes, so a
+        client must treat 402 as the ordinary "not yet authorized to pay-per-use" outcome.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/X402PaymentRequired'
+    MoqJoinUnconfigured:
+      description: >
+        `MOQ_JOIN_UNCONFIGURED` — the mint is fail-closed and the signing secret is not provisioned
+        in this environment. The gateway will never mint an unsigned or empty-key token. Not
+        retryable by the caller; it clears when an operator provisions the secret.
       content:
         application/json:
           schema:
@@ -3191,3 +3360,122 @@ components:
         url: { type: string, description: Signed, single-object, expiring URL on downloads.wave.online. }
         expiresAtSec: { type: integer, description: Absolute Unix expiry of the signed URL. }
         contentType: { type: string, enum: [video/mp4, video/quicktime] }
+
+    MoqJoinToken:
+      type: object
+      description: >-
+        A minted MoQ join-token and everything needed to open the media session. `joinToken` is a
+        short-lived HMAC-signed bearer bound to exactly this `ns`/`track`, `role`, and the caller's
+        organization; the relay derives identity and scope from the signed claims and never from a
+        client-supplied header. Connect to `relayWsUrl` carrying the token as the `join` query
+        parameter (browser clients) or the `x-wave-moq-join` header (server-to-server). Never log,
+        cache, or persist `joinToken`; mint a fresh one per session.
+      required: [ok, relayWsUrl, joinToken, expiresIn, ns, track, role, scope]
+      properties:
+        ok:
+          type: boolean
+          description: Always `true` on a successful mint.
+        relayWsUrl:
+          type: string
+          format: uri
+          description: >-
+            The DIRECT relay URL for this session, e.g.
+            `wss://moq.wave.online/v1/publish/{ns}/{track}`. Media flows here, not through the API
+            gateway.
+        joinToken:
+          type: string
+          description: >-
+            The signed join-token (`base64url(header).base64url(payload).base64url(signature)`,
+            HMAC-SHA256, `typ: MOQJ` so it can never be confused with an API key). Treat as a
+            secret.
+        expiresIn:
+          type: integer
+          description: >-
+            Token lifetime in seconds from mint. Currently 120; the relay additionally rejects any
+            token whose signed lifetime exceeds the contract ceiling, and allows a few seconds of
+            clock skew.
+        ns:
+          type: string
+          description: The namespace the token is bound to (echoes the path parameter).
+        track:
+          type: string
+          description: The track the token is bound to (echoes the path parameter).
+        role:
+          type: string
+          enum: [publish, subscribe]
+          description: Derived from the route, never from a client field.
+        scope:
+          type: string
+          enum: ['moq:write', 'moq:read']
+          description: >-
+            The single scope granted by this token — `moq:write` for publish, `moq:read` for
+            subscribe. Least-privilege: a subscribe token cannot publish.
+        protocol:
+          type: string
+          description: >-
+            Present only when a publisher declared a recognized, authorized origin protocol at mint
+            time (see `x-wave-declare-protocol`). Absent means the session bills as plain `moq`.
+
+    X402PaymentRequired:
+      type: object
+      description: >-
+        The x402 payment-challenge body returned with HTTP 402. Distinct from the `Error` envelope:
+        `error` here is a human-readable string and the normalized WAVE error object is nested under
+        `error_detail`.
+      required: [x402Version, error, accepts]
+      properties:
+        x402Version:
+          type: integer
+          description: x402 protocol version (currently 1).
+        error:
+          type: string
+          description: Short reason, e.g. `payment required`.
+        accepts:
+          type: array
+          description: Payment options; sign one and retry with the `x-payment` header.
+          items:
+            $ref: '#/components/schemas/X402Accepts'
+        error_detail:
+          $ref: '#/components/schemas/Error'
+        next_action:
+          type: object
+          additionalProperties: true
+          description: >-
+            Machine-executable directive for agent callers — a `pay` directive carrying the same
+            `accepts` options.
+
+    X402Accepts:
+      type: object
+      description: One acceptable payment option in an x402 challenge.
+      properties:
+        scheme:
+          type: string
+          description: Payment scheme, e.g. `exact`.
+        protocol:
+          type: string
+          description: Always `x402`.
+        network:
+          type: string
+          description: Settlement network, e.g. `base`.
+        maxAmountRequired:
+          type: string
+          description: Amount in the asset's smallest unit, as a decimal string.
+        resource:
+          type: string
+          description: The request path being charged for.
+        description:
+          type: string
+        mimeType:
+          type: string
+        payTo:
+          type: string
+          description: Destination address for the payment.
+        maxTimeoutSeconds:
+          type: integer
+        asset:
+          type: string
+          description: Contract address of the settlement asset.
+        extra:
+          type: object
+          additionalProperties: true
+          description: Scheme-specific metadata (e.g. settlement mode, session id).
