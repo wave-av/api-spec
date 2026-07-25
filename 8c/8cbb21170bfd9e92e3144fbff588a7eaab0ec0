@@ -1,0 +1,25 @@
+CHANGELOG.md
+  s_375efeac18ed55::t_271fa9302a73e2 11-27
+openapi.yaml
+  s_375efeac18ed55::t_8e244d11273b33 1817-1838
+  s_375efeac18ed55::t_3044c1095ab530 1624-1653,1656-1698,1701-1727,3389,3395,3401,3418,3423
+  s_375efeac18ed55::t_348304a87e233f 1738-1762,3374,3429
+  s_375efeac18ed55::t_6cb7dcc26fb3a9 81-97
+  s_375efeac18ed55::t_065200676a3604 98,1654-1655,1699-1700,3363-3373,3375-3388,3390-3394,3396-3400,3402-3417,3419-3422,3424-3428,3430-3481
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "8c8cbb21170bfd9e92e3144fbff588a7eaab0ec0",
+  "prompts": {},
+  "sessions": {
+    "s_375efeac18ed55": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "36fdda83-f068-47e7-b3f6-f5ca7f834237",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
