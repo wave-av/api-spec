@@ -1,0 +1,22 @@
+openapi.yaml
+  s_364605915bb7ec::t_a80177414a7ad2 1801-1808
+  s_364605915bb7ec::t_89b5bf6417e1b8 3431
+  s_364605915bb7ec::t_5c40ebaba005e0 3435-3471
+  s_364605915bb7ec::t_db9c14fd215e99 171-233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "805820984d0e79e19a14dc0ae63de769d57d74d9",
+  "prompts": {},
+  "sessions": {
+    "s_364605915bb7ec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d367c84a-2390-40de-b101-d4f0e674783a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
