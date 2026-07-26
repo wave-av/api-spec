@@ -1,0 +1,27 @@
+.github/scripts/assert-refs.mjs
+  s_364605915bb7ec::t_a3095078637fbc 14,16,33-37,44-46,53,73
+  s_364605915bb7ec::t_e157cda6e3db46 1-13,15,17-32,38-43,54-59,64-72,74-89
+  s_364605915bb7ec::t_9eed1c8fff4ae1 47-52,60-63
+.github/workflows/foundation-gate.yml
+  s_364605915bb7ec::t_24f7921de09ea6 31-46,48-50,52-54
+  s_364605915bb7ec::t_33f0cf2c7b4936 55-60
+  s_364605915bb7ec::t_0826b5d04b985d 47,51
+.gitignore
+  s_364605915bb7ec::t_3e9993e4701cfc 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "9305a3df6979466d8db5ef131efe71d0ee8af562",
+  "prompts": {},
+  "sessions": {
+    "s_364605915bb7ec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d367c84a-2390-40de-b101-d4f0e674783a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
