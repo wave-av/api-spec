@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.wave.online/schemas/attestation-v1.schema.json",
+  "title": "WaveAttestationEnvelope",
+  "description": "WAVE Attestation Standard v1 wire envelope. Carried as the `wave.attestation` OTLP span attribute (JSON string). See ATTESTATION-STANDARD-v1.md for the normative specification.",
+  "type": "object",
+  "required": ["id", "kind", "v", "subject", "alg"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Content-addressed ID: sha256hex(canonicalJson(attestationSubject(a))). 64 lowercase hex chars."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["render", "context", "settlement"],
+      "description": "Attestation kind."
+    },
+    "v": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Version string, e.g. 'wave.render-attestation/v1'."
+    },
+    "subject": {
+      "type": "object",
+      "description": "Kind-specific payload. For 'render' kind, see the RenderAttestationSubject definition.",
+      "additionalProperties": true
+    },
+    "alg": {
+      "type": "string",
+      "maxLength": 32,
+      "description": "Signature algorithm. 'ed25519' or 'none'. Invariant: alg === 'none' ⟺ sig === null."
+    },
+    "sig": {
+      "type": ["string", "null"],
+      "maxLength": 2048,
+      "description": "Base64url-encoded Ed25519 signature over canonicalJson(subject) bytes. null when alg is 'none'."
+    },
+    "created": {
+      "oneOf": [
+        { "type": "integer", "description": "Unix seconds." },
+        { "type": "string", "maxLength": 40, "description": "ISO 8601 timestamp or unix seconds as string." }
+      ],
+      "description": "When the attestation was minted."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "alg": { "const": "none" } },
+        "required": ["alg"]
+      },
+      "then": {
+        "properties": { "sig": { "type": "null" } },
+        "description": "When alg is 'none', sig must be null."
+      },
+      "else": {
+        "required": ["sig"],
+        "properties": {
+          "sig": { "type": "string" }
+        },
+        "description": "When alg is not 'none', sig must be present and a non-null string."
+      }
+    }
+  ],
+  "$defs": {
+    "RenderAttestationSubject": {
+      "title": "RenderAttestationSubject",
+      "description": "Subject payload for kind='render'. Frozen by ATTESTATION-STANDARD-v1.md §3.1.",
+      "type": "object",
+      "required": ["v", "kind", "renderer", "scene_sha256", "output_sha256", "format", "bytes"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "v": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Must equal the envelope v field."
+        },
+        "kind": {
+          "type": "string",
+          "const": "render",
+          "description": "Must be 'render'."
+        },
+        "renderer": {
+          "type": "string",
+          "description": "Renderer identifier, e.g. 'wave-video@0.3.0/kernel'."
+        },
+        "scene_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 hex of the canonical scene input."
+        },
+        "output_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 hex of the rendered output bytes."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["mp4", "alpha"],
+          "description": "Output container/codec family."
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Byte length of the rendered output."
+        }
+      }
+    },
+    "ContextAttestationSubject": {
+      "title": "ContextAttestationSubject",
+      "description": "Minimal subject payload for kind='context'. Services may extend with additional fields.",
+      "type": "object",
+      "required": ["v", "kind"],
+      "properties": {
+        "v": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "kind": {
+          "type": "string",
+          "const": "context"
+        }
+      },
+      "additionalProperties": true
+    },
+    "SettlementAttestationSubject": {
+      "title": "SettlementAttestationSubject",
+      "description": "Minimal subject payload for kind='settlement'. Settlement services define the full schema.",
+      "type": "object",
+      "required": ["v", "kind"],
+      "properties": {
+        "v": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "kind": {
+          "type": "string",
+          "const": "settlement"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

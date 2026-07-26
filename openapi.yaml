@@ -1603,6 +1603,107 @@ components:
           description: Payload schema version (equals the envelope `schema`).
           examples: [wave.context-attestation/v0]
 
+    RenderAttestation:
+      type: object
+      description: >
+        WAVE Render Attestation v1 — the subject payload carried inside an `Attestation`
+        envelope for `kind: render`. Attests that a specific renderer produced a specific
+        output from a specific scene. The content-addressed envelope ID is derived from
+        the canonical serialization of these fields (see `attestation/ATTESTATION-STANDARD-v1.md`).
+      required:
+        [v, kind, renderer, scene_sha256, output_sha256, format, bytes]
+      properties:
+        v:
+          type: string
+          maxLength: 64
+          description: Version string. Equals the outer envelope `v` field.
+          examples: ['wave.render-attestation/v1']
+        kind:
+          type: string
+          const: render
+          description: Always `"render"` for this payload type.
+        renderer:
+          type: string
+          description: >
+            Renderer identifier in `name@version/runtime` format, e.g.
+            `wave-video@0.3.0/kernel`. Used to identify which build produced the output.
+        scene_sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: SHA-256 hex of the canonical scene input (the Brief or Scene IR).
+        output_sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: SHA-256 hex of the rendered output bytes.
+        format:
+          type: string
+          enum: [mp4, alpha]
+          description: Output container/codec family.
+        bytes:
+          type: integer
+          minimum: 0
+          description: Byte length of the rendered output.
+
+    WaveAttestation:
+      description: >
+        Top-level wire envelope for any WAVE Attestation v1. Carried as the
+        `wave.attestation` OTLP span attribute (JSON string) and stored in the
+        `observability.attestation` table. The `id` is content-addressed:
+        `sha256hex(canonicalJson(attestationSubject(envelope)))`.
+        Invariant: `alg === "none"` ⟺ `sig === null`.
+        See `attestation/ATTESTATION-STANDARD-v1.md` for the normative specification.
+      type: object
+      required: [id, kind, v, subject, alg]
+      properties:
+        id:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: >
+            Content-addressed ID: `sha256hex(canonicalJson(attestationSubject(envelope)))`.
+            Stable across cache replays; upserts are idempotent by this key.
+        kind:
+          type: string
+          enum: [render, context, settlement]
+          description: Attestation kind.
+        v:
+          type: string
+          maxLength: 64
+          description: Version string, e.g. `wave.render-attestation/v1`.
+        subject:
+          type: object
+          description: 'Kind-specific payload. For `kind: render`, see `RenderAttestation`.'
+          additionalProperties: true
+        alg:
+          type: string
+          maxLength: 32
+          description: Signature algorithm. `"ed25519"` or `"none"`.
+          examples: [ed25519, none]
+        sig:
+          type: [string, 'null']
+          maxLength: 2048
+          description: >
+            Base64url-encoded Ed25519 signature over `canonicalJson(subject)` bytes.
+            `null` when `alg` is `"none"`.
+        created:
+          oneOf:
+            - type: integer
+              description: Unix seconds.
+            - type: string
+              maxLength: 40
+              description: ISO 8601 timestamp or unix seconds as string.
+          description: When the attestation was minted.
+      allOf:
+        - if:
+            properties:
+              alg: {const: none}
+          then:
+            properties:
+              sig: {type: 'null'}
+          else:
+            required: [sig]
+            properties:
+              sig: {type: string}
+
     # Clip schemas
     Clip:
       type: object
