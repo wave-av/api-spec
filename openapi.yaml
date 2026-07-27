@@ -168,6 +168,69 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /render/{jobId}:
+    get:
+      tags: [Render]
+      summary: Poll an async render job
+      operationId: renderPoll
+      description: >-
+        Fetch the current state of a render started asynchronously. Terminal states carry the
+        delivery URL and the determinism receipt; poll until `status` is `done` or `error`.
+        Prefer `/render/{jobId}/events` when you can hold a connection — it delivers the same
+        frames without a polling loop.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/RenderJobIdParam'
+      responses:
+        '200':
+          description: The job view.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderJobView'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: >-
+            Job status temporarily unavailable — the job store did not answer. This is
+            retryable and does NOT mean the job failed; back off and poll again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /render/{jobId}/events:
+    get:
+      tags: [Render]
+      summary: Subscribe to an async render job (SSE)
+      operationId: renderEvents
+      description: >-
+        Server-Sent Events stream of `RenderJobView` frames for a render job. One frame per state
+        transition; the stream closes once the job reaches a terminal state (`done` or `error`).
+        The final frame is identical to what `GET /render/{jobId}` would return at that moment.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/RenderJobIdParam'
+      responses:
+        '200':
+          description: SSE stream of RenderJobView frames.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: >-
+                  An SSE stream. Each `data:` line is a JSON-encoded `RenderJobView`.
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
   # Clips API
   /clips:
     get:
@@ -1735,6 +1798,14 @@ components:
         API key authentication. Get your API key from the WAVE Developer Portal.
 
   parameters:
+    RenderJobIdParam:
+      name: jobId
+      in: path
+      required: true
+      description: The render job id returned when the render was started asynchronously.
+      schema:
+        type: string
+      example: 9f2c1a7e-4b3d-4c8a-9e21-6f0d5b8a1c34
     MoqNamespaceParam:
       name: ns
       in: path
@@ -3357,9 +3428,46 @@ components:
         format: { type: string, enum: [mp4, alpha] }
         sha256: { type: string, description: sha256 of the output bytes (determinism receipt). }
         bytes: { type: integer }
-        url: { type: string, description: Signed, single-object, expiring URL on downloads.wave.online. }
+        url: { type: string, description: 'Signed, single-object, expiring URL on downloads.wave.online.' }
         expiresAtSec: { type: integer, description: Absolute Unix expiry of the signed URL. }
         contentType: { type: string, enum: [video/mp4, video/quicktime] }
+
+    RenderJobStatus:
+      type: string
+      description: >-
+        Lifecycle of an async render. Deliberately NOT the platform-wide `JobStatus` enum — the
+        render pipeline reports its own delivery-aware states, and collapsing the two would
+        misreport `delivering` (output produced, upload in flight) as either finished or failed.
+      enum: [queued, rendering, delivering, done, error]
+    RenderJobView:
+      type: object
+      description: >-
+        A point-in-time view of an async render job. Only `jobId` and `status` are always present;
+        the delivery and receipt fields appear once `status` is `done`, and `error` appears only
+        when `status` is `error`.
+      required: [jobId, status]
+      properties:
+        jobId: { type: string }
+        status: { $ref: '#/components/schemas/RenderJobStatus' }
+        url: { type: string, description: 'Terminal (done): the signed delivery URL.' }
+        expiresAtSec: { type: integer, description: 'Terminal (done): absolute Unix expiry of `url`.' }
+        sha256: { type: string, description: 'Terminal (done): determinism receipt — sha256 of the output bytes.' }
+        bytes: { type: integer, description: 'Terminal (done): output size in bytes.' }
+        meters:
+          type: array
+          description: 'Terminal (done): the billable usage lines this render billed.'
+          items:
+            type: object
+            properties:
+              event: { type: string }
+              quantity: { type: number }
+        error:
+          type: object
+          description: 'Terminal (error): a typed, client-safe error.'
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
 
     MoqJoinToken:
       type: object

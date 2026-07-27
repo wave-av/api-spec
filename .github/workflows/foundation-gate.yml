@@ -28,3 +28,33 @@ jobs:
     uses: ./.github/workflows/_checks.yml
     with:
       max_lines: 800
+
+  # The spec IS the product here — this repo's whole output is openapi.yaml, and every SDK and
+  # the CLI are generated from it. Until now nothing validated it, so `main` carried 2 lint
+  # ERRORS undetected: an unquoted YAML flow mapping whose commas split the value into junk
+  # keys, silently corrupting a schema that every generated SDK inherited. A spec defect is a
+  # fleet-wide defect, so it gets a gate.
+  #
+  # Errors fail the build; the 53 pre-existing warnings do not (redocly exits non-zero only on
+  # errors). Tighten to warnings once the backlog is worked down.
+  spec-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Lint openapi.yaml (fail on errors)
+        run: npx --yes @redocly/cli@2.40.0 lint openapi.yaml
+      - name: Assert every internal $ref resolves
+        # redocly catches structural problems; this catches a dangling '#/components/...' that
+        # a hand-edit introduced. Cheap, and it is the other half of "the spec is loadable".
+        #
+        # js-yaml is installed explicitly rather than leaned on transitively: `npx @redocly/cli`
+        # resolves in its own temp prefix, so nothing it depends on is importable from this repo.
+        run: |
+          npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+          node .github/scripts/assert-refs.mjs openapi.yaml
