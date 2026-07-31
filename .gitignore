@@ -1,7 +1,7 @@
 # The spec-lint gate runs `npm install --no-save js-yaml` to resolve the $ref checker's parser,
 # which materialises node_modules/ in the working tree. This repo has no package.json and ships
 # no JS artifact — nothing here should ever be committed.
-node_modules/
+node_modules
 package-lock.json
 
 # macOS
