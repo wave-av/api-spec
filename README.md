@@ -2,7 +2,7 @@
 
 # api-spec
 
-**OpenAPI 3.1 specification for the WAVE streaming platform API — 43 documented endpoints across 16 tag groups (streaming, production, analytics, voice, captions, clips, and more), plus generators for client SDKs.**
+**OpenAPI 3.1 specification for the WAVE streaming platform API — 43 documented endpoints across 17 tag groups (streaming, production, analytics, voice, captions, clips, and more), plus generators for client SDKs.**
 
 ![kind](https://img.shields.io/badge/kind-openapi--spec-555?style=flat-square) ![domain](https://img.shields.io/badge/domain-api-0a7?style=flat-square) ![format](https://img.shields.io/badge/format-OpenAPI%203.1-85ea2d?style=flat-square) ![visibility](https://img.shields.io/badge/visibility-public-brightgreen?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)
 
@@ -15,7 +15,7 @@
 ## What this is
 
 A single-file OpenAPI 3.1 document (`openapi.yaml`) describing the WAVE Enterprise Streaming Platform
-API: 43 endpoint paths grouped under 16 tags. It is the source of truth other WAVE packages generate
+API: 43 endpoint paths grouped under 17 tags. It is the source of truth other WAVE packages generate
 from — the [`@wave-av/sdk`](https://www.npmjs.com/package/@wave-av/sdk) TypeScript client is built from
 this spec.
 
@@ -34,7 +34,9 @@ npx @openapitools/openapi-generator-cli generate -i openapi.yaml -g typescript-f
 
 ## Authentication
 
-Every documented endpoint requires a Bearer token:
+Most documented endpoints require a Bearer token (the x402-payable `/render` operations —
+`renderVideo`, `renderPoll`, `renderEvents` — are the exception; they set `security: []` and
+authenticate via an x402 payment challenge instead):
 
 ```
 Authorization: Bearer YOUR_API_KEY
@@ -55,7 +57,7 @@ List endpoints support `page` / `perPage` pagination, and requests are subject t
 
 | Path | What it is |
 | --- | --- |
-| `openapi.yaml` | The spec itself — 3,589 lines, 43 paths, 16 tags |
+| `openapi.yaml` | The spec itself — 3,589 lines, 43 paths, 17 tags |
 | `capabilities.json` | Machine-readable lifecycle metadata (this spec is tagged `ga`, version 3.0.0) |
 | `scripts/public-repo-guard` | CI check that keeps this public mirror free of internal-only content |
 

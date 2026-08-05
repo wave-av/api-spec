@@ -46,3 +46,10 @@ All notable changes to this project are documented here. The format is based on
     `kind: render` envelopes).
   - `WaveAttestation` — full v1 wire envelope schema with `id`/`kind`/`v`/`subject`/
     `alg`/`sig`/`created` fields and the `alg`/`sig` invariant.
+
+### Documentation
+
+- **README rewrite** — refreshed the top-level README to reflect the current spec: corrected
+  the tag count (16 → 17, now including `MoQ` and `Render`) and clarified that the x402-payable
+  render operations (`renderVideo`, `renderPoll`, `renderEvents`) are exceptions to the
+  Bearer-token authentication requirement.
