@@ -47,7 +47,7 @@ Authorization: Bearer YOUR_API_KEY
 The spec documents a normalized error envelope used across all endpoints:
 
 ```json
-{ "error": { "code": "...", "message": "...", "details": "...", "suggestions": "...", "did_you_mean": "...", "doc_url": "..." } }
+{ "error": { "code": "...", "message": "...", "details": { "field": "..." }, "suggestions": ["..."], "did_you_mean": ["..."], "doc_url": "..." } }
 ```
 
 List endpoints support `page` / `perPage` pagination, and requests are subject to rate limiting

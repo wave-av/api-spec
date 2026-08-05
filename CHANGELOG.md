@@ -50,6 +50,8 @@ All notable changes to this project are documented here. The format is based on
 ### Documentation
 
 - **README rewrite** — refreshed the top-level README to reflect the current spec: corrected
-  the tag count (16 → 17, now including `MoQ` and `Render`) and clarified that the x402-payable
+  the tag count (16 → 17, now including `MoQ` and `Render`), clarified that the x402-payable
   render operations (`renderVideo`, `renderPoll`, `renderEvents`) are exceptions to the
-  Bearer-token authentication requirement.
+  Bearer-token authentication requirement, and fixed the error-envelope example to match the
+  `Error` schema's actual field types (`details` is an object, `suggestions`/`did_you_mean` are
+  arrays, not strings).
