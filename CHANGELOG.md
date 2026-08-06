@@ -9,7 +9,7 @@ All notable changes to this project are documented here. The format is based on
 ### Added
 
 - **Enhance AI video super-resolution surface** (`openapi.yaml`) — the live-routed
-  `POST /v1/enhance` route (wave-gateway#799) had no spec entry, so no SDK or CLI method could be
+  `POST /v1/enhance` route had no spec entry, so no SDK or CLI method could be
   generated for it. Adds the `Enhance` tag and the `enhanceVideo` operation:
   - `POST /enhance` (scope `enhance:write`), x402-payable via the reusable `PaymentRequired`
     402 response. v1 ships exactly one model, `espcn` (ESPCN super-resolution, fixed 3x factor
