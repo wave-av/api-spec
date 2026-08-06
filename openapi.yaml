@@ -1059,6 +1059,11 @@ paths:
       tags: [Studio AI]
       summary: Create an enhancement job
       operationId: createEnhancement
+      description: >-
+        Creates an asynchronous, credit-billed enhancement job (including `upscale` and
+        `super_resolution`) against a library video, returning a job envelope to poll. For
+        synchronous, pay-per-call super-resolution of ad-hoc video bytes (billed against
+        `wave_enhance_minutes`), use `POST /enhance` instead.
       requestBody:
         required: true
         content:
@@ -1613,6 +1618,14 @@ paths:
         rejected). Requires the `enhance:write` entitlement. Billed against the
         `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded
         up to the next whole minute.
+
+
+        Distinct from the Studio AI enhancement surface (`POST /studio-ai/enhancements`, which
+        also offers `upscale`/`super_resolution` job types): Studio AI runs asynchronous,
+        credit-billed jobs against library videos and returns a job envelope, whereas this
+        endpoint synchronously super-resolves ad-hoc video bytes (or an `https` source) and
+        streams the result back, billing `wave_enhance_minutes`. Use Studio AI for library
+        workflows; use this endpoint for direct, pay-per-call enhancement.
       parameters:
         - name: model
           in: query
