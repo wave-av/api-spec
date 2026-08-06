@@ -85,8 +85,13 @@ jobs:
       - name: gitleaks (secret scan — published tree)
         run: gitleaks detect --no-git --source . --config .gitleaks.toml --redact --no-banner --exit-code 1
 
-      - name: Install ripgrep
-        run: command -v rg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep)
+      - name: Install ripgrep (PCRE2 build required)
+        run: |
+          command -v rg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep)
+          # Both policy scripts depend on `rg -P`. A ripgrep built without PCRE2
+          # (some distro packages) makes every scan exit 2, which fails closed but
+          # reads as "scanner broke" with no hint why. Surface the real cause here.
+          rg --pcre2-version
 
       - name: content policy (WAVE trade-secret / internal-leak gate)
         env:
@@ -127,13 +132,25 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          # The gate must run from TRUSTED history. The default checkout on a
+          # pull_request event is the PR merge ref, so the PR's own copy of
+          # body-policy.sh would be the one that runs — a fork PR could edit it to
+          # exit 0 and wave its own body through. Unlike the tree scan (which must
+          # look at PR content), the body gate has no reason to execute anything
+          # PR-controlled: pin to the base branch tip. On issues/issue_comment
+          # events there is no PR ref and github.ref is already the default branch.
+          ref: ${{ github.event.pull_request.base.sha || github.ref }}
           # Only the gate's own scripts are needed — no reason to pay for the whole
           # tree on every comment.
           sparse-checkout: scripts/public-repo-guard
           sparse-checkout-cone-mode: false
 
-      - name: Install ripgrep
-        run: command -v rg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep)
+      - name: Install ripgrep (PCRE2 build required)
+        run: |
+          command -v rg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep)
+          # body-policy.sh depends on `rg -P`; fail HERE with the real cause rather
+          # than mid-scan with a bare "scanner broke" (see the tree job's step).
+          rg --pcre2-version
 
       # The body is read straight out of the event payload FILE and written to
       # another file. It is never interpolated into a run: block and never placed

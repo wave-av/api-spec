@@ -19,12 +19,18 @@
 #
 # Allowlisting: a line carrying `guard:allow <reason>` is exempt (an accidental
 # leak never carries the marker; a deliberate one is visible in a public diff), as
-# is any line matching the ABOUT-THE-CONTROL allowlist below.
+# is any line matching the ABOUT-THE-CONTROL allowlist below — except for the
+# credential-format rules, which honour only `guard:allow`: naming the gate must
+# never launder a live key past it.
 set -uo pipefail
 
 FILE="${1:-}"
 [[ -n "$FILE" && -f "$FILE" ]] || { echo "::error::body-policy: usage: body-policy.sh <file>"; exit 2; }
 command -v rg >/dev/null 2>&1 || { echo "::error::body-policy: ripgrep (rg) required"; exit 2; }
+# Every rule below uses `rg -P`. A ripgrep built without PCRE2 (some distro
+# packages) exits 2 on the first rule, which fails closed but reads as "scanner
+# broke" with no hint why. Name the real cause up front — still exit 2 either way.
+printf 'x' | rg -qP 'x' 2>/dev/null || { echo "::error::body-policy: this ripgrep build lacks PCRE2 (-P) support — install a PCRE2-enabled rg (the upstream release binaries are). Failing closed."; exit 2; }
 
 VIOLATIONS=0
 
@@ -34,9 +40,14 @@ VIOLATIONS=0
 # from the client-side gate's allowlist, which was built for exactly this.
 ABOUT_THE_CONTROL='(public-repo-guard|body-policy|content-policy|public-github-write-gate|\bNDA\s+(gate|guard|policy|denylist|sweep|scan|hook)\b|\bno\s+NDA\b|responsib\w*\s+disclos|SECURITY\.md)'
 
-# check <BLOCK|WARN> <name> <regex> <why>
+# check <BLOCK|WARN> <name> <regex> <why> [exempt]
+#   exempt defaults to "about-exempt": lines matching ABOUT_THE_CONTROL are
+#   skipped. Credential-format rules pass "no-about-exempt" — a line that names
+#   the gate can still carry a live key, and talking ABOUT the control must never
+#   launder a credential PAST it. Only `guard:allow <reason>` (explicit, visible
+#   in the public body) exempts those.
 check() {
-  local sev="$1" name="$2" re="$3" why="$4"
+  local sev="$1" name="$2" re="$3" why="$4" exempt="${5:-about-exempt}"
   [[ -z "$re" ]] && { echo "::error::body-policy: internal bug — empty regex for rule '$name'"; exit 2; }
   # rg exit: 0=match, 1=no match, >=2=real error → FAIL CLOSED. A gate that passes
   # because its scanner broke is worse than no gate: it reports success.
@@ -51,8 +62,11 @@ check() {
   # disagree with itself depending on where it ran. rg is already required above.
   local matches
   matches="$(printf '%s' "$raw" \
-    | rg -vN -- 'guard:allow[[:space:]]+[^[:space:]]' \
-    | rg -vNiP -- "$ABOUT_THE_CONTROL" || true)"
+    | rg -vN -- 'guard:allow[[:space:]]+[^[:space:]]' || true)"
+  if [[ "$exempt" == "about-exempt" ]]; then
+    matches="$(printf '%s' "$matches" \
+      | rg -vNiP -- "$ABOUT_THE_CONTROL" || true)"
+  fi
   [[ -z "$matches" ]] && return 0
   local count; count="$(printf '%s\n' "$matches" | grep -c '')"
   # Print the LINE NUMBER only — never the matched text. This annotation is itself
@@ -69,13 +83,15 @@ check() {
 }
 
 # --- Credential formats — never legitimate in prose --------------------------
-check BLOCK stripe-live-key  '(sk|rk)_live_[A-Za-z0-9]{16,}'                 'Live Stripe secret/restricted key'
-check BLOCK stripe-account   'acct_[A-Za-z0-9]{16,}'                         'Live Stripe account ID — financial infra, never publish'
-check BLOCK anthropic-key    'sk-ant-(api|admin)[0-9]{2}-[A-Za-z0-9_-]{20,}' 'Real Anthropic API/admin key'
-check BLOCK github-pat       'github_pat_[A-Za-z0-9_]{30,}'                  'GitHub fine-grained PAT'
-check BLOCK supabase-pat     'sbp_[a-f0-9]{40}'                              'Supabase personal access token'
-check BLOCK aws-akid         'AKIA[0-9A-Z]{16}'                              'AWS access key ID'
-check BLOCK private-key      '-----BEGIN [A-Z ]*PRIVATE KEY-----'            'Embedded private key material'
+# no-about-exempt: a credential-shaped string is a credential no matter what else
+# its line says — mentioning "body-policy" next to a live key must not pass it.
+check BLOCK stripe-live-key  '(sk|rk)_live_[A-Za-z0-9]{16,}'                 'Live Stripe secret/restricted key'                        no-about-exempt
+check BLOCK stripe-account   'acct_[A-Za-z0-9]{16,}'                         'Live Stripe account ID — financial infra, never publish'  no-about-exempt
+check BLOCK anthropic-key    'sk-ant-(api|admin)[0-9]{2}-[A-Za-z0-9_-]{20,}' 'Real Anthropic API/admin key'                             no-about-exempt
+check BLOCK github-pat       'github_pat_[A-Za-z0-9_]{30,}'                  'GitHub fine-grained PAT'                                  no-about-exempt
+check BLOCK supabase-pat     'sbp_[a-f0-9]{40}'                              'Supabase personal access token'                           no-about-exempt
+check BLOCK aws-akid         'AKIA[0-9A-Z]{16}'                              'AWS access key ID'                                        no-about-exempt
+check BLOCK private-key      '-----BEGIN [A-Z ]*PRIVATE KEY-----'            'Embedded private key material'                            no-about-exempt
 
 # --- Infrastructure identifiers ----------------------------------------------
 # shellcheck disable=SC2016  # $CLOUDFLARE_ACCOUNT_ID is literal guidance text

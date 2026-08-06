@@ -57,6 +57,10 @@ expect 1 'internal-only marker' \
 AKID_FIXTURE="AKI""A1234567890ABCDEF"
 expect 1 'AWS access key id' \
   "The failing job had ${AKID_FIXTURE} configured."
+# Regression: the ABOUT-THE-CONTROL allowlist must not launder credentials — a
+# line that names the gate by name can still carry a live key, and must block.
+expect 1 'credential on a line naming the gate still blocks' \
+  "body-policy flagged ${AKID_FIXTURE} here and public-repo-guard was right to."
 expect 1 'internal tailscale IP' \
   'It resolves to 100.71.4.19 from inside the fleet.'
 
