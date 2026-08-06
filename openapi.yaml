@@ -1615,7 +1615,9 @@ paths:
         model may support other output shapes. Send either the raw video bytes as the request body
         or a `url` query parameter pointing at an `https` source (the source is fetched
         server-side; redirects are not followed and non-public/loopback/private hosts are
-        rejected). Requires the `enhance:write` entitlement. Billed against the
+        rejected). Auth is either lane: a bearer API key carrying the `enhance:write`
+        entitlement, or no key at all — an unauthenticated call receives the 402 x402 challenge
+        and is served once paid (pay-per-call). Billed against the
         `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded
         up to the next whole minute.
 
@@ -1626,6 +1628,9 @@ paths:
         endpoint synchronously super-resolves ad-hoc video bytes (or an `https` source) and
         streams the result back, billing `wave_enhance_minutes`. Use Studio AI for library
         workflows; use this endpoint for direct, pay-per-call enhancement.
+      security:
+        - {}
+        - BearerAuth: []
       parameters:
         - name: model
           in: query
