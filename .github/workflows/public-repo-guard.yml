@@ -87,11 +87,24 @@ jobs:
         run: gitleaks detect --no-git --source . --config .gitleaks.toml --redact --no-banner --exit-code 1
 
       - name: Install ripgrep (PCRE2 build required)
+        env:
+          RIPGREP_VERSION: "14.1.1"
+          RIPGREP_SHA256: "4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e"
         run: |
-          command -v rg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep)
           # Both policy scripts depend on `rg -P`. A ripgrep built without PCRE2
-          # (some distro packages) makes every scan exit 2, which fails closed but
-          # reads as "scanner broke" with no hint why. Surface the real cause here.
+          # (some distro packages) makes every scan exit 2 — fail closed, but a
+          # runner-image change shipping such a build would leave the gate
+          # permanently red with no remediation. Use the preinstalled rg when it
+          # has PCRE2; otherwise fall back to the upstream release binary (always
+          # PCRE2-enabled), pinned and checksum-verified like gitleaks above.
+          if ! command -v rg >/dev/null || ! rg --pcre2-version >/dev/null 2>&1; then
+            curl -fsSL --proto '=https' --tlsv1.2 -o ripgrep.tar.gz \
+              "https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+            echo "${RIPGREP_SHA256}  ripgrep.tar.gz" | sha256sum -c -
+            tar -xzf ripgrep.tar.gz --strip-components=1 "ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg"
+            sudo install -m 0755 rg /usr/local/bin/rg
+            rm -f rg ripgrep.tar.gz
+          fi
           rg --pcre2-version
 
       - name: content policy (WAVE trade-secret / internal-leak gate)
@@ -151,10 +164,22 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Install ripgrep (PCRE2 build required)
+        env:
+          RIPGREP_VERSION: "14.1.1"
+          RIPGREP_SHA256: "4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e"
         run: |
-          command -v rg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep)
-          # body-policy.sh depends on `rg -P`; fail HERE with the real cause rather
-          # than mid-scan with a bare "scanner broke" (see the tree job's step).
+          # body-policy.sh depends on `rg -P`. Same fallback as the tree job's
+          # step: a PCRE2-less preinstalled rg must not leave the body gate
+          # permanently red — install the pinned, checksum-verified upstream
+          # release binary (always PCRE2-enabled) instead.
+          if ! command -v rg >/dev/null || ! rg --pcre2-version >/dev/null 2>&1; then
+            curl -fsSL --proto '=https' --tlsv1.2 -o ripgrep.tar.gz \
+              "https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+            echo "${RIPGREP_SHA256}  ripgrep.tar.gz" | sha256sum -c -
+            tar -xzf ripgrep.tar.gz --strip-components=1 "ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg"
+            sudo install -m 0755 rg /usr/local/bin/rg
+            rm -f rg ripgrep.tar.gz
+          fi
           rg --pcre2-version
 
       # The body is read straight out of the event payload FILE and written to
