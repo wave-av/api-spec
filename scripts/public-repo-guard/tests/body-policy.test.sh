@@ -61,6 +61,8 @@ expect 1 'AWS access key id' \
 # line that names the gate by name can still carry a live key, and must block.
 expect 1 'credential on a line naming the gate still blocks' \
   "body-policy flagged ${AKID_FIXTURE} here and public-repo-guard was right to."
+expect 1 'internal IP on a line naming the gate still blocks' \
+  'content-policy missed 100.71.4.19 in the fleet notes.'
 expect 1 'internal tailscale IP' \
   'It resolves to 100.71.4.19 from inside the fleet.'
 
@@ -75,6 +77,13 @@ expect 0 'public runner path is not an operator path' \
   'CI checks out to /home/runner/work/repo/repo before the scan runs.'  # enforce-ignore (fixture)
 expect 0 'talking about the control' \
   'body-policy blocks a private repo named next to a SECRET_TOKEN; that is intended.'
+# Regression: the global (?i) that lets repo NAMES match case-insensitively must
+# not leak into the SCREAMING_CASE credential-name branch — everyday lowercase
+# identifiers near a private repo are not operational topology.
+expect 0 'lowercase identifier near a private repo is not ops detail' \
+  'We updated wave-gateway to read the api_key from config now.'
+expect 0 'another lowercase identifier near a private repo' \
+  'Fix wave-transports: the retry_token handling was wrong.'
 expect 0 'explicit guard:allow with a reason' \
   'Example for the docs: wave-gateway holds EXAMPLE_SECRET — guard:allow documented-example'
 expect 0 'ordinary clean body' \
