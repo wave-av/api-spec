@@ -72,6 +72,12 @@ tags:
       Synchronous container-transform for local IP video + Dante/AES67 audio: mux separate RTP H.264
       video and Dante audio into one sync-locked MPEG-TS or fMP4 stream, and demux the inverse. x402
       metered per minute (`wave_av_minutes`) plus per transform-second (`wave_av_transform_seconds`).
+  - name: Enhance
+    description: >-
+      AI video super-resolution. v1 ships one model, `espcn` (ESPCN, a fixed exact 3x upscale) —
+      unrecognized `model` values 400. Requires the `enhance:write` entitlement; x402-payable
+      per-output-minute (`wave_enhance_minutes`, rounded up to the nearest minute of rendered
+      output duration).
   - name: Braided Audio
     description: >-
       On-demand WAVE Braided Audio publish — mixes multiple named audio sources into one
@@ -1585,6 +1591,143 @@ paths:
                 $ref: '#/components/schemas/Error'
         '501':
           description: Braid publish unavailable — the worker is not provisioned for on-demand publish.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Enhance API
+  /enhance:
+    post:
+      tags: [Enhance]
+      summary: Super-resolve a video with an AI model (x402-payable)
+      operationId: enhanceVideo
+      description: >-
+        Upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN
+        super-resolution, a fixed exact 3x factor baked into the trained weights — not a runtime
+        parameter). Internally every input frame is letterboxed to a fixed working canvas before
+        inference, so the v1 output resolution is fixed regardless of input resolution; a future
+        model may support other output shapes. Send either the raw video bytes as the request body
+        or a `url` query parameter pointing at an `https` source (the source is fetched
+        server-side; redirects are not followed and non-public/loopback/private hosts are
+        rejected). Requires the `enhance:write` entitlement. Billed against the
+        `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded
+        up to the next whole minute.
+      parameters:
+        - name: model
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [espcn]
+            default: espcn
+          description: AI model to apply. v1 supports only `espcn`; any other value 400s.
+        - name: url
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+          description: >-
+            Fetch the source video from this `https` URL instead of sending it as the request
+            body. Must be publicly reachable — loopback, private, link-local, and `.local`/
+            `.internal` hosts are rejected before any fetch.
+      requestBody:
+        required: false
+        description: >-
+          The source video, raw bytes. Omit the body (and use `?url=` instead) to have the source
+          fetched server-side. Max 200 MiB either way.
+        content:
+          video/*:
+            schema:
+              type: string
+              format: binary
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: >-
+            The enhanced video, binary, streamed back with the same content-type as the source.
+            Per-job receipt and billing metadata are carried on response headers, not a JSON body.
+          headers:
+            x-enhance-model:
+              schema:
+                type: string
+              description: The model that ran, e.g. `espcn`.
+            x-enhance-scale-factor:
+              schema:
+                type: number
+              description: Upscale factor actually applied.
+            x-enhance-input-dimensions:
+              schema:
+                type: string
+              description: Input frame dimensions as `WIDTHxHEIGHT`, e.g. `1280x720`.
+            x-enhance-output-dimensions:
+              schema:
+                type: string
+              description: Output frame dimensions as `WIDTHxHEIGHT`, e.g. `672x672`.
+            x-wave-meter:
+              schema:
+                type: string
+              description: The meter this job billed against — `wave_enhance_minutes`.
+            x-wave-usage-minutes:
+              schema:
+                type: integer
+              description: Output-duration minutes billed for this job (rounded up).
+          content:
+            video/*:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: >-
+            Invalid request — unrecognized `model`, an unsafe or invalid `url`, or no video
+            supplied (neither a request body nor `?url=`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          description: The source video (request body, or the resolved `?url=` source) exceeds the 200 MiB limit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: >-
+            `INPUT_TOO_LARGE` — the source video's frame dimensions exceed the v1 input-size cap.
+            Downscale the source and retry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          description: Enhance is not yet available in this environment (the spoke is not provisioned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+        '503':
+          description: >-
+            The enhance backend is temporarily unavailable (e.g. cold-start / pool exhaustion).
+            Retryable; honor the `Retry-After` header.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying.
           content:
             application/json:
               schema:
