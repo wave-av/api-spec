@@ -101,7 +101,7 @@ check BLOCK private-key      '-----BEGIN [A-Z ]*PRIVATE KEY-----'            'Em
 check BLOCK cf-account-id    'account_id\s*[:=]\s*["'"'"']?[0-9a-f]{32}'      'Hardcoded Cloudflare account_id — reference the env var instead'   no-about-exempt
 check BLOCK internal-ip      '100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}'  'Internal Tailscale-CGNAT IP (100.64.0.0/10) — internal fleet address'  no-about-exempt
 # shellcheck disable=SC2016  # $HOME is literal guidance text
-check BLOCK abs-user-path    '/(Users|home)/(?!runner/)[a-z][a-z0-9._-]+/'    'Operator absolute home path — leaks identity and local layout'    no-about-exempt
+check BLOCK abs-user-path    '/(Users|home)/(?!runner/)[A-Za-z][A-Za-z0-9._-]+/' 'Operator absolute home path — leaks identity and local layout'    no-about-exempt
 
 # --- Self-identified internal material ---------------------------------------
 # USE vs MENTION. A body that SAYS "internal-only" is leaking; a body that QUOTES
@@ -116,7 +116,11 @@ check BLOCK abs-user-path    '/(Users|home)/(?!runner/)[a-z][a-z0-9._-]+/'    'O
 # A quoted marker is also a trivial bypass, and that is an accepted trade. The
 # threat here is the ACCIDENTAL paste; a deliberate evader has easier routes, and
 # `guard:allow <reason>` already exists as the honest, visible one.
-check BLOCK internal-marker  '(?<![“"'"'"'`])\b(internal[- ]only|do\s+not\s+(share|publish|distribute)|for\s+internal\s+use)\b(?![”"'"'"'`])' 'Text self-identifies as not-for-public'
+#
+# (?i): confidentiality banners are MORE often shouted than whispered —
+# "INTERNAL ONLY", "DO NOT SHARE" — and a case-sensitive rule published exactly
+# the loud form while blocking the quiet one.
+check BLOCK internal-marker  '(?i)(?<![“"'"'"'`])\b(internal[- ]only|do\s+not\s+(share|publish|distribute)|for\s+internal\s+use)\b(?![”"'"'"'`])' 'Text self-identifies as not-for-public'
 
 # --- Private repo + operational detail (PROXIMITY, not bare name) ------------
 # The BODY profile deliberately DIVERGES from the FILE profile here, and the

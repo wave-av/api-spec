@@ -142,8 +142,12 @@ jobs:
           # events there is no PR ref and github.ref is already the default branch.
           ref: ${{ github.event.pull_request.base.sha || github.ref }}
           # Only the gate's own scripts are needed — no reason to pay for the whole
-          # tree on every comment.
-          sparse-checkout: scripts/public-repo-guard
+          # tree on every comment. The workflow file rides along solely so the
+          # bootstrap check below can tell "gate not installed on this ref yet"
+          # apart from "installed, but its script went missing" (which must fail).
+          sparse-checkout: |
+            scripts/public-repo-guard
+            .github/workflows/public-repo-guard.yml
           sparse-checkout-cone-mode: false
 
       - name: Install ripgrep (PCRE2 build required)
@@ -187,13 +191,20 @@ jobs:
         run: |
           # BOOTSTRAP: the gate runs from the TRUSTED ref (see the checkout above),
           # so on the very PR that first installs it the base branch has no script
-          # yet. That state is indistinguishable from "gate not installed" — where
-          # every repo was before — and a PR head cannot cause it, since only the
-          # base branch is checked out here. Skip with a visible warning rather
-          # than fail; the gate is live from the first event after the merge.
+          # yet. But "script missing" alone must never mean "pass" — a rename, a
+          # sparse-checkout drift, or a partial install would turn the gate into a
+          # permanent green rubber stamp. Disambiguate with the workflow file on
+          # the SAME trusted ref: absent too → the gate simply is not installed
+          # there yet (bootstrap — where every repo was before), skip with a
+          # visible warning. Present without its script → broken install; fail
+          # closed like every other error path.
           if [ ! -f scripts/public-repo-guard/body-policy.sh ]; then
-            echo "::warning title=public-repo-guard (body-guard)::body-policy.sh is not on the trusted ref yet (bootstrap PR installing the gate) — body scan skipped; it activates once this merges."
-            exit 0
+            if [ ! -f .github/workflows/public-repo-guard.yml ]; then
+              echo "::warning title=public-repo-guard (body-guard)::body-policy.sh is not on the trusted ref yet (bootstrap PR installing the gate) — body scan skipped; it activates once this merges."
+              exit 0
+            fi
+            echo "::error title=public-repo-guard (body-guard)::the trusted ref carries this workflow but NOT scripts/public-repo-guard/body-policy.sh — broken install (rename, sparse-checkout drift, or partial copy). Refusing to report a pass on an unscanned body."
+            exit 1
           fi
           # An empty GUARD_PRIVATE_REPOS silently disables the private-repo
           # proximity rule (the script deliberately skips it, for local runs).
