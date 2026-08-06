@@ -8,6 +8,22 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **Enhance AI video super-resolution surface** (`openapi.yaml`) — the live-routed
+  `POST /v1/enhance` route (wave-gateway#799) had no spec entry, so no SDK or CLI method could be
+  generated for it. Adds the `Enhance` tag and the `enhanceVideo` operation:
+  - `POST /enhance` (scope `enhance:write`), x402-payable via the reusable `PaymentRequired`
+    402 response. v1 ships exactly one model, `espcn` (ESPCN super-resolution, fixed 3x factor
+    baked into the trained weights); any other `model` value 400s.
+  - Input as raw request body (`video/*` / `application/octet-stream`) or a server-side `?url=`
+    fetch (`https` only, non-public hosts rejected), capped at 200 MiB either way.
+  - Binary streaming output with per-job receipt headers: `x-enhance-model`,
+    `x-enhance-scale-factor`, `x-enhance-input-dimensions`, `x-enhance-output-dimensions`,
+    `x-wave-meter`, `x-wave-usage-minutes`. Billed against `wave_enhance_minutes` (output
+    duration in minutes, rounded up).
+  - Failure modes specified alongside the happy path: 400, 401, the 402 x402 challenge, 403,
+    413, `422 INPUT_TOO_LARGE`, 429, 501 (spoke not provisioned), 502, and 503 with
+    `Retry-After`. Cross-referenced with the async Studio AI enhancement surface
+    (`POST /studio-ai/enhancements`).
 - **MoQ join-token mint surface** (`openapi.yaml`) — the Media over QUIC product had no spec at
   all, so no SDK or CLI could be generated for it. Adds the `MoQ` tag and both mint operations:
   - `POST /moq/publish/{ns}/{track}` (`mintMoqPublishToken`, scope `moq:write`) and
