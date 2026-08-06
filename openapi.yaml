@@ -1712,7 +1712,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: >-
+            Authentication failed AND the x402 pay-per-call lane is not armed in this environment.
+            When the pay lane is armed (production default), a missing or unrecognized API key
+            yields the 402 x402 challenge instead — never this 401. A client should treat 401 as
+            "re-authenticate with a valid bearer key" (pay-per-call is unavailable here).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '402':
           $ref: '#/components/responses/PaymentRequired'
         '403':
