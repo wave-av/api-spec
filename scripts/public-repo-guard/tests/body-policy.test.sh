@@ -44,6 +44,12 @@ expect 1 'private repo + credential name' \
   'Flip is live: EXAMPLE_LEASE_SECRET is bound on example-private-one now.'
 expect 1 'private repo + credential name, reverse order' \
   'The EXAMPLE_JOIN_SECRET was added; example-private-two picks it up on deploy.'
+# Regression: a multi-segment name after the repo name. The credential branch once
+# barred underscores from its leading segment, so the only sub-match started right
+# after an underscore — where the \b the pattern requires can never sit — and the
+# name-then-detail order missed every multi-segment credential name.
+expect 1 'private repo then multi-segment credential name' \
+  'example-private-one now reads EXAMPLE_LEASE_SECRET at boot.'
 expect 1 'private repo + secret count' \
   'example-private-one went from 74 secrets to 75 after this change.'
 expect 1 'private repo + service binding' \
@@ -95,6 +101,10 @@ expect 0 'lowercase identifier near a private repo is not ops detail' \
   'We updated example-private-one to read the api_key from config now.'
 expect 0 'another lowercase identifier near a private repo' \
   'Fix example-private-two: the retry_token handling was wrong.'
+# Multi-segment lowercase stays clean too: underscores in the leading segment must
+# widen only the SCREAMING_CASE branch, never re-admit everyday identifiers.
+expect 0 'multi-segment lowercase identifier near a private repo' \
+  'example-private-one now reads the lease_rotation_key from config.'
 expect 0 'explicit guard:allow with a reason' \
   'Example for the docs: example-private-one holds EXAMPLE_SECRET — guard:allow documented-example'
 expect 0 'ordinary clean body' \

@@ -157,6 +157,18 @@ jobs:
           # look at PR content), the body gate has no reason to execute anything
           # PR-controlled: pin to the base branch tip. On issues/issue_comment
           # events there is no PR ref and github.ref is already the default branch.
+          #
+          # Known limit, considered and accepted: on pull_request the workflow FILE
+          # itself comes from the PR head, so this trusted-ref design holds only for
+          # PRs that do not edit this workflow. That edit is loudly visible in the
+          # PR's own diff, and the same move neuters the REQUIRED tree check too
+          # (which must run PR content, so pull_request_target cannot protect it) —
+          # the class is closed org-side, by requiring review on workflow changes,
+          # not by a per-job trigger swap. Swapping this job to pull_request_target
+          # would even WEAKEN the gate: its run would attach a skipped
+          # "Secrets + content policy" check to the head SHA, and a skipped
+          # required check satisfies branch protection — a workflow-deleting PR,
+          # unmergeable today ("Expected — waiting"), would become mergeable.
           ref: ${{ github.event.pull_request.base.sha || github.ref }}
           # Only the gate's own scripts are needed — no reason to pay for the whole
           # tree on every comment. The workflow file rides along solely so the

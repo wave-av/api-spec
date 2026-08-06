@@ -143,7 +143,12 @@ if [[ -n "${GUARD_PRIVATE_REPOS:-}" ]]; then
   # SCREAMING_CASE requirement is the whole point of this branch — without the
   # override, everyday lowercase identifiers like `api_key` or `retry_token`
   # near a repo name would read as operational detail and block clean PRs.
-  OPS_DETAIL='(?:(?-i:[A-Z][A-Z0-9]*_(?:SECRET|TOKEN|KEY|PASSWORD))|wrangler\s+secret|secret\s+(?:is\s+)?(?:bound|binding|list)|(?:is\s+)?bound\s+on|service\s+binding|\d{2,}\s+secrets)'
+  # The leading segment allows underscores ([A-Z][A-Z0-9_]*): a multi-segment name
+  # like EXAMPLE_LEASE_SECRET must match from its FIRST character. Without them the
+  # only viable sub-match (LEASE_SECRET) starts right after an underscore — a word
+  # character — so the \b the composed pattern requires before OPS_DETAIL can never
+  # sit there, and the name-then-detail order silently missed every such name.
+  OPS_DETAIL='(?:(?-i:[A-Z][A-Z0-9_]*_(?:SECRET|TOKEN|KEY|PASSWORD))|wrangler\s+secret|secret\s+(?:is\s+)?(?:bound|binding|list)|(?:is\s+)?bound\s+on|service\s+binding|\d{2,}\s+secrets)'
   _ALT=''
   IFS=', ' read -r -a _PRIV <<< "$GUARD_PRIVATE_REPOS"
   for _name in "${_PRIV[@]}"; do
