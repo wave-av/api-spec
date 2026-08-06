@@ -104,6 +104,10 @@ jobs:
             tar -xzf ripgrep.tar.gz --strip-components=1 "ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg"
             sudo install -m 0755 rg /usr/local/bin/rg
             rm -f rg ripgrep.tar.gz
+            # Drop the cached path of the preinstalled rg (hashed by the probe
+            # above), or the check below would re-run the old PCRE2-less binary
+            # and fail the step right after a successful install.
+            hash -r
           fi
           rg --pcre2-version
 
@@ -179,6 +183,10 @@ jobs:
             tar -xzf ripgrep.tar.gz --strip-components=1 "ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg"
             sudo install -m 0755 rg /usr/local/bin/rg
             rm -f rg ripgrep.tar.gz
+            # Drop the cached path of the preinstalled rg (hashed by the probe
+            # above), or the check below would re-run the old PCRE2-less binary
+            # and fail the step right after a successful install.
+            hash -r
           fi
           rg --pcre2-version
 
