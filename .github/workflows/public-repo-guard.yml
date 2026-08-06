@@ -178,4 +178,15 @@ jobs:
       - name: body policy (PR / issue / comment text)
         env:
           GUARD_PRIVATE_REPOS: ${{ vars.GUARD_PRIVATE_REPOS }}
-        run: bash scripts/public-repo-guard/body-policy.sh "$RUNNER_TEMP/bodyscan/body.txt"
+        run: |
+          # BOOTSTRAP: the gate runs from the TRUSTED ref (see the checkout above),
+          # so on the very PR that first installs it the base branch has no script
+          # yet. That state is indistinguishable from "gate not installed" — where
+          # every repo was before — and a PR head cannot cause it, since only the
+          # base branch is checked out here. Skip with a visible warning rather
+          # than fail; the gate is live from the first event after the merge.
+          if [ ! -f scripts/public-repo-guard/body-policy.sh ]; then
+            echo "::warning title=public-repo-guard (body-guard)::body-policy.sh is not on the trusted ref yet (bootstrap PR installing the gate) — body scan skipped; it activates once this merges."
+            exit 0
+          fi
+          bash scripts/public-repo-guard/body-policy.sh "$RUNNER_TEMP/bodyscan/body.txt"
