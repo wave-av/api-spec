@@ -3544,7 +3544,29 @@ components:
           items:
             $ref: '#/components/schemas/X402Accepts'
         error_detail:
-          $ref: '#/components/schemas/Error'
+          allOf:
+            - $ref: '#/components/schemas/Error'
+            - type: object
+              properties:
+                payment_rejected:
+                  type: object
+                  description: >-
+                    Present ONLY when a submitted payment was REJECTED (as opposed to no payment
+                    having been made at all): the sanitized deny verdict, so a paying caller can
+                    tell a rejected payment apart from an unpaid challenge and correct the named
+                    field. `reason` is a lowercase snake_case token from the gateway's closed deny
+                    vocabulary (e.g. `invalid_permit_header`, `session_expired`, `duplicate`,
+                    `rate_limited`); internal detail that cannot be published verbatim collapses
+                    to the generic `payment_rejected`. `rail` names the payment rail that denied
+                    (e.g. `base-usdc`, `tempo-pathusd`), or `unknown`.
+                  required: [reason, rail]
+                  properties:
+                    reason:
+                      type: string
+                      description: Sanitized machine-readable rejection reason token.
+                    rail:
+                      type: string
+                      description: The payment rail the rejection occurred on.
         next_action:
           type: object
           additionalProperties: true

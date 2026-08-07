@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **`X402PaymentRequired.error_detail.payment_rejected`** (`openapi.yaml`) — documents the
+  additive `{ reason, rail }` deny verdict the gateway now publishes on a 402 when a submitted
+  payment was REJECTED (wave-av/wave-gateway#817 / #818), so generated types and docs can
+  discover the diagnostic field. Optional and conditional: absent on an ordinary unpaid
+  challenge.
+
 - **MoQ join-token mint surface** (`openapi.yaml`) — the Media over QUIC product had no spec at
   all, so no SDK or CLI could be generated for it. Adds the `MoQ` tag and both mint operations:
   - `POST /moq/publish/{ns}/{track}` (`mintMoqPublishToken`, scope `moq:write`) and
