@@ -1931,39 +1931,47 @@ components:
       required: [error]
       properties:
         error:
+          $ref: '#/components/schemas/ErrorBody'
+
+    ErrorBody:
+      type: object
+      description: >
+        The normalized WAVE error object itself — the value of the `Error` envelope's
+        `error` member. Referenced directly by bodies that carry the error object under
+        a different key (the 402 x402 challenge nests it under `error_detail` without
+        the envelope wrapper).
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code.
+        message:
+          type: string
+          description: Human-readable explanation, safe to surface to end users.
+        details:
           type: object
-          required: [code, message]
-          properties:
-            code:
-              type: string
-              description: Stable machine-readable error code.
-            message:
-              type: string
-              description: Human-readable explanation, safe to surface to end users.
-            details:
-              type: object
-              additionalProperties: true
-              description: >
-                Optional structured context (e.g. failing field, retry limit,
-                requested scopes) — never raw upstream payloads.
-            suggestions:
-              type: array
-              description: >
-                Actionable next steps, ordered most→least likely to resolve the
-                error. Written to be acted on by a human OR an agent.
-              items:
-                type: string
-            did_you_mean:
-              type: array
-              description: >
-                Closest valid alternatives when the caller likely made a typo or
-                wrong choice (e.g. an unknown scope, product, or route).
-              items:
-                type: string
-            doc_url:
-              type: string
-              format: uri
-              description: Documentation link for this error.
+          additionalProperties: true
+          description: >
+            Optional structured context (e.g. failing field, retry limit,
+            requested scopes) — never raw upstream payloads.
+        suggestions:
+          type: array
+          description: >
+            Actionable next steps, ordered most→least likely to resolve the
+            error. Written to be acted on by a human OR an agent.
+          items:
+            type: string
+        did_you_mean:
+          type: array
+          description: >
+            Closest valid alternatives when the caller likely made a typo or
+            wrong choice (e.g. an unknown scope, product, or route).
+          items:
+            type: string
+        doc_url:
+          type: string
+          format: uri
+          description: Documentation link for this error.
 
     Pagination:
       type: object
@@ -3545,7 +3553,7 @@ components:
             $ref: '#/components/schemas/X402Accepts'
         error_detail:
           allOf:
-            - $ref: '#/components/schemas/Error'
+            - $ref: '#/components/schemas/ErrorBody'
             - type: object
               properties:
                 payment_rejected:

@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- **`X402PaymentRequired.error_detail` nesting** (`openapi.yaml`): `error_detail` referenced the
+  `Error` envelope (`{ error: { code, ... } }`), but the gateway nests the bare error object
+  directly under `error_detail` (`{ code, message, ... }`), with no inner `error` wrapper. The
+  inner object is now extracted as the `ErrorBody` component schema (referenced by `Error`, so
+  every other response is unchanged) and `error_detail` composes `ErrorBody` instead, matching
+  the wire shape so generated types no longer expect a nonexistent `error_detail.error` member.
+
 ### Added
 
 - **`X402PaymentRequired.error_detail.payment_rejected`** (`openapi.yaml`) — documents the
