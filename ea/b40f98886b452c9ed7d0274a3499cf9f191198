@@ -1,0 +1,23 @@
+.github/workflows/foundation-gate.yml
+  s_11f01c22e59a16::t_9c12fb737b31a1 61-111
+CHANGELOG.md
+  s_11f01c22e59a16::t_cd8e9242e6f6a0 11-18
+package.json
+  s_11f01c22e59a16::t_b50221bbc5ca1e 1-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "eab40f98886b452c9ed7d0274a3499cf9f191198",
+  "prompts": {},
+  "sessions": {
+    "s_11f01c22e59a16": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_010f611f8ffeu0PBw8nXYqfkaV",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
