@@ -1,4 +1,4 @@
-# .redocly.yaml — WAVE ruleset for the api-spec lint gate.
+# redocly.yaml — WAVE ruleset for the api-spec lint gate.
 #
 # The spec IS the contract: this ruleset is tuned to the current spec so the gate
 # ships GREEN. Rules the spec does not yet satisfy ship at `warn` (which does not
@@ -25,7 +25,7 @@ rules:
   rule/path-segments-kebab-case:
     severity: error
     subject:
-      type: PathsMap
+      type: Paths
     assertions:
       pattern: '^(?:\/(?:[a-z0-9]+(?:-[a-z0-9]+)*|\{[A-Za-z_][A-Za-z0-9_]*\}))+$'
     message: Path segments must be kebab-case (lowercase, hyphen-separated); parameter segments must be brace-wrapped like /transcribe/{transcriptionId}.
