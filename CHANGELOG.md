@@ -8,6 +8,14 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **SDK types generated from the spec** (`generated/api-types.d.ts`) — `openapi-typescript@7.13.0`
+  now emits typed paths/operations/schemas from `openapi.yaml`, and the `sdk-types` CI gate
+  regenerates them on every PR and fails if the committed artifact has drifted from the spec.
+  Consumers get typed clients without keeping their own copy in sync.
+- **Breaking-change gate** (`breaking-change` CI job) — PRs are diffed against the base branch
+  with `oasdiff`; an unacknowledged breaking change fails the build unless the PR body carries
+  the explicit `Breaking: yes` marker.
+
 - **MoQ join-token mint surface** (`openapi.yaml`) — the Media over QUIC product had no spec at
   all, so no SDK or CLI could be generated for it. Adds the `MoQ` tag and both mint operations:
   - `POST /moq/publish/{ns}/{track}` (`mintMoqPublishToken`, scope `moq:write`) and
