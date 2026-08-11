@@ -47,12 +47,12 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '22'
-      - name: Install pinned tooling from package.json
-        # package.json is the single source of truth for tool versions (exact pins); installing
-        # from the manifest keeps CI and local `npm run` on identical versions. --ignore-scripts
-        # stops transitive install lifecycle scripts from executing (no lockfile by convention,
-        # so transitive resolutions float; none of these tools needs an install script).
-        run: npm install --no-save --no-audit --no-fund --ignore-scripts
+      - name: Install pinned tooling from lockfile
+        # package.json pins the direct tools by exact version and package-lock.json pins the
+        # full transitive tree, so npm ci is byte-reproducible across CI and local runs.
+        # --ignore-scripts stops install lifecycle hooks from executing (none of these tools
+        # needs one).
+        run: npm ci --no-audit --no-fund --ignore-scripts
       - name: Lint openapi.yaml (fail on errors)
         run: npm run lint
       - name: Assert every internal $ref resolves
@@ -75,10 +75,10 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '22'
-      - name: Install pinned tooling from package.json
-        # Same single-source-of-truth install as spec-lint: versions come from package.json
-        # only, so a version bump lands in CI and local runs together. --ignore-scripts as above.
-        run: npm install --no-save --no-audit --no-fund --ignore-scripts
+      - name: Install pinned tooling from lockfile
+        # Same reproducible install as spec-lint: npm ci from the committed lockfile,
+        # --ignore-scripts as above.
+        run: npm ci --no-audit --no-fund --ignore-scripts
       - name: Regenerate types and fail if the committed artifact drifted
         # ls-files guards against a PR deleting the committed artifact: a regenerated file
         # would be untracked, and `git diff` ignores untracked paths, so the drift check
