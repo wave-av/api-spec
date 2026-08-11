@@ -1,6 +1,6 @@
-# The spec-lint gate runs `npm install --no-save js-yaml` to resolve the $ref checker's parser,
-# which materialises node_modules/ in the working tree. This repo has no package.json and ships
-# no JS artifact — nothing here should ever be committed.
+# package.json exists only to pin the spec tooling (redocly, openapi-typescript, js-yaml) by
+# exact version; CI installs it one-shot with `npm install --no-save`, so node_modules/ and a
+# lockfile are deliberately never committed. Determinism comes from the exact version pins.
 node_modules
 package-lock.json
 

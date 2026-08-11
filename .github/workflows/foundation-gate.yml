@@ -88,30 +88,52 @@ jobs:
     timeout-minutes: 10
     # Only PRs can break the contract; the base branch is the comparison target.
     if: github.event_name == 'pull_request'
+    # Job-level grant: `gh pr view` needs pull-requests: read, which the workflow-level
+    # block (contents: read only) does not include. Job-level permissions replace the
+    # workflow-level block entirely, so contents: read is restated for checkout.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: Extract base branch spec
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           mkdir -p /tmp/base
-          git show "origin/${{ github.event.pull_request.base.ref }}:openapi.yaml" > /tmp/base/openapi.yaml
+          git show "origin/${BASE_REF}:openapi.yaml" > /tmp/base/openapi.yaml
           test -s /tmp/base/openapi.yaml
       - name: Fail on unacknowledged breaking changes
         # oasdiff breaking --fail-on ERR exits 1 when the PR's openapi.yaml has breaking
         # changes vs the base branch (removed/renamed paths, removed required params, etc).
         # Breaking changes are allowed only with an explicit "Breaking: yes" marker in the
         # PR body — that is a deliberate, acknowledged contract break (version bump + notice).
+        #
+        # The image is pinned by tag + digest (repo convention: actions by SHA, npm by exact
+        # version). Note the image lives on Docker Hub; ghcr.io hosts no oasdiff `latest`.
+        # Exit codes are handled explicitly so infra failures (image pull, spec parse) surface
+        # as errors instead of masquerading as a contract break: oasdiff exits 1 for breaking
+        # changes; anything else non-zero is a tooling failure.
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
-          if docker run --rm -v /tmp/base:/base:ro -v "$PWD":/spec:ro ghcr.io/tufin/oasdiff:latest \
-               breaking --fail-on ERR /base/openapi.yaml /spec/openapi.yaml > /tmp/oasdiff.txt 2>&1; then
+          rc=0
+          docker run --rm -v /tmp/base:/base:ro -v "$PWD":/spec:ro \
+            tufin/oasdiff:v1.28.0@sha256:86830f988eaafcf589acb2794ee5ab78e3300ded071d6517bf085469300cbf36 \
+            breaking --fail-on ERR /base/openapi.yaml /spec/openapi.yaml > /tmp/oasdiff.txt 2>&1 || rc=$?
+          if [ "$rc" -eq 0 ]; then
             echo "No breaking spec changes."
-          else
-            if gh pr view "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" \
-                --json body --jq '.body' | grep -q "Breaking: yes"; then
+          elif [ "$rc" -eq 1 ]; then
+            if ! PR_BODY=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq '.body'); then
+              echo "::error::Could not fetch the PR body to check for the 'Breaking: yes' marker; failing rather than guessing."
+              exit 1
+            fi
+            if grep -q "Breaking: yes" <<< "$PR_BODY"; then
               echo "::warning::Breaking spec changes acknowledged via 'Breaking: yes' marker."
               cat /tmp/oasdiff.txt
             else
@@ -119,4 +141,8 @@ jobs:
               cat /tmp/oasdiff.txt
               exit 1
             fi
+          else
+            echo "::error::oasdiff did not produce a verdict (exit $rc): infrastructure or spec-parse failure, not a contract break."
+            cat /tmp/oasdiff.txt
+            exit "$rc"
           fi
