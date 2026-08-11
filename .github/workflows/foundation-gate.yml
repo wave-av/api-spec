@@ -47,17 +47,18 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '22'
+      - name: Install pinned tooling from package.json
+        # package.json is the single source of truth for tool versions (exact pins); installing
+        # from the manifest keeps CI and local `npm run` on identical versions. --ignore-scripts
+        # stops transitive install lifecycle scripts from executing (no lockfile by convention,
+        # so transitive resolutions float; none of these tools needs an install script).
+        run: npm install --no-save --no-audit --no-fund --ignore-scripts
       - name: Lint openapi.yaml (fail on errors)
-        run: npx --yes @redocly/cli@2.40.0 lint openapi.yaml
+        run: npm run lint
       - name: Assert every internal $ref resolves
         # redocly catches structural problems; this catches a dangling '#/components/...' that
         # a hand-edit introduced. Cheap, and it is the other half of "the spec is loadable".
-        #
-        # js-yaml is installed explicitly rather than leaned on transitively: `npx @redocly/cli`
-        # resolves in its own temp prefix, so nothing it depends on is importable from this repo.
-        run: |
-          npm install --no-save --no-audit --no-fund js-yaml@4.1.0
-          node .github/scripts/assert-refs.mjs openapi.yaml
+        run: node .github/scripts/assert-refs.mjs openapi.yaml
 
   # The spec is the source of truth for every generated SDK and the CLI. These two gates make
   # sure the committed artifact stays honest:
@@ -74,15 +75,17 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '22'
-      - name: Install tooling
-        run: npm install --no-save --no-audit --no-fund openapi-typescript@7.13.0
+      - name: Install pinned tooling from package.json
+        # Same single-source-of-truth install as spec-lint: versions come from package.json
+        # only, so a version bump lands in CI and local runs together. --ignore-scripts as above.
+        run: npm install --no-save --no-audit --no-fund --ignore-scripts
       - name: Regenerate types and fail if the committed artifact drifted
         # ls-files guards against a PR deleting the committed artifact: a regenerated file
         # would be untracked, and `git diff` ignores untracked paths, so the drift check
         # would silently pass. --intent-to-add makes any untracked output visible to diff.
         run: |
           git ls-files --error-unmatch generated/api-types.d.ts
-          npx openapi-typescript openapi.yaml -o generated/api-types.d.ts
+          npm run gen:types
           git add --intent-to-add generated/api-types.d.ts
           git diff --exit-code -- generated/api-types.d.ts
       - name: Confirm the committed artifact is present and non-empty

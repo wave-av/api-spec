@@ -1,6 +1,8 @@
 # package.json exists only to pin the spec tooling (redocly, openapi-typescript, js-yaml) by
-# exact version; CI installs it one-shot with `npm install --no-save`, so node_modules/ and a
-# lockfile are deliberately never committed. Determinism comes from the exact version pins.
+# exact version; CI installs it one-shot with `npm install --no-save --ignore-scripts`, so
+# node_modules/ and a lockfile are deliberately never committed. Exact pins fix the direct
+# tool versions; transitive resolutions float, which --ignore-scripts keeps from executing
+# arbitrary install hooks in CI.
 node_modules
 package-lock.json
 
