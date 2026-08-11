@@ -1,0 +1,24 @@
+openapi.yaml
+  s_60c5725270cba3::t_0194f849dfb4fb 393
+  s_60c5725270cba3::t_072acd8e127111 2404,2408-2411
+  s_60c5725270cba3::t_5021287915a2c7 407-410
+  s_60c5725270cba3::t_6dd72c54962e96 2241,2243,2245-2251
+CHANGELOG.md
+  s_60c5725270cba3::t_b637238db73364 9-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6650719201ee0c69b361d2c65ae66bf46298cbda",
+  "prompts": {},
+  "sessions": {
+    "s_60c5725270cba3": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_01102325affeiT16qwRvWzIjqe",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
