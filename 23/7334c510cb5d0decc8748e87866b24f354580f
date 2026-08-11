@@ -1,0 +1,25 @@
+package.json
+  s_11f01c22e59a16::t_b50221bbc5ca1e 1-16
+CHANGELOG.md
+  s_11f01c22e59a16::t_cd8e9242e6f6a0 11-18
+.github/workflows/foundation-gate.yml
+  s_11f01c22e59a16::t_9c12fb737b31a1 61-95,101,106-108,122
+  s_11f01c22e59a16::t_ec1f1fe2802bc7 96-100,109-110
+  s_11f01c22e59a16::t_d439cf99f0241f 102-105,111-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "237334c510cb5d0decc8748e87866b24f354580f",
+  "prompts": {},
+  "sessions": {
+    "s_11f01c22e59a16": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_010f611f8ffeu0PBw8nXYqfkaV",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": null
+    }
+  }
+}
