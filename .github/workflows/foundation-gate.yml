@@ -77,8 +77,13 @@ jobs:
       - name: Install tooling
         run: npm install --no-save --no-audit --no-fund openapi-typescript@7.13.0
       - name: Regenerate types and fail if the committed artifact drifted
+        # ls-files guards against a PR deleting the committed artifact: a regenerated file
+        # would be untracked, and `git diff` ignores untracked paths, so the drift check
+        # would silently pass. --intent-to-add makes any untracked output visible to diff.
         run: |
+          git ls-files --error-unmatch generated/api-types.d.ts
           npx openapi-typescript openapi.yaml -o generated/api-types.d.ts
+          git add --intent-to-add generated/api-types.d.ts
           git diff --exit-code -- generated/api-types.d.ts
       - name: Confirm the committed artifact is present and non-empty
         run: test -s generated/api-types.d.ts
@@ -115,8 +120,9 @@ jobs:
         # The image is pinned by tag + digest (repo convention: actions by SHA, npm by exact
         # version). Note the image lives on Docker Hub; ghcr.io hosts no oasdiff `latest`.
         # Exit codes are handled explicitly so infra failures (image pull, spec parse) surface
-        # as errors instead of masquerading as a contract break: oasdiff exits 1 for breaking
-        # changes; anything else non-zero is a tooling failure.
+        # as errors instead of masquerading as a contract break. Verified against this exact
+        # image: 0 = no breaking changes, 1 = breaking changes (never overloaded for errors),
+        # 100 = usage error, 102 = spec load/parse failure, 125 = docker-side failure.
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
