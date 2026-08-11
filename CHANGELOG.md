@@ -8,12 +8,14 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
-- **Clip + Voice contracts aligned to the LIVE gateway** (verified by probing `api.wave.online`):
+- **BREAKING: Clip + Voice contracts aligned to the LIVE gateway** (verified by probing
+  `api.wave.online`). SDK/CLI clients generated from the previous spec will break:
   - `ClipCreate` now requires `source` (recording id string) + `in`/`out` relative time strings
     (`5s`, `2m`), replacing the rejected `videoId`/`startTime`/`endTime` numeric shape.
   - `POST /voice/generate` → `POST /voice` (the live path); `VoiceGenerateRequest` requires only
     `text` (`voiceId` optional, also sent as `voice_id` by the SDK). The 200 response now documents
-    that the primary path returns raw `audio/mpeg` bytes directly.
+    that the primary path returns raw `audio/mpeg` bytes directly. The old `/voice/generate` path
+    is not kept as a deprecated alias because the live gateway does not serve it.
 
 ### Added
 
