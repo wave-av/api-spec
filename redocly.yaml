@@ -22,10 +22,12 @@ rules:
 
   # Path segments must be kebab-case (lowercase, hyphen-separated); path parameters
   # are brace-wrapped and may be camelCase: /transcribe/{transcriptionId}, /studio-ai/enhancements.
+  # Dots are allowed so well-known URIs remain expressible: an optional leading dot
+  # (/.well-known) and dotted file-style segments (/wave-attestation-keys.json).
   rule/path-segments-kebab-case:
     severity: error
     subject:
       type: Paths
     assertions:
-      pattern: '^(?:\/(?:[a-z0-9]+(?:-[a-z0-9]+)*|\{[A-Za-z_][A-Za-z0-9_]*\}))+$'
-    message: Path segments must be kebab-case (lowercase, hyphen-separated); parameter segments must be brace-wrapped like /transcribe/{transcriptionId}.
+      pattern: '^(?:\/(?:\.?[a-z0-9]+(?:[-.][a-z0-9]+)*|\{[A-Za-z_][A-Za-z0-9_]*\}))+$'
+    message: Path segments must be kebab-case (lowercase, hyphen-separated, dots allowed for well-known URIs); parameter segments must be brace-wrapped like /transcribe/{transcriptionId}.
