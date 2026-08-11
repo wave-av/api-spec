@@ -404,20 +404,22 @@ paths:
       responses:
         '200':
           description: >
-            Speech generated. Verified against the live gateway: the primary path returns the raw
-            audio bytes (`audio/mpeg`) in the response body — POST `/v1/voice` with `{ text }`
-            returns the MP3 directly. Engines that request timestamps may instead return an inline
-            JSON payload with base64 audio + character `alignment`, or an async job to poll.
+            Speech generated. Returns the raw MP3 bytes (`audio/mpeg`) by default (verified
+            against the live gateway: POST `/voice` with `{ text }` returns the MP3 directly).
+            The `application/json` shapes are returned only when the request opts out of the
+            default: requests that ask for character timestamps receive a `VoiceSynthesisInline`
+            payload (base64 audio + `alignment`), and engines that process asynchronously return
+            a `VoiceGeneration` job to poll.
           content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
             application/json:
               schema:
                 oneOf:
                   - $ref: '#/components/schemas/VoiceSynthesisInline'
                   - $ref: '#/components/schemas/VoiceGeneration'
-            audio/mpeg:
-              schema:
-                type: string
-                format: binary
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2408,7 +2410,10 @@ components:
           description: Text to convert to speech.
         voiceId:
           type: string
-          description: Voice id to use. Optional — the gateway picks a default when omitted. The SDK also sends this as `voice_id`.
+          description: Voice id to use. Optional; the gateway picks a default when omitted. Also accepted on the wire as the `voice_id` alias.
+        voice_id:
+          type: string
+          description: Snake_case wire alias for `voiceId` (the form the SDK sends). Provide either `voiceId` or `voice_id`, not both.
         stability:
           type: number
           minimum: 0
