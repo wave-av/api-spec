@@ -390,7 +390,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/Voice'
 
-  /voice/generate:
+  /voice:
     post:
       tags: [Voice]
       summary: Generate speech from text
@@ -404,10 +404,10 @@ paths:
       responses:
         '200':
           description: >
-            Speech generated. The gateway returns one of three shapes depending on
-            the engine path: an inline JSON payload with base64 audio + character
-            `alignment` (single round-trip, carries word timestamps), an async job
-            to poll, or raw audio bytes when timestamps were not requested.
+            Speech generated. Verified against the live gateway: the primary path returns the raw
+            audio bytes (`audio/mpeg`) in the response body — POST `/v1/voice` with `{ text }`
+            returns the MP3 directly. Engines that request timestamps may instead return an inline
+            JSON payload with base64 audio + character `alignment`, or an async job to poll.
           content:
             application/json:
               schema:
@@ -2238,14 +2238,17 @@ components:
 
     ClipCreate:
       type: object
-      required: [videoId, startTime, endTime]
+      required: [source, in, out]
       properties:
-        videoId:
+        source:
           type: string
-        startTime:
-          type: number
-        endTime:
-          type: number
+          description: Recording id the clip is cut from (e.g. `rec_abc123`). Verified against the live gateway — the older `{ type, id, start_time, end_time }` source object is rejected.
+        in:
+          type: string
+          description: Start offset as a relative time string, e.g. `5s` or `2m`.
+        out:
+          type: string
+          description: End offset as a relative time string, e.g. `10s` or `1m30s`.
         title:
           type: string
         description:
@@ -2398,12 +2401,14 @@ components:
 
     VoiceGenerateRequest:
       type: object
-      required: [voiceId, text]
+      required: [text]
       properties:
-        voiceId:
-          type: string
         text:
           type: string
+          description: Text to convert to speech.
+        voiceId:
+          type: string
+          description: Voice id to use. Optional — the gateway picks a default when omitted. The SDK also sends this as `voice_id`.
         stability:
           type: number
           minimum: 0

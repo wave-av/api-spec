@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- **Clip + Voice contracts aligned to the LIVE gateway** (verified by probing `api.wave.online`):
+  - `ClipCreate` now requires `source` (recording id string) + `in`/`out` relative time strings
+    (`5s`, `2m`), replacing the rejected `videoId`/`startTime`/`endTime` numeric shape.
+  - `POST /voice/generate` → `POST /voice` (the live path); `VoiceGenerateRequest` requires only
+    `text` (`voiceId` optional, also sent as `voice_id` by the SDK). The 200 response now documents
+    that the primary path returns raw `audio/mpeg` bytes directly.
+
 ### Added
 
 - **MoQ join-token mint surface** (`openapi.yaml`) — the Media over QUIC product had no spec at
