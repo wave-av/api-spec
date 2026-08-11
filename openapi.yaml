@@ -2404,6 +2404,9 @@ components:
     VoiceGenerateRequest:
       type: object
       required: [text]
+      # `voiceId` and `voice_id` are wire aliases for the same setting; supplying both is invalid.
+      not:
+        required: [voiceId, voice_id]
       properties:
         text:
           type: string
