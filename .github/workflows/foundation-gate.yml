@@ -114,7 +114,8 @@ jobs:
             "https://github.com/oasdiff/oasdiff/releases/download/v1.28.0/checksums.txt"
           (cd /tmp/oasdiff-install && grep "oasdiff_1.28.0_linux_amd64.tar.gz" checksums.txt | sha256sum -c -)
           tar -xzf /tmp/oasdiff-install/oasdiff_1.28.0_linux_amd64.tar.gz -C /usr/local/bin
-          oasdiff version
+          # v1.28.0 has no `version` subcommand; only the --version flag prints the version.
+          oasdiff --version
       - name: Fail on unacknowledged breaking changes
         # oasdiff breaking --fail-on ERR exits 1 when the PR's openapi.yaml has breaking
         # changes vs the base branch (removed/renamed paths, removed required params, etc).
