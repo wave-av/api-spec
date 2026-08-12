@@ -60,12 +60,23 @@ check() {
   # Filter with rg, not grep: BSD/macOS grep has no -P, so a `grep -P` allowlist
   # silently errors out locally while working on GNU/CI — the gate would then
   # disagree with itself depending on where it ran. rg is already required above.
-  local matches
+  # Filter exits mirror the scan above: 1 just means every line was filtered out
+  # (clean), but >=2 is a real rg error and must FAIL CLOSED — an `|| true` here
+  # would launder a broken filter into an empty match set and report PASS.
+  local matches frc
   matches="$(printf '%s' "$raw" \
-    | rg -vN -- 'guard:allow[[:space:]]+[^[:space:]]' || true)"
+    | rg -vN -- 'guard:allow[[:space:]]+[^[:space:]]')"; frc=$?
+  if (( frc >= 2 )); then
+    echo "::error title=public-repo-guard ($name)::ripgrep failed (exit $frc) applying the guard:allow filter for rule '$name' — failing closed."
+    exit 2
+  fi
   if [[ "$exempt" == "about-exempt" ]]; then
     matches="$(printf '%s' "$matches" \
-      | rg -vNiP -- "$ABOUT_THE_CONTROL" || true)"
+      | rg -vNiP -- "$ABOUT_THE_CONTROL")"; frc=$?
+    if (( frc >= 2 )); then
+      echo "::error title=public-repo-guard ($name)::ripgrep failed (exit $frc) applying the about-the-control allowlist for rule '$name' — failing closed."
+      exit 2
+    fi
   fi
   [[ -z "$matches" ]] && return 0
   local count; count="$(printf '%s\n' "$matches" | grep -c '')"
