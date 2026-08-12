@@ -126,7 +126,14 @@ check BLOCK private-key      '-----BEGIN [A-Z ]*PRIVATE KEY-----'            'Em
 check BLOCK cf-account-id    'account_id\s*[:=]\s*["'"'"']?[0-9a-f]{32}'      'Hardcoded Cloudflare account_id — reference the env var instead'   no-about-exempt
 check BLOCK internal-ip      '100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}'  'Internal Tailscale-CGNAT IP (100.64.0.0/10) — internal fleet address'  no-about-exempt
 # shellcheck disable=SC2016  # $HOME is literal guidance text
-check BLOCK abs-user-path    '/(Users|home)/(?!runner/)[A-Za-z][A-Za-z0-9._-]+/' 'Operator absolute home path — leaks identity and local layout'    no-about-exempt
+# (?<![\w.-]) anchors the path start: an operator home path in prose begins the
+# line or follows whitespace/quote/backtick/'='/'(', never a domain or path
+# segment. Without it, any URL whose path contains /home/<segment>/ (bodies are
+# full of links — `https://app.example.com/home/settings/page`) fires the rule,
+# and forcing `guard:allow` onto ordinary links is the friction that gets a
+# gate disabled. The tree gate shares the rule's shape but scans source, where
+# URLs are rare; bodies needed the anchor.
+check BLOCK abs-user-path    '(?<![\w.-])/(Users|home)/(?!runner/)[A-Za-z][A-Za-z0-9._-]+/' 'Operator absolute home path — leaks identity and local layout'    no-about-exempt
 
 # --- Self-identified internal material ---------------------------------------
 # USE vs MENTION. A body that SAYS "internal-only" is leaking; a body that QUOTES

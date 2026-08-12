@@ -275,9 +275,15 @@ jobs:
           fi
           # An empty GUARD_PRIVATE_REPOS silently disables the private-repo
           # proximity rule (the script deliberately skips it, for local runs).
-          # In CI that silence is a hazard — fork-triggered runs may not receive
-          # org variables — so make "off" visible instead of quietly green.
+          # In CI that is FAIL CLOSED, not a warning: this is the gate's
+          # highest-value rule, and a run that never received the org variable
+          # (misconfiguration, or a fork-triggered run that was not handed org
+          # variables) would otherwise report a green body gate while the rule
+          # that catches the shape that actually leaked never executed. Same
+          # principle as the unrecognized-payload check above: never report a
+          # pass on a scan that did not happen.
           if [ -z "${GUARD_PRIVATE_REPOS:-}" ]; then
-            echo "::warning title=public-repo-guard (body-guard)::GUARD_PRIVATE_REPOS is empty for this run — the private-repo proximity rule is DISABLED. If this is a fork PR, org variables may not be exposed to it."
+            echo "::error title=public-repo-guard (body-guard)::GUARD_PRIVATE_REPOS is empty for this run, so the private-repo proximity rule would be silently OFF. Refusing to report a green body gate without it. Configure the org/repo variable; for fork PRs a maintainer must verify the body."
+            exit 1
           fi
           bash scripts/public-repo-guard/body-policy.sh "$RUNNER_TEMP/bodyscan/body.txt"

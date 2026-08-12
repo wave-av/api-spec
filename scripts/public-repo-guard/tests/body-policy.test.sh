@@ -97,6 +97,13 @@ expect 0 'credential NAME with no private repo nearby' \
   'The handler now reads SOME_API_TOKEN from the environment instead of a literal.'
 expect 0 'public runner path is not an operator path' \
   'CI checks out to /home/runner/work/repo/repo before the scan runs.'  # enforce-ignore (fixture)
+# Regression: bodies are full of links, and a URL whose PATH contains
+# /home/<segment>/ is not an operator home path — forcing guard:allow onto an
+# ordinary link is the friction that gets a gate disabled.
+expect 0 'URL path containing /home/ segment is not an operator path' \
+  'See https://app.example.com/home/settings/page for the new layout.'
+expect 0 'bare domain path containing /home/ segment' \
+  'The dashboard lives at app.example.com/home/overview/ after the change.'
 expect 0 'talking about the control' \
   'body-policy blocks a private repo named next to a SECRET_TOKEN; that is intended.'
 # Regression: the global (?i) that lets repo NAMES match case-insensitively must
