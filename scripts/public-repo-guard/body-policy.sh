@@ -191,9 +191,15 @@ if [[ -n "${GUARD_PRIVATE_REPOS:-}" ]]; then
   done
   if [[ -n "$_ALT" ]]; then
     # Both orders: name-then-detail and detail-then-name.
+    # no-about-exempt for the same reason as the other infra rules: a REAL
+    # private repo named next to its wiring on a line that happens to mention
+    # the gate is still a leak — and bodies discussing this gate mention it
+    # constantly, which would make naming the scanner a one-word bypass of its
+    # highest-value rule. Genuine discussion has `guard:allow <reason>`.
     check BLOCK private-repo-ops \
       "(?i)\\b(?:${_ALT})\\b[^\\n]{0,140}?\\b${OPS_DETAIL}|${OPS_DETAIL}[^\\n]{0,140}?\\b(?:${_ALT})\\b" \
-      'A private WAVE repo named alongside internal operational detail (credential name, secret binding, or secret count) — the wiring topology is not public'
+      'A private WAVE repo named alongside internal operational detail (credential name, secret binding, or secret count) — the wiring topology is not public' \
+      no-about-exempt
   fi
 fi
 

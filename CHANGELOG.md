@@ -15,6 +15,13 @@ All notable changes to this project are documented here. The format is based on
 - **Breaking-change gate** (`breaking-change` CI job) — PRs are diffed against the base branch
   with `oasdiff`; an unacknowledged breaking change fails the build unless the PR body carries
   the explicit `Breaking: yes` marker.
+- **Body content-policy gate** (`body-guard` CI job, `scripts/public-repo-guard/body-policy.sh`) —
+  PR titles/bodies, issue bodies, and comment bodies are now scanned server-side, the half of a
+  public repo's surface the tree gate never covered. Blocks credential formats, infrastructure
+  identifiers (internal IPs, operator home paths, hardcoded account IDs), self-identified
+  internal-only markers, and a private repo named near operational detail. A line carrying
+  `guard:allow <reason>` exempts the infra-identifier tier; credential formats block
+  unconditionally (defang the string to discuss one).
 
 - **MoQ join-token mint surface** (`openapi.yaml`) — the Media over QUIC product had no spec at
   all, so no SDK or CLI could be generated for it. Adds the `MoQ` tag and both mint operations:

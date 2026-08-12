@@ -85,6 +85,12 @@ expect 1 'guard:allow cannot launder a credential format' \
   "The old key was ${AKID_FIXTURE} — guard:allow rotating-it-anyway"
 expect 1 'internal IP on a line naming the gate still blocks' \
   'content-policy missed 100.71.4.19 in the fleet notes.'
+# Regression: the highest-value rule ran with the about-the-control exemption,
+# so any line that named the gate — which bodies discussing it do constantly —
+# waved private-repo wiring straight through. Naming the scanner must never
+# switch it off.
+expect 1 'private-repo wiring on a line naming the gate still blocks' \
+  'Per public-repo-guard, EXAMPLE_LEASE_SECRET is bound on example-private-one.'
 expect 1 'internal tailscale IP' \
   'It resolves to 100.71.4.19 from inside the fleet.'
 
