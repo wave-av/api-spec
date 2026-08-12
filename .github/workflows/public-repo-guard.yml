@@ -74,6 +74,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # Nothing here pushes, and this job executes PR-controlled code
+          # (content-policy.sh, .gitleaks.toml) by necessity — don't leave the
+          # job token sitting in .git/config for those steps to read.
+          persist-credentials: false
 
       # gitleaks' GitHub Action requires a paid license for organizations; the CLI
       # itself is MIT-licensed and free. Pin the version AND verify the release
@@ -159,6 +164,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          # Read-only job; no later step needs git credentials, so don't leave
+          # the job token in .git/config.
+          persist-credentials: false
           # The gate must run from TRUSTED history. The default checkout on a
           # pull_request event is the PR merge ref, so the PR's own copy of
           # body-policy.sh would be the one that runs — a fork PR could edit it to

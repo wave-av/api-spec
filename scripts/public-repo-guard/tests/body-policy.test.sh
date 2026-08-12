@@ -78,6 +78,11 @@ expect 1 'AWS access key id' \
 # line that names the gate by name can still carry a live key, and must block.
 expect 1 'credential on a line naming the gate still blocks' \
   "body-policy flagged ${AKID_FIXTURE} here and public-repo-guard was right to."
+# Regression: neither must `guard:allow` — in a body the marker is typed by the
+# very author being scanned (no reviewed diff in between), so a one-token,
+# unreviewed bypass of the credential rules is exactly what it would be.
+expect 1 'guard:allow cannot launder a credential format' \
+  "The old key was ${AKID_FIXTURE} — guard:allow rotating-it-anyway"
 expect 1 'internal IP on a line naming the gate still blocks' \
   'content-policy missed 100.71.4.19 in the fleet notes.'
 expect 1 'internal tailscale IP' \
@@ -107,6 +112,10 @@ expect 0 'multi-segment lowercase identifier near a private repo' \
   'example-private-one now reads the lease_rotation_key from config.'
 expect 0 'explicit guard:allow with a reason' \
   'Example for the docs: example-private-one holds EXAMPLE_SECRET — guard:allow documented-example'
+# guard:allow keeps working for the infra-identifier tier: a discussion that
+# needs a live-shaped example has an honest, visible way to carry one.
+expect 0 'guard:allow still exempts an infra identifier' \
+  'The gate blocks CGNAT addresses shaped like 100.71.4.19 — guard:allow documented-example'
 expect 0 'ordinary clean body' \
   'Bumps the draft revision and regenerates the fixtures. No behaviour change.'
 # Regression: the first CI run of this job failed on its own PR, because a review

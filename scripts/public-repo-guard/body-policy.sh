@@ -18,10 +18,16 @@
 # Exit: 0 clean · 1 blocking violation · 2 scanner error (fail closed).
 #
 # Allowlisting: a line carrying `guard:allow <reason>` is exempt (an accidental
-# leak never carries the marker; a deliberate one is visible in a public diff), as
-# is any line matching the ABOUT-THE-CONTROL allowlist below — except for the
-# credential-format rules, which honour only `guard:allow`: naming the gate must
-# never launder a live key past it.
+# leak never carries the marker), as is any line matching the ABOUT-THE-CONTROL
+# allowlist below. Two exceptions, tiered by what a bypass would cost. Unlike the
+# tree gate — whose marker sits in a code comment inside a REVIEWED diff — a body
+# is free-form text that any author or commenter can edit at will, so here the
+# marker is typed by exactly the party being scanned:
+#   - infra-identifier rules honour only `guard:allow`: naming the gate must
+#     never launder a real identifier past it;
+#   - credential-format rules honour NEITHER: a one-token, unreviewed marker
+#     must not wave a live key through. To discuss a key format, defang the
+#     string (break the prefix) — never paste a matching one.
 set -uo pipefail
 
 FILE="${1:-}"
@@ -41,11 +47,13 @@ VIOLATIONS=0
 ABOUT_THE_CONTROL='(public-repo-guard|body-policy|content-policy|public-github-write-gate|\bNDA\s+(gate|guard|policy|denylist|sweep|scan|hook)\b|\bno\s+NDA\b|responsib\w*\s+disclos|SECURITY\.md)'
 
 # check <BLOCK|WARN> <name> <regex> <why> [exempt]
-#   exempt defaults to "about-exempt": lines matching ABOUT_THE_CONTROL are
-#   skipped. Credential-format rules pass "no-about-exempt" — a line that names
-#   the gate can still carry a live key, and talking ABOUT the control must never
-#   launder a credential PAST it. Only `guard:allow <reason>` (explicit, visible
-#   in the public body) exempts those.
+#   exempt defaults to "about-exempt": `guard:allow <reason>` lines and lines
+#   matching ABOUT_THE_CONTROL are skipped. "no-about-exempt" honours only
+#   `guard:allow` — a line that names the gate can still carry a real identifier,
+#   and talking ABOUT the control must never launder one PAST it. "never-exempt"
+#   honours nothing: in a body, `guard:allow` is typed by the very author being
+#   scanned (no reviewed diff stands between them and the marker), so a
+#   credential-shaped string blocks unconditionally.
 check() {
   local sev="$1" name="$2" re="$3" why="$4" exempt="${5:-about-exempt}"
   [[ -z "$re" ]] && { echo "::error::body-policy: internal bug — empty regex for rule '$name'"; exit 2; }
@@ -64,11 +72,14 @@ check() {
   # (clean), but >=2 is a real rg error and must FAIL CLOSED — an `|| true` here
   # would launder a broken filter into an empty match set and report PASS.
   local matches frc
-  matches="$(printf '%s' "$raw" \
-    | rg -vN -- 'guard:allow[[:space:]]+[^[:space:]]')"; frc=$?
-  if (( frc >= 2 )); then
-    echo "::error title=public-repo-guard ($name)::ripgrep failed (exit $frc) applying the guard:allow filter for rule '$name' — failing closed."
-    exit 2
+  matches="$raw"
+  if [[ "$exempt" != "never-exempt" ]]; then
+    matches="$(printf '%s' "$matches" \
+      | rg -vN -- 'guard:allow[[:space:]]+[^[:space:]]')"; frc=$?
+    if (( frc >= 2 )); then
+      echo "::error title=public-repo-guard ($name)::ripgrep failed (exit $frc) applying the guard:allow filter for rule '$name' — failing closed."
+      exit 2
+    fi
   fi
   if [[ "$exempt" == "about-exempt" ]]; then
     matches="$(printf '%s' "$matches" \
@@ -94,15 +105,18 @@ check() {
 }
 
 # --- Credential formats — never legitimate in prose --------------------------
-# no-about-exempt: a credential-shaped string is a credential no matter what else
-# its line says — mentioning "body-policy" next to a live key must not pass it.
-check BLOCK stripe-live-key  '(sk|rk)_live_[A-Za-z0-9]{16,}'                 'Live Stripe secret/restricted key'                        no-about-exempt
-check BLOCK stripe-account   'acct_[A-Za-z0-9]{16,}'                         'Live Stripe account ID — financial infra, never publish'  no-about-exempt
-check BLOCK anthropic-key    'sk-ant-(api|admin)[0-9]{2}-[A-Za-z0-9_-]{20,}' 'Real Anthropic API/admin key'                             no-about-exempt
-check BLOCK github-pat       'github_pat_[A-Za-z0-9_]{30,}'                  'GitHub fine-grained PAT'                                  no-about-exempt
-check BLOCK supabase-pat     'sbp_[a-f0-9]{40}'                              'Supabase personal access token'                           no-about-exempt
-check BLOCK aws-akid         'AKIA[0-9A-Z]{16}'                              'AWS access key ID'                                        no-about-exempt
-check BLOCK private-key      '-----BEGIN [A-Z ]*PRIVATE KEY-----'            'Embedded private key material'                            no-about-exempt
+# never-exempt: a credential-shaped string is a credential no matter what else
+# its line says — mentioning "body-policy" next to a live key must not pass it,
+# and neither must `guard:allow`: in an unreviewed body that marker is a
+# one-token bypass typed by the very author being scanned. To discuss a key
+# format, defang the string (break the prefix); never paste a matching one.
+check BLOCK stripe-live-key  '(sk|rk)_live_[A-Za-z0-9]{16,}'                 'Live Stripe secret/restricted key'                        never-exempt
+check BLOCK stripe-account   'acct_[A-Za-z0-9]{16,}'                         'Live Stripe account ID — financial infra, never publish'  never-exempt
+check BLOCK anthropic-key    'sk-ant-(api|admin)[0-9]{2}-[A-Za-z0-9_-]{20,}' 'Real Anthropic API/admin key'                             never-exempt
+check BLOCK github-pat       'github_pat_[A-Za-z0-9_]{30,}'                  'GitHub fine-grained PAT'                                  never-exempt
+check BLOCK supabase-pat     'sbp_[a-f0-9]{40}'                              'Supabase personal access token'                           never-exempt
+check BLOCK aws-akid         'AKIA[0-9A-Z]{16}'                              'AWS access key ID'                                        never-exempt
+check BLOCK private-key      '-----BEGIN [A-Z ]*PRIVATE KEY-----'            'Embedded private key material'                            never-exempt
 
 # --- Infrastructure identifiers ----------------------------------------------
 # no-about-exempt for the same reason as the credential formats: a REAL internal
