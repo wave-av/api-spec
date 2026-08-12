@@ -58,3 +58,81 @@ jobs:
         run: |
           npm install --no-save --no-audit --no-fund js-yaml@4.1.0
           node .github/scripts/assert-refs.mjs openapi.yaml
+
+  # The spec is the source of truth for every generated SDK and the CLI. These two gates make
+  # sure the committed artifact stays honest:
+  #   - sdk-types: the committed generated/types.d.ts must not drift from openapi.yaml (fail-on-diff)
+  #   - breaking-change: the PR must not introduce breaking spec changes without an explicit
+  #     "Breaking: yes" marker in the PR body (oasdiff compares PR head vs base branch)
+  sdk-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        run: npm install --no-save --no-audit --no-fund openapi-typescript@7.13.0
+      - name: Regenerate types and fail if the committed artifact drifted
+        run: |
+          npx openapi-typescript openapi.yaml -o generated/api-types.d.ts
+          git diff --exit-code -- generated/api-types.d.ts
+      - name: Confirm the committed artifact is present and non-empty
+        run: test -s generated/api-types.d.ts
+
+  breaking-change:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only PRs can break the contract; the base branch is the comparison target.
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Extract base branch spec
+        # $GITHUB_BASE_REF is GitHub-set for pull_request events; never interpolate a
+        # PR-controlled value into a shell command (template expansion would be injectable).
+        run: |
+          mkdir -p /tmp/base
+          git show "origin/$GITHUB_BASE_REF:openapi.yaml" > /tmp/base/openapi.yaml
+          test -s /tmp/base/openapi.yaml
+      - name: Install pinned oasdiff (checksum-verified, no floating image tag)
+        # oasdiff v1.28.0 (2026-08-06) — a pinned release binary, not a mutable :latest image.
+        # The release's own checksums.txt is fetched and verified (sha256).
+        run: |
+          mkdir -p /tmp/oasdiff-install
+          curl -fsSL -o /tmp/oasdiff-install/oasdiff_1.28.0_linux_amd64.tar.gz \
+            "https://github.com/oasdiff/oasdiff/releases/download/v1.28.0/oasdiff_1.28.0_linux_amd64.tar.gz"
+          curl -fsSL -o /tmp/oasdiff-install/checksums.txt \
+            "https://github.com/oasdiff/oasdiff/releases/download/v1.28.0/checksums.txt"
+          (cd /tmp/oasdiff-install && grep "oasdiff_1.28.0_linux_amd64.tar.gz" checksums.txt | sha256sum -c -)
+          tar -xzf /tmp/oasdiff-install/oasdiff_1.28.0_linux_amd64.tar.gz -C /usr/local/bin
+          oasdiff version
+      - name: Fail on unacknowledged breaking changes
+        # oasdiff breaking --fail-on ERR exits 1 when the PR's openapi.yaml has breaking
+        # changes vs the base branch (removed/renamed paths, removed required params, etc).
+        # Breaking changes are allowed only with an explicit "Breaking: yes" marker in the
+        # PR body — that is a deliberate, acknowledged contract break (version bump + notice).
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if oasdiff breaking --fail-on ERR /tmp/base/openapi.yaml "$PWD/openapi.yaml" > /tmp/oasdiff.txt 2>&1; then
+            echo "No breaking spec changes."
+          else
+            if gh pr view "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" \
+                --json body --jq '.body' | grep -q "Breaking: yes"; then
+              echo "::warning::Breaking spec changes acknowledged via 'Breaking: yes' marker."
+              cat /tmp/oasdiff.txt
+            else
+              echo "::error::Breaking spec changes detected. Acknowledge them with 'Breaking: yes' in the PR body."
+              cat /tmp/oasdiff.txt
+              exit 1
+            fi
+          fi

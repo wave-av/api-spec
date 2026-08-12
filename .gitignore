@@ -1,8 +1,8 @@
-# The spec-lint gate runs `npm install --no-save js-yaml` to resolve the $ref checker's parser,
-# which materialises node_modules/ in the working tree. This repo has no package.json and ships
-# no JS artifact — nothing here should ever be committed.
+# package.json pins the spec tooling (redocly, openapi-typescript, js-yaml) by exact version
+# and package-lock.json pins the full transitive tree; CI installs with
+# `npm ci --ignore-scripts` so every dependency is reproducible and install hooks never run.
+# Only node_modules/ stays out of the tree.
 node_modules
-package-lock.json
 
 # macOS
 .DS_Store

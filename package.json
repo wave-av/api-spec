@@ -1,0 +1,16 @@
+{
+  "name": "@wave-av/api-spec",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WAVE Enterprise Streaming Platform API specification — openapi.yaml plus the tooling that validates it and generates SDK types from it.",
+  "scripts": {
+    "lint": "redocly lint openapi.yaml",
+    "gen:types": "openapi-typescript openapi.yaml -o generated/api-types.d.ts"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.40.0",
+    "js-yaml": "4.1.0",
+    "openapi-typescript": "7.13.0"
+  }
+}
