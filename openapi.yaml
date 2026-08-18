@@ -1258,11 +1258,12 @@ paths:
                     items:
                       $ref: '#/components/schemas/TopicSentiment'
 
-  # Search API
+  # Search API — gateway-native hybrid search (wave-search). Replaces the archived monolith's
+  # /search + /search/quick + /search/suggest + /search/semantic (the types/filters/page shape).
   /search:
     post:
       tags: [Search]
-      summary: Search content
+      summary: Hybrid search (dense + sparse → RRF) over streams/clips/transcripts, tenant-isolated
       operationId: search
       requestBody:
         required: true
@@ -1272,115 +1273,74 @@ paths:
               $ref: '#/components/schemas/SearchRequest'
       responses:
         '200':
-          description: Search results
+          description: Ranked results + metadata (metered wave_search_queries)
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/PaginatedResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/SearchResult'
-                      facets:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/SearchFacet'
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: Invalid request (bad body/query/namespace/topK)
+        '429':
+          description: Per-org rate limit exceeded
+        '503':
+          description: Search plane unconfigured
 
-  /search/quick:
-    get:
-      tags: [Search]
-      summary: Quick search
-      operationId: quickSearch
-      parameters:
-        - name: q
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 10
-      responses:
-        '200':
-          description: Search results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SearchResult'
-
-  /search/suggest:
-    get:
-      tags: [Search]
-      summary: Get search suggestions
-      operationId: searchSuggest
-      parameters:
-        - name: q
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 5
-      responses:
-        '200':
-          description: Search suggestions
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  suggestions:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SearchSuggestion'
-
-  /search/semantic:
+  /search/index:
     post:
       tags: [Search]
-      summary: Semantic search
-      operationId: semanticSearch
+      summary: Index (upsert) one doc or a batch
+      operationId: searchIndex
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [query]
-              properties:
-                query:
-                  type: string
-                types:
-                  type: array
-                  items:
-                    type: string
-                limit:
-                  type: integer
-                  default: 10
+              $ref: '#/components/schemas/SearchIndexRequest'
       responses:
         '200':
-          description: Semantic search results
+          description: Indexed count + ids
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SearchResult'
+                $ref: '#/components/schemas/SearchIndexResponse'
+
+  /search/index/{id}:
+    delete:
+      tags: [Search]
+      summary: Delete one indexed doc (idempotent)
+      operationId: searchDelete
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [streams, users, clips, transcripts]
+      responses:
+        '200':
+          description: Deleted flag + id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchDeleteResponse'
+
+  /search/analytics:
+    get:
+      tags: [Search]
+      summary: Own-org query insights (top / zero-result / trending)
+      operationId: searchAnalytics
+      responses:
+        '200':
+          description: Insight receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchAnalyticsResponse'
 
   # Realtime API — served at realtime.wave.online (per-operation server override). WebSocket subscribe
   # is documented descriptively (OpenAPI has no native WS); REST publish/presence/history are first-class.
@@ -3104,30 +3064,172 @@ components:
       properties:
         id:
           type: string
-        type:
+        score:
+          type: number
+        fusedScore:
+          type: number
+        matchType:
           type: string
-          enum: [video, clip, chapter, transcript, episode]
+          enum: [semantic, keyword, hybrid]
+        denseScore:
+          type: number
+        sparseScore:
+          type: number
+        metadata:
+          type: object
+          properties:
+            namespace:
+              type: string
+            title:
+              type: string
+            text:
+              type: string
+
+    SearchWebHit:
+      type: object
+      properties:
         title:
           type: string
-        description:
-          type: string
-        thumbnailUrl:
-          type: string
-          format: uri
         url:
           type: string
           format: uri
-        score:
-          type: number
         highlights:
+          type: string
+
+    SearchResponse:
+      type: object
+      properties:
+        results:
           type: array
           items:
-            $ref: '#/components/schemas/SearchHighlight'
+            $ref: '#/components/schemas/SearchResult'
         metadata:
           type: object
-        createdAt:
+          properties:
+            query:
+              type: string
+            namespace:
+              type: string
+            totalResults:
+              type: integer
+            processingTimeMs:
+              type: integer
+            searchType:
+              type: string
+              enum: [hybrid]
+            cached:
+              type: boolean
+            web:
+              type: array
+              items:
+                $ref: '#/components/schemas/SearchWebHit'
+
+    SearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          maxLength: 1000
+        namespace:
+          type: string
+          enum: [streams, users, clips, transcripts, all]
+          default: streams
+        topK:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+
+    SearchIndexDoc:
+      type: object
+      required: [id, namespace, text]
+      properties:
+        id:
+          type: string
+        namespace:
+          type: string
+          enum: [streams, users, clips, transcripts]
+        title:
+          type: string
+        text:
+          type: string
+        metadata:
+          type: object
+
+    SearchIndexRequest:
+      type: object
+      required: [id, namespace, text]
+      properties:
+        id:
+          type: string
+        namespace:
+          type: string
+          enum: [streams, users, clips, transcripts]
+        title:
+          type: string
+        text:
+          type: string
+        metadata:
+          type: object
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchIndexDoc'
+
+    SearchIndexResponse:
+      type: object
+      properties:
+        indexed:
+          type: integer
+        ids:
+          type: array
+          items:
+            type: string
+
+    SearchDeleteResponse:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+        id:
+          type: string
+
+    SearchInsightRow:
+      type: object
+      properties:
+        query:
+          type: string
+        term:
+          type: string
+        count:
+          type: integer
+        previous:
+          type: integer
+
+    SearchAnalyticsResponse:
+      type: object
+      properties:
+        org:
+          type: string
+        generated_at:
           type: string
           format: date-time
+        insights:
+          type: object
+          properties:
+            top:
+              type: array
+              items:
+                $ref: '#/components/schemas/SearchInsightRow'
+            zeroResult:
+              type: array
+              items:
+                $ref: '#/components/schemas/SearchInsightRow'
+            trending:
+              type: array
+              items:
+                $ref: '#/components/schemas/SearchInsightRow'
 
     SearchHighlight:
       type: object
@@ -3145,70 +3247,6 @@ components:
                 type: integer
               end:
                 type: integer
-
-    SearchRequest:
-      type: object
-      required: [query]
-      properties:
-        query:
-          type: string
-        types:
-          type: array
-          items:
-            type: string
-            enum: [video, clip, chapter, transcript, episode]
-        filters:
-          type: object
-          properties:
-            dateFrom:
-              type: string
-              format: date
-            dateTo:
-              type: string
-              format: date
-            duration:
-              type: object
-              properties:
-                min:
-                  type: number
-                max:
-                  type: number
-            tags:
-              type: array
-              items:
-                type: string
-            categories:
-              type: array
-              items:
-                type: string
-            language:
-              type: string
-        sort:
-          type: object
-          properties:
-            field:
-              type: string
-              enum: [relevance, date, views, duration, title]
-              default: relevance
-            order:
-              type: string
-              enum: [asc, desc]
-              default: desc
-        highlight:
-          type: boolean
-          default: true
-        fuzzy:
-          type: boolean
-          default: false
-        semanticSearch:
-          type: boolean
-          default: false
-        page:
-          type: integer
-          default: 1
-        perPage:
-          type: integer
-          default: 20
 
     SearchSuggestion:
       type: object
