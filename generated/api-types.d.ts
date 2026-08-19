@@ -534,7 +534,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Search content */
+        /** Hybrid search (dense + sparse → RRF) over streams/clips/transcripts, tenant-isolated */
         post: operations["search"];
         delete?: never;
         options?: never;
@@ -542,41 +542,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/search/quick": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Quick search */
-        get: operations["quickSearch"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/search/suggest": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get search suggestions */
-        get: operations["searchSuggest"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/search/semantic": {
+    "/search/index": {
         parameters: {
             query?: never;
             header?: never;
@@ -585,8 +551,42 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Semantic search */
-        post: operations["semanticSearch"];
+        /** Index (upsert) one doc or a batch */
+        post: operations["searchIndex"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/index/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete one indexed doc (idempotent) */
+        delete: operations["searchDelete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Own-org query insights (top / zero-result / trending) */
+        get: operations["searchAnalytics"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -785,6 +785,37 @@ export interface paths {
          * @description Authorizes the caller to SUBSCRIBE to `ns`/`track` and returns a short-lived signed join-token (`role: subscribe`, `scope: moq:read`) plus the `relayWsUrl` to connect to. Requires the `moq:read` scope. Least-privilege: a subscribe token grants read only — it cannot be replayed to publish, and the relay re-checks the signed `ns`/`track` against the session it is actually opening, so a token is bound to exactly one resource.
          */
         get: operations["mintMoqSubscribeToken"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/identity/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resolve a WAVE fleet agent id to its public channel map
+         * @description Gateway-native read pane (identity-fabric E1). Returns the agent's public directory entry:
+         *     email, Doppler key NAME (never a key value), org, and channels. The data is the
+         *     agent-identity-fabric SSOT embedded at the gateway — public-directory data only.
+         *
+         *     Tenancy is the authenticated principal; an optional `org` query param is a self-assertion
+         *     that must match the principal (a mismatch is a 400 ORG_MISMATCH). Requires the
+         *     `directory:read` scope (separately grantable; DISTINCT from the compliance `identity:read`
+         *     scope that gates Stripe verification sessions).
+         *
+         *     The one documented response variation is the `telephony` service entry, whose identity
+         *     carries `org`/`channels`/`numbers`/`keys` (plural Doppler key names + E.164 numbers)
+         *     instead of `email`/`key` — see the oneOf success schema.
+         */
+        get: operations["identityResolve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1411,19 +1442,87 @@ export interface components {
         };
         SearchResult: {
             id?: string;
+            score?: number;
+            fusedScore?: number;
             /** @enum {string} */
-            type?: "video" | "clip" | "chapter" | "transcript" | "episode";
+            matchType?: "semantic" | "keyword" | "hybrid";
+            denseScore?: number;
+            sparseScore?: number;
+            metadata?: {
+                namespace?: string;
+                title?: string;
+                text?: string;
+            };
+        };
+        SearchWebHit: {
             title?: string;
-            description?: string;
-            /** Format: uri */
-            thumbnailUrl?: string;
             /** Format: uri */
             url?: string;
-            score?: number;
-            highlights?: components["schemas"]["SearchHighlight"][];
+            highlights?: string;
+        };
+        SearchResponse: {
+            results?: components["schemas"]["SearchResult"][];
+            metadata?: {
+                query?: string;
+                namespace?: string;
+                totalResults?: number;
+                processingTimeMs?: number;
+                /** @enum {string} */
+                searchType?: "hybrid";
+                cached?: boolean;
+                web?: components["schemas"]["SearchWebHit"][];
+            };
+        };
+        SearchRequest: {
+            query: string;
+            /**
+             * @default streams
+             * @enum {string}
+             */
+            namespace: "streams" | "users" | "clips" | "transcripts" | "all";
+            /** @default 20 */
+            topK: number;
+        };
+        SearchIndexDoc: {
+            id: string;
+            /** @enum {string} */
+            namespace: "streams" | "users" | "clips" | "transcripts";
+            title?: string;
+            text: string;
             metadata?: Record<string, never>;
+        };
+        SearchIndexRequest: {
+            id: string;
+            /** @enum {string} */
+            namespace: "streams" | "users" | "clips" | "transcripts";
+            title?: string;
+            text: string;
+            metadata?: Record<string, never>;
+            docs?: components["schemas"]["SearchIndexDoc"][];
+        };
+        SearchIndexResponse: {
+            indexed?: number;
+            ids?: string[];
+        };
+        SearchDeleteResponse: {
+            deleted?: boolean;
+            id?: string;
+        };
+        SearchInsightRow: {
+            query?: string;
+            term?: string;
+            count?: number;
+            previous?: number;
+        };
+        SearchAnalyticsResponse: {
+            org?: string;
             /** Format: date-time */
-            createdAt?: string;
+            generated_at?: string;
+            insights?: {
+                top?: components["schemas"]["SearchInsightRow"][];
+                zeroResult?: components["schemas"]["SearchInsightRow"][];
+                trending?: components["schemas"]["SearchInsightRow"][];
+            };
         };
         SearchHighlight: {
             field?: string;
@@ -1432,45 +1531,6 @@ export interface components {
                 start?: number;
                 end?: number;
             }[];
-        };
-        SearchRequest: {
-            query: string;
-            types?: ("video" | "clip" | "chapter" | "transcript" | "episode")[];
-            filters?: {
-                /** Format: date */
-                dateFrom?: string;
-                /** Format: date */
-                dateTo?: string;
-                duration?: {
-                    min?: number;
-                    max?: number;
-                };
-                tags?: string[];
-                categories?: string[];
-                language?: string;
-            };
-            sort?: {
-                /**
-                 * @default relevance
-                 * @enum {string}
-                 */
-                field: "relevance" | "date" | "views" | "duration" | "title";
-                /**
-                 * @default desc
-                 * @enum {string}
-                 */
-                order: "asc" | "desc";
-            };
-            /** @default true */
-            highlight: boolean;
-            /** @default false */
-            fuzzy: boolean;
-            /** @default false */
-            semanticSearch: boolean;
-            /** @default 1 */
-            page: number;
-            /** @default 20 */
-            perPage: number;
         };
         SearchSuggestion: {
             text?: string;
@@ -1706,6 +1766,37 @@ export interface components {
             extra?: {
                 [key: string]: unknown;
             };
+        };
+        /** @description The resolved fleet directory entry. `identity` is a oneOf: agent entries carry `email`/`key`/`org`/`channels`; the `telephony` service entry carries `org`/`channels`/`numbers`/`keys` (the documented variation — plural Doppler key names + E.164 numbers, no email/key). */
+        IdentityResolveResponse: {
+            /** @description The resolved fleet agent id (echo of the `agent` query param) */
+            agent: string;
+            identity: components["schemas"]["AgentIdentity"] | components["schemas"]["TelephonyIdentity"];
+        };
+        /** @description One fleet agent's public directory entry. `key` is a Doppler key NAME (e.g. `AGENTMAIL_API_KEY_OPENCODE`), never a key value — the directory carries no secret material. */
+        AgentIdentity: {
+            /**
+             * Format: email
+             * @description The agent's inbox (e.g. `opencode@agents.wave.online`)
+             */
+            email: string;
+            /** @description Doppler key NAME for the agent's inbox credential (never the value) */
+            key: string;
+            /** @description Owning org (e.g. `wave`) */
+            org: string;
+            /** @description Reachable channels (e.g. `mail`, `paid-rail`, `realtime`) */
+            channels: string[];
+        };
+        /** @description The telephony service entry — the one documented variation on the agent shape: plural Doppler key names + E.164 numbers, no email/key. `org` is always present so every identity object carries it. */
+        TelephonyIdentity: {
+            /** @description Owning org (e.g. `wave`) */
+            org: string;
+            /** @description Reachable channels (e.g. `voice`, `sms-blocked-a2p`) */
+            channels: string[];
+            /** @description E.164 numbers */
+            numbers: string[];
+            /** @description Doppler key NAMES for the telephony credentials (never values) */
+            keys: string[];
         };
     };
     responses: {
@@ -3067,71 +3158,39 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Search results */
+            /** @description Ranked results + metadata (metered wave_search_queries) */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaginatedResponse"] & {
-                        data?: components["schemas"]["SearchResult"][];
-                        facets?: components["schemas"]["SearchFacet"][];
-                    };
+                    "application/json": components["schemas"]["SearchResponse"];
                 };
             };
-        };
-    };
-    quickSearch: {
-        parameters: {
-            query: {
-                q: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Search results */
-            200: {
+            /** @description Invalid request (bad body/query/namespace/topK) */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        results?: components["schemas"]["SearchResult"][];
-                    };
-                };
+                content?: never;
             };
-        };
-    };
-    searchSuggest: {
-        parameters: {
-            query: {
-                q: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Search suggestions */
-            200: {
+            /** @description Per-org rate limit exceeded */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        suggestions?: components["schemas"]["SearchSuggestion"][];
-                    };
+                content?: never;
+            };
+            /** @description Search plane unconfigured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
                 };
+                content?: never;
             };
         };
     };
-    semanticSearch: {
+    searchIndex: {
         parameters: {
             query?: never;
             header?: never;
@@ -3140,24 +3199,61 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    query: string;
-                    types?: string[];
-                    /** @default 10 */
-                    limit?: number;
-                };
+                "application/json": components["schemas"]["SearchIndexRequest"];
             };
         };
         responses: {
-            /** @description Semantic search results */
+            /** @description Indexed count + ids */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        results?: components["schemas"]["SearchResult"][];
-                    };
+                    "application/json": components["schemas"]["SearchIndexResponse"];
+                };
+            };
+        };
+    };
+    searchDelete: {
+        parameters: {
+            query: {
+                namespace: "streams" | "users" | "clips" | "transcripts";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted flag + id */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchDeleteResponse"];
+                };
+            };
+        };
+    };
+    searchAnalytics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Insight receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchAnalyticsResponse"];
                 };
             };
         };
@@ -3568,6 +3664,52 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimitError"];
             503: components["responses"]["MoqJoinUnconfigured"];
+        };
+    };
+    identityResolve: {
+        parameters: {
+            query: {
+                /** @description Fleet agent id (lowercase, e.g. `opencode`, `claude`, `telephony`) */
+                agent: string;
+                /** @description Optional tenancy self-assertion; must equal the authenticated principal's org */
+                org?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The resolved directory entry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityResolveResponse"];
+                };
+            };
+            /** @description Missing/bad agent id, or org self-assertion mismatch (MISSING_AGENT / BAD_AGENT / ORG_MISMATCH) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Well-formed but unknown agent id (UNKNOWN_AGENT) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
         };
     };
 }
