@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **Fleet agent directory resolve** (`GET /identity/resolve`) — identity-fabric E1. Adds the
+  `Identity` tag, the `identityResolve` operation (`agent` query param, optional `org`
+  self-assertion), and the `IdentityResolveResponse` oneOf (`AgentIdentity` |
+  `TelephonyIdentity`) so generated clients see the documented telephony variation. Directory
+  data is public only: `key`/`keys` are Doppler key NAMES, never values. Gateway gate:
+  `directory:read` scope (distinct from compliance `identity:read`).
 - **SDK types generated from the spec** (`generated/api-types.d.ts`) — `openapi-typescript@7.13.0`
   now emits typed paths/operations/schemas from `openapi.yaml`, and the `sdk-types` CI gate
   regenerates them on every PR and fails if the committed artifact has drifted from the spec.

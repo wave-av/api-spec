@@ -102,6 +102,11 @@ tags:
       Code-defined video — render a branded, deterministic MP4 (or alpha ProRes) from a typed
       Brief. Pay-per-render over x402 (no signup); the payment proof is the identity. The same
       Brief renders to the same bytes on any host. Reference renderer is source-available (BSL).
+  - name: Identity
+    description: >-
+      Fleet agent directory — resolve a WAVE agent id to its public channel map (email, Doppler
+      key NAME, org, channels). Read-only; public-directory data only, never secret material.
+
 paths:
   # Render API
   /render:
@@ -1747,6 +1752,61 @@ paths:
           $ref: '#/components/responses/RateLimitError'
         '503':
           $ref: '#/components/responses/MoqJoinUnconfigured'
+
+  /identity/resolve:
+    get:
+      tags: [Identity]
+      summary: Resolve a WAVE fleet agent id to its public channel map
+      operationId: identityResolve
+      description: |
+        Gateway-native read pane (identity-fabric E1). Returns the agent's public directory entry:
+        email, Doppler key NAME (never a key value), org, and channels. The data is the
+        agent-identity-fabric SSOT embedded at the gateway — public-directory data only.
+
+        Tenancy is the authenticated principal; an optional `org` query param is a self-assertion
+        that must match the principal (a mismatch is a 400 ORG_MISMATCH). Requires the
+        `directory:read` scope (separately grantable; DISTINCT from the compliance `identity:read`
+        scope that gates Stripe verification sessions).
+
+        The one documented response variation is the `telephony` service entry, whose identity
+        carries `org`/`channels`/`numbers`/`keys` (plural Doppler key names + E.164 numbers)
+        instead of `email`/`key` — see the oneOf success schema.
+      parameters:
+        - name: agent
+          in: query
+          required: true
+          description: Fleet agent id (lowercase, e.g. `opencode`, `claude`, `telephony`)
+          schema: { type: string, pattern: '^[a-z0-9-]{1,64}$' }
+        - name: org
+          in: query
+          required: false
+          description: Optional tenancy self-assertion; must equal the authenticated principal's org
+          schema: { type: string }
+      responses:
+        '200':
+          description: The resolved directory entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityResolveResponse'
+        '400':
+          description: Missing/bad agent id, or org self-assertion mismatch (MISSING_AGENT / BAD_AGENT / ORG_MISMATCH)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityResolveValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Well-formed but unknown agent id (UNKNOWN_AGENT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityResolveNotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
 
 components:
   securitySchemes:
@@ -3625,3 +3685,123 @@ components:
           type: object
           additionalProperties: true
           description: Scheme-specific metadata (e.g. settlement mode, session id).
+
+    IdentityResolveResponse:
+      description: >
+        The resolved fleet directory entry, DISCRIMINATED on the outer `agent` value:
+        `agent: "telephony"` serves the TelephonyResolveResponse variant; every other
+        directory key serves the AgentResolveResponse variant. Generated clients can
+        narrow on `agent`.
+      oneOf:
+        - $ref: '#/components/schemas/AgentResolveResponse'
+        - $ref: '#/components/schemas/TelephonyResolveResponse'
+
+    AgentResolveResponse:
+      type: object
+      additionalProperties: false
+      required: [agent, identity]
+      properties:
+        agent:
+          type: string
+          pattern: '^[a-z0-9-]{1,64}$'
+          not: { const: telephony }
+          description: The resolved fleet agent id — any directory key EXCEPT the telephony service entry
+        identity:
+          $ref: '#/components/schemas/AgentIdentity'
+
+    TelephonyResolveResponse:
+      type: object
+      additionalProperties: false
+      required: [agent, identity]
+      properties:
+        agent:
+          const: telephony
+        identity:
+          $ref: '#/components/schemas/TelephonyIdentity'
+
+    AgentIdentity:
+      type: object
+      additionalProperties: false
+      description: >
+        One fleet agent's public directory entry. `key` is a Doppler key NAME
+        (e.g. `AGENTMAIL_API_KEY_OPENCODE`), never a key value — the directory carries
+        no secret material.
+      required: [email, key, org, channels]
+      properties:
+        email:
+          type: string
+          format: email
+          description: The agent's inbox (e.g. `opencode@agents.wave.online`)
+        key:
+          type: string
+          pattern: '^[A-Z0-9_]+$'
+          description: Doppler key NAME for the agent's inbox credential (never the value)
+        org:
+          type: string
+          description: Owning org (e.g. `wave`)
+        channels:
+          type: array
+          items: { type: string }
+          description: Reachable channels (e.g. `mail`, `paid-rail`, `realtime`)
+
+    TelephonyIdentity:
+      type: object
+      additionalProperties: false
+      description: >
+        The telephony service entry — the one documented variation on the agent shape:
+        plural Doppler key names + E.164 numbers, no email/key. `org` is always present
+        so every identity object carries it.
+      required: [org, channels, numbers, keys]
+      properties:
+        org:
+          type: string
+          description: Owning org (e.g. `wave`)
+        channels:
+          type: array
+          items: { type: string }
+          description: Reachable channels (e.g. `voice`, `sms-blocked-a2p`)
+        numbers:
+          type: array
+          items: { type: string, pattern: '^\+[1-9]\d{1,14}$' }
+          description: E.164 numbers
+        keys:
+          type: array
+          items: { type: string, pattern: '^[A-Z0-9_]+$' }
+          description: Doppler key NAMES for the telephony credentials (never values)
+
+    IdentityResolveValidationError:
+      type: object
+      description: >
+        400 envelope for /identity/resolve — `error.code` is one of the documented
+        validation codes, so generated clients can switch on it.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [MISSING_AGENT, BAD_AGENT, ORG_MISMATCH]
+            message:
+              type: string
+
+    IdentityResolveNotFoundError:
+      type: object
+      description: >
+        404 envelope for /identity/resolve — `error.code` is always UNKNOWN_AGENT;
+        `agent` echoes the requested id.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [UNKNOWN_AGENT]
+            message:
+              type: string
+        agent:
+          type: string
+          description: Echo of the requested (unknown) agent id
