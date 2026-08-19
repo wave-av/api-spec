@@ -1,0 +1,20 @@
+openapi.yaml
+  s_1fdca12355f003::t_de8ecc811c2447 1797,1807
+  s_1fdca12355f003::t_87ffb394aa7b01 3691-3701,3706-3708,3710-3720,3724,3749,3765,3771-3807
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "4b7542485d66a91afbd05612a376f86817d7d9cd",
+  "prompts": {},
+  "sessions": {
+    "s_1fdca12355f003": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe82b603cffeCGtlTCg4m3BPii",
+        "model": "kimi-k3"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
