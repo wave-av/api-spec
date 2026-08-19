@@ -1767,11 +1767,17 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** @description The resolved fleet directory entry. `identity` is a oneOf: agent entries carry `email`/`key`/`org`/`channels`; the `telephony` service entry carries `org`/`channels`/`numbers`/`keys` (the documented variation — plural Doppler key names + E.164 numbers, no email/key). */
-        IdentityResolveResponse: {
-            /** @description The resolved fleet agent id (echo of the `agent` query param) */
+        /** @description The resolved fleet directory entry, DISCRIMINATED on the outer `agent` value: `agent: "telephony"` serves the TelephonyResolveResponse variant; every other directory key serves the AgentResolveResponse variant. Generated clients can narrow on `agent`. */
+        IdentityResolveResponse: components["schemas"]["AgentResolveResponse"] | components["schemas"]["TelephonyResolveResponse"];
+        AgentResolveResponse: {
+            /** @description The resolved fleet agent id — any directory key EXCEPT the telephony service entry */
             agent: string;
-            identity: components["schemas"]["AgentIdentity"] | components["schemas"]["TelephonyIdentity"];
+            identity: components["schemas"]["AgentIdentity"];
+        };
+        TelephonyResolveResponse: {
+            /** @constant */
+            agent: "telephony";
+            identity: components["schemas"]["TelephonyIdentity"];
         };
         /** @description One fleet agent's public directory entry. `key` is a Doppler key NAME (e.g. `AGENTMAIL_API_KEY_OPENCODE`), never a key value — the directory carries no secret material. */
         AgentIdentity: {
@@ -1797,6 +1803,24 @@ export interface components {
             numbers: string[];
             /** @description Doppler key NAMES for the telephony credentials (never values) */
             keys: string[];
+        };
+        /** @description 400 envelope for /identity/resolve — `error.code` is one of the documented validation codes, so generated clients can switch on it. */
+        IdentityResolveValidationError: {
+            error: {
+                /** @enum {string} */
+                code: "MISSING_AGENT" | "BAD_AGENT" | "ORG_MISMATCH";
+                message: string;
+            };
+        };
+        /** @description 404 envelope for /identity/resolve — `error.code` is always UNKNOWN_AGENT; `agent` echoes the requested id. */
+        IdentityResolveNotFoundError: {
+            error: {
+                /** @enum {string} */
+                code: "UNKNOWN_AGENT";
+                message: string;
+            };
+            /** @description Echo of the requested (unknown) agent id */
+            agent?: string;
         };
     };
     responses: {
@@ -3695,7 +3719,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["IdentityResolveValidationError"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3706,7 +3730,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["IdentityResolveNotFoundError"];
                 };
             };
             429: components["responses"]["RateLimitError"];

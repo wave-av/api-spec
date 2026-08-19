@@ -1794,7 +1794,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/IdentityResolveValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1804,7 +1804,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/IdentityResolveNotFoundError'
         '429':
           $ref: '#/components/responses/RateLimitError'
 
@@ -3687,24 +3687,41 @@ components:
           description: Scheme-specific metadata (e.g. settlement mode, session id).
 
     IdentityResolveResponse:
-      type: object
       description: >
-        The resolved fleet directory entry. `identity` is a oneOf: agent entries carry
-        `email`/`key`/`org`/`channels`; the `telephony` service entry carries
-        `org`/`channels`/`numbers`/`keys` (the documented variation — plural Doppler key
-        names + E.164 numbers, no email/key).
+        The resolved fleet directory entry, DISCRIMINATED on the outer `agent` value:
+        `agent: "telephony"` serves the TelephonyResolveResponse variant; every other
+        directory key serves the AgentResolveResponse variant. Generated clients can
+        narrow on `agent`.
+      oneOf:
+        - $ref: '#/components/schemas/AgentResolveResponse'
+        - $ref: '#/components/schemas/TelephonyResolveResponse'
+
+    AgentResolveResponse:
+      type: object
+      additionalProperties: false
       required: [agent, identity]
       properties:
         agent:
           type: string
-          description: The resolved fleet agent id (echo of the `agent` query param)
+          pattern: '^[a-z0-9-]{1,64}$'
+          not: { const: telephony }
+          description: The resolved fleet agent id — any directory key EXCEPT the telephony service entry
         identity:
-          oneOf:
-            - $ref: '#/components/schemas/AgentIdentity'
-            - $ref: '#/components/schemas/TelephonyIdentity'
+          $ref: '#/components/schemas/AgentIdentity'
+
+    TelephonyResolveResponse:
+      type: object
+      additionalProperties: false
+      required: [agent, identity]
+      properties:
+        agent:
+          const: telephony
+        identity:
+          $ref: '#/components/schemas/TelephonyIdentity'
 
     AgentIdentity:
       type: object
+      additionalProperties: false
       description: >
         One fleet agent's public directory entry. `key` is a Doppler key NAME
         (e.g. `AGENTMAIL_API_KEY_OPENCODE`), never a key value — the directory carries
@@ -3729,6 +3746,7 @@ components:
 
     TelephonyIdentity:
       type: object
+      additionalProperties: false
       description: >
         The telephony service entry — the one documented variation on the agent shape:
         plural Doppler key names + E.164 numbers, no email/key. `org` is always present
@@ -3744,9 +3762,46 @@ components:
           description: Reachable channels (e.g. `voice`, `sms-blocked-a2p`)
         numbers:
           type: array
-          items: { type: string }
+          items: { type: string, pattern: '^\+[1-9]\d{1,14}$' }
           description: E.164 numbers
         keys:
           type: array
           items: { type: string, pattern: '^[A-Z0-9_]+$' }
           description: Doppler key NAMES for the telephony credentials (never values)
+
+    IdentityResolveValidationError:
+      type: object
+      description: >
+        400 envelope for /identity/resolve — `error.code` is one of the documented
+        validation codes, so generated clients can switch on it.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [MISSING_AGENT, BAD_AGENT, ORG_MISMATCH]
+            message:
+              type: string
+
+    IdentityResolveNotFoundError:
+      type: object
+      description: >
+        404 envelope for /identity/resolve — `error.code` is always UNKNOWN_AGENT;
+        `agent` echoes the requested id.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [UNKNOWN_AGENT]
+            message:
+              type: string
+        agent:
+          type: string
+          description: Echo of the requested (unknown) agent id
