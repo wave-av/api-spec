@@ -1,0 +1,26 @@
+CHANGELOG.md
+  s_1fdca12355f003::t_921dd092039ed7 11-16
+openapi.yaml
+  s_1fdca12355f003::t_2dd1cd4b0d9e4c 1756-1810
+  s_1fdca12355f003::t_289e9a86267c62 3688-3752
+  s_1fdca12355f003::t_3bed3e6eba5d67 105-109
+generated/api-types.d.ts
+  s_1fdca12355f003::t_ad69d5b916bb12 537,545,552,554-555,562,569,572-573,579,586-587,589,796-826,1445-1446,1448-1457,1461-1499,1501-1518,1520-1525,1770-1800,3161,3167,3170-3190,3193,3195,3200-3204,3206,3212,3217,3220,3223-3225,3230,3236,3241,3248,3250,3256,3669-3713
+  s_1fdca12355f003::t_d377c4f0ddf6c7 3714
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3a2781cd02b2ef27e063ecb1c42b016ea97375d7",
+  "prompts": {},
+  "sessions": {
+    "s_1fdca12355f003": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe82b603cffeCGtlTCg4m3BPii",
+        "model": "kimi-k3"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
