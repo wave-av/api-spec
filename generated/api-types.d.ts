@@ -1772,7 +1772,10 @@ export interface components {
             /** @description The resolved fleet agent id (echo of the `agent` query param) */
             agent: string;
             identity: components["schemas"]["AgentIdentity"] | components["schemas"]["TelephonyIdentity"];
-        };
+          } & (
+              | { agent: "telephony"; identity: components["schemas"]["TelephonyIdentity"] }
+              | { agent: string; identity: components["schemas"]["AgentIdentity"] }
+          );
         /** @description One fleet agent's public directory entry. `key` is a Doppler key NAME (e.g. `AGENTMAIL_API_KEY_OPENCODE`), never a key value — the directory carries no secret material. */
         AgentIdentity: {
             /**

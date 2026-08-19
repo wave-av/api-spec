@@ -416,7 +416,7 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
+              oneOf:
                   - $ref: '#/components/schemas/VoiceSynthesisInline'
                   - $ref: '#/components/schemas/VoiceGeneration'
             audio/mpeg:
@@ -1791,6 +1791,7 @@ paths:
                 $ref: '#/components/schemas/IdentityResolveResponse'
         '400':
           description: Missing/bad agent id, or org self-assertion mismatch (MISSING_AGENT / BAD_AGENT / ORG_MISMATCH)
+            
           content:
             application/json:
               schema:
@@ -1939,6 +1940,30 @@ components:
             $ref: '#/components/schemas/Error'
 
   schemas:
+    IdentityResolveBadRequestError:
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                code:
+                  type: string
+                  enum: [MISSING_AGENT, BAD_AGENT, ORG_MISMATCH]
+
+    IdentityResolveNotFoundError:
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                code:
+                  type: string
+                  enum: [UNKNOWN_AGENT]
+
     Error:
       type: object
       description: >
@@ -2198,7 +2223,7 @@ components:
             Base64url-encoded Ed25519 signature over `canonicalJson(subject)` bytes.
             `null` when `alg` is `"none"`.
         created:
-          oneOf:
+        oneOf:
             - type: integer
               description: Unix seconds.
             - type: string
@@ -3694,12 +3719,24 @@ components:
         `org`/`channels`/`numbers`/`keys` (the documented variation — plural Doppler key
         names + E.164 numbers, no email/key).
       required: [agent, identity]
+        oneOf:
+          - properties:
+              agent:
+                const: telephony
+              identity:
+                $ref: '#/components/schemas/TelephonyIdentity'
+          - properties:
+              agent:
+                type: string
+                not: { const: telephony }
+              identity:
+                $ref: '#/components/schemas/AgentIdentity'
       properties:
         agent:
           type: string
           description: The resolved fleet agent id (echo of the `agent` query param)
         identity:
-          oneOf:
+        oneOf:
             - $ref: '#/components/schemas/AgentIdentity'
             - $ref: '#/components/schemas/TelephonyIdentity'
 
@@ -3710,6 +3747,7 @@ components:
         (e.g. `AGENTMAIL_API_KEY_OPENCODE`), never a key value — the directory carries
         no secret material.
       required: [email, key, org, channels]
+                additionalProperties: false
       properties:
         email:
           type: string
@@ -3734,6 +3772,7 @@ components:
         plural Doppler key names + E.164 numbers, no email/key. `org` is always present
         so every identity object carries it.
       required: [org, channels, numbers, keys]
+                additionalProperties: false
       properties:
         org:
           type: string
@@ -3744,7 +3783,9 @@ components:
           description: Reachable channels (e.g. `voice`, `sms-blocked-a2p`)
         numbers:
           type: array
-          items: { type: string }
+          items:
+            type: string
+            pattern: '^\\+[1-9][0-9]{1,14}$'
           description: E.164 numbers
         keys:
           type: array
