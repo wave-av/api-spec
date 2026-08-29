@@ -108,6 +108,64 @@ tags:
       key NAME, org, channels). Read-only; public-directory data only, never secret material.
 
 paths:
+  /batch:
+    post:
+      operationId: batchOperations
+      summary: Execute a batch of operations in one request
+      description: |
+        Bulk operations through the same pipeline: each operation is a method + /v1 path + optional body,
+        executed with the caller's own credential (the same auth, scope, meter, and payment enforcement
+        as an HTTP call - no bypass). Max 25 operations; each result carries its own status and body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operations]
+              properties:
+                operations:
+                  type: array
+                  maxItems: 25
+                  items:
+                    type: object
+                    required: [method, path]
+                    properties:
+                      method:
+                        type: string
+                        enum: [GET, HEAD, POST, PUT, PATCH, DELETE]
+                      path:
+                        type: string
+                        description: An enforced /v1 route
+                      body:
+                        description: The operation's JSON body (mutating methods only)
+      responses:
+        "200":
+          description: Per-operation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  operations:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ok:
+                          type: boolean
+                        status:
+                          type: integer
+                        body:
+                          description: The operation's response body
+        "400":
+          description: Invalid batch (operations[] required, 25-op cap)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   # Render API
   /render:
     post:
