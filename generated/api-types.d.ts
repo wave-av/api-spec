@@ -4,6 +4,28 @@
  */
 
 export interface paths {
+    "/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute a batch of operations in one request
+         * @description Bulk operations through the same pipeline: each operation is a method + /v1 path + optional body,
+         *     executed with the caller's own credential (the same auth, scope, meter, and payment enforcement
+         *     as an HTTP call - no bypass). Max 25 operations; each result carries its own status and body.
+         */
+        post: operations["batchOperations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/render": {
         parameters: {
             query?: never;
@@ -1924,6 +1946,56 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    batchOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    operations: {
+                        /** @enum {string} */
+                        method: "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE";
+                        /** @description An enforced /v1 route */
+                        path: string;
+                        /** @description The operation's JSON body (mutating methods only) */
+                        body?: unknown;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Per-operation results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        operations?: number;
+                        results?: {
+                            ok?: boolean;
+                            status?: number;
+                            /** @description The operation's response body */
+                            body?: unknown;
+                        }[];
+                    };
+                };
+            };
+            /** @description Invalid batch (operations[] required, 25-op cap) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     renderVideo: {
         parameters: {
             query?: never;
