@@ -143,6 +143,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval]
                 properties:
                   device_code:
                     type: string
@@ -151,13 +152,17 @@ paths:
                   verification_uri:
                     type: string
                     format: uri
+                    description: The approve URL the human opens
                   verification_uri_complete:
                     type: string
                     format: uri
+                    description: The same URL with the user code prefilled
                   expires_in:
                     type: integer
+                    description: Seconds until the device code expires (600)
                   interval:
                     type: integer
+                    description: Poll interval in seconds (5)
         "403":
           description: Device authorization not enabled for the app (dashboard toggle)
           content:
@@ -191,8 +196,11 @@ paths:
         verbatim (`authorization_pending`, `slow_down`, `expired_token`,
         `access_denied`) - these are the polling protocol, not failures to hide. On
         approval the response carries `access_token` and `refresh_token`.
-        `refresh_token` - exchange a refresh token for a new access token; the old
-        refresh token is invalidated immediately.
+        `refresh_token` - exchange a refresh token for a new access token; the old refresh
+        token is invalidated immediately and a REPLACEMENT refresh_token is returned in
+        the same response, so a client that stores it never loses its refresh credential.
+        An absent refresh_token in a refresh response means the grant was revoked
+        (or the token expired): restart the ceremony from the device endpoint.
       requestBody:
         required: true
         content:
@@ -203,6 +211,7 @@ paths:
                   description: Poll for tokens while approval is pending (grant_type=device_code)
                   type: object
                   required: [grant_type, device_code]
+                  additionalProperties: false
                   properties:
                     grant_type:
                       type: string
@@ -213,6 +222,7 @@ paths:
                   description: Exchange a refresh token for a new access token (grant_type=refresh_token)
                   type: object
                   required: [grant_type, refresh_token]
+                  additionalProperties: false
                   properties:
                     grant_type:
                       type: string
@@ -221,16 +231,24 @@ paths:
                       type: string
       responses:
         "200":
-          description: Tokens (access_token, refresh_token on first approval)
+          description: >-
+            Tokens. First approval returns access_token plus the initial refresh_token;
+            a refresh exchange returns access_token plus a REPLACEMENT refresh_token
+            (the old one is invalidated by the same call). An absent refresh_token
+            signals revocation: restart the ceremony.
           content:
             application/json:
               schema:
                 type: object
+                required: [access_token]
                 properties:
                   access_token:
                     type: string
                   refresh_token:
                     type: string
+                    description: >-
+                      Present on first approval and on every refresh exchange (rotation);
+                      absent only when the grant is revoked or expired
         "400":
           description: >-
             Invalid grant_type, missing credential for the grant, or the upstream

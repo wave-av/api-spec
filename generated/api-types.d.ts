@@ -53,8 +53,11 @@ export interface paths {
          *     verbatim (`authorization_pending`, `slow_down`, `expired_token`,
          *     `access_denied`) - these are the polling protocol, not failures to hide. On
          *     approval the response carries `access_token` and `refresh_token`.
-         *     `refresh_token` - exchange a refresh token for a new access token; the old
-         *     refresh token is invalidated immediately.
+         *     `refresh_token` - exchange a refresh token for a new access token; the old refresh
+         *     token is invalidated immediately and a REPLACEMENT refresh_token is returned in
+         *     the same response, so a client that stores it never loses its refresh credential.
+         *     An absent refresh_token in a refresh response means the grant was revoked
+         *     (or the token expired): restart the ceremony from the device endpoint.
          */
         post: operations["agentAuthToken"];
         delete?: never;
@@ -2021,14 +2024,22 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        device_code?: string;
-                        user_code?: string;
-                        /** Format: uri */
-                        verification_uri?: string;
-                        /** Format: uri */
-                        verification_uri_complete?: string;
-                        expires_in?: number;
-                        interval?: number;
+                        device_code: string;
+                        user_code: string;
+                        /**
+                         * Format: uri
+                         * @description The approve URL the human opens
+                         */
+                        verification_uri: string;
+                        /**
+                         * Format: uri
+                         * @description The same URL with the user code prefilled
+                         */
+                        verification_uri_complete: string;
+                        /** @description Seconds until the device code expires (600) */
+                        expires_in: number;
+                        /** @description Poll interval in seconds (5) */
+                        interval: number;
                     };
                 };
             };
@@ -2083,14 +2094,15 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Tokens (access_token, refresh_token on first approval) */
+            /** @description Tokens. First approval returns access_token plus the initial refresh_token; a refresh exchange returns access_token plus a REPLACEMENT refresh_token (the old one is invalidated by the same call). An absent refresh_token signals revocation: restart the ceremony. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        access_token?: string;
+                        access_token: string;
+                        /** @description Present on first approval and on every refresh exchange (rotation); absent only when the grant is revoked or expired */
                         refresh_token?: string;
                     };
                 };
