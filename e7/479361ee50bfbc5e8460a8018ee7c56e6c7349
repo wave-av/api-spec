@@ -1,0 +1,31 @@
+openapi.yaml
+  s_13086dcbacd4a6::t_63380b96351d1f 201-221,242-243
+  s_13086dcbacd4a6::t_5ba255676c5564 132-135
+  s_13086dcbacd4a6::t_ae85522e4a154f 167-168
+generated/api-types.d.ts
+  s_727a7865b9cf0a::t_40b78c11ac244e 24-27,2044,2076-2081,2107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "e7479361ee50bfbc5e8460a8018ee7c56e6c7349",
+  "prompts": {},
+  "sessions": {
+    "s_13086dcbacd4a6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fef676a74ffeGDIpvQIhMKNdae",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    },
+    "s_727a7865b9cf0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9c4cb020-d377-430e-9356-a2a574828c3f",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
