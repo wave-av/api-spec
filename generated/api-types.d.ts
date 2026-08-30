@@ -49,8 +49,10 @@ export interface paths {
          * Poll for / refresh the ceremony tokens
          * @description Two grants, whitelisted exactly:
          *     `device_code` - poll with the device_code from the device endpoint at the given
-         *     interval. While approval is pending the upstream 400 body passes through
-         *     verbatim (`authorization_pending`, `slow_down`, `expired_token`,
+         *     interval, with grant_type `urn:ietf:params:oauth:grant-type:device_code` (the
+         *     registered RFC 8628 URN Privy's live token endpoint requires; bare `device_code`
+         *     is also accepted at this seam). While approval is pending the upstream 400 body
+         *     passes through verbatim (`authorization_pending`, `slow_down`, `expired_token`,
          *     `access_denied`) - these are the polling protocol, not failures to hide. On
          *     approval the response carries `access_token` and `refresh_token`.
          *     `refresh_token` - exchange a refresh token for a new access token; the old refresh
@@ -2084,7 +2086,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    grant_type: "device_code";
+                    grant_type: "urn:ietf:params:oauth:grant-type:device_code";
                     device_code: string;
                 } | {
                     /** @enum {string} */
