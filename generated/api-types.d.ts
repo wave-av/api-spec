@@ -4,6 +4,64 @@
  */
 
 export interface paths {
+    "/agent/auth/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the OAuth Device Authorization ceremony (RFC 8628)
+         * @description The agent-auth bootstrap: an agent with no WAVE credential yet requests a device
+         *     code, then a human approves wallet access in a browser once. Proxies Privy's
+         *     device authorization endpoint; the app secret never reaches the agent, and every
+         *     later wallet operation uses short-lived tokens plus an ephemeral signing key.
+         *
+         *     The response carries `device_code` (secret, poll with it), `user_code` (short,
+         *     human-readable), `verification_uri_complete` (the approve URL - a page at
+         *     `/agent/auth/verify` on the api host echoing the code, no /v1 prefix),
+         *     `expires_in` (seconds, 600), and `interval` (poll interval seconds, 5).
+         *
+         *     A 403 means device authorization is not enabled for the app in the Privy
+         *     dashboard - an operator action, not a caller error.
+         */
+        post: operations["agentAuthDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/auth/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Poll for / refresh the ceremony tokens
+         * @description Two grants, whitelisted exactly:
+         *     `device_code` - poll with the device_code from the device endpoint at the given
+         *     interval. While approval is pending the upstream 400 body passes through
+         *     verbatim (`authorization_pending`, `slow_down`, `expired_token`,
+         *     `access_denied`) - these are the polling protocol, not failures to hide. On
+         *     approval the response carries `access_token` and `refresh_token`.
+         *     `refresh_token` - exchange a refresh token for a new access token; the old
+         *     refresh token is invalidated immediately.
+         */
+        post: operations["agentAuthToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/batch": {
         parameters: {
             query?: never;
@@ -1946,6 +2004,123 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    agentAuthDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The device grant (codes, verification URI, expiry, poll interval) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        device_code?: string;
+                        user_code?: string;
+                        /** Format: uri */
+                        verification_uri?: string;
+                        /** Format: uri */
+                        verification_uri_complete?: string;
+                        expires_in?: number;
+                        interval?: number;
+                    };
+                };
+            };
+            /** @description Device authorization not enabled for the app (dashboard toggle) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Upstream auth endpoint unreachable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ceremony not configured on this deployment (no app id) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    agentAuthToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    grant_type: "device_code" | "refresh_token";
+                    /** @description Required when grant_type is device_code */
+                    device_code?: string;
+                    /** @description Required when grant_type is refresh_token */
+                    refresh_token?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Tokens (access_token, refresh_token on first approval) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        access_token?: string;
+                        refresh_token?: string;
+                    };
+                };
+            };
+            /** @description Invalid grant_type, missing credential for the grant, or the upstream polling protocol error passed through verbatim */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Upstream auth endpoint unreachable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ceremony not configured on this deployment (no app id) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     batchOperations: {
         parameters: {
             query?: never;

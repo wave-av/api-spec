@@ -38,6 +38,14 @@ security:
   - BearerAuth: []
 
 tags:
+  - name: Agent Auth
+    description: >-
+      The OAuth Device Authorization Grant (RFC 8628) ceremony that lets a self-hosted
+      agent or CLI act on a user's wallets: the agent requests a device code, the user
+      approves once in a browser, then the agent holds tokens and signs with ephemeral
+      keys — no app secret ever ships to the agent. These two routes are the
+      pre-credential bootstrap (no Bearer token required; that is the point of the
+      grant), served as a proxy over Privy's device authorization endpoints.
   - name: Clips
     description: AI-powered highlight detection and clip management
   - name: Voice
@@ -108,6 +116,129 @@ tags:
       key NAME, org, channels). Read-only; public-directory data only, never secret material.
 
 paths:
+  /agent/auth/device:
+    post:
+      operationId: agentAuthDevice
+      tags: [Agent Auth]
+      security: []
+      summary: Start the OAuth Device Authorization ceremony (RFC 8628)
+      description: |
+        The agent-auth bootstrap: an agent with no WAVE credential yet requests a device
+        code, then a human approves wallet access in a browser once. Proxies Privy's
+        device authorization endpoint; the app secret never reaches the agent, and every
+        later wallet operation uses short-lived tokens plus an ephemeral signing key.
+
+        The response carries `device_code` (secret, poll with it), `user_code` (short,
+        human-readable), `verification_uri_complete` (the approve URL - a page at
+        `/agent/auth/verify` on the api host echoing the code, no /v1 prefix),
+        `expires_in` (seconds, 600), and `interval` (poll interval seconds, 5).
+
+        A 403 means device authorization is not enabled for the app in the Privy
+        dashboard - an operator action, not a caller error.
+      responses:
+        "200":
+          description: The device grant (codes, verification URI, expiry, poll interval)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device_code:
+                    type: string
+                  user_code:
+                    type: string
+                  verification_uri:
+                    type: string
+                    format: uri
+                  verification_uri_complete:
+                    type: string
+                    format: uri
+                  expires_in:
+                    type: integer
+                  interval:
+                    type: integer
+        "403":
+          description: Device authorization not enabled for the app (dashboard toggle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Upstream auth endpoint unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: Ceremony not configured on this deployment (no app id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /agent/auth/token:
+    post:
+      operationId: agentAuthToken
+      tags: [Agent Auth]
+      security: []
+      summary: Poll for / refresh the ceremony tokens
+      description: |
+        Two grants, whitelisted exactly:
+        `device_code` - poll with the device_code from the device endpoint at the given
+        interval. While approval is pending the upstream 400 body passes through
+        verbatim (`authorization_pending`, `slow_down`, `expired_token`,
+        `access_denied`) - these are the polling protocol, not failures to hide. On
+        approval the response carries `access_token` and `refresh_token`.
+        `refresh_token` - exchange a refresh token for a new access token; the old
+        refresh token is invalidated immediately.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [grant_type]
+              properties:
+                grant_type:
+                  type: string
+                  enum: [device_code, refresh_token]
+                device_code:
+                  type: string
+                  description: Required when grant_type is device_code
+                refresh_token:
+                  type: string
+                  description: Required when grant_type is refresh_token
+      responses:
+        "200":
+          description: Tokens (access_token, refresh_token on first approval)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+        "400":
+          description: >-
+            Invalid grant_type, missing credential for the grant, or the upstream
+            polling protocol error passed through verbatim
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Upstream auth endpoint unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: Ceremony not configured on this deployment (no app id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /batch:
     post:
       operationId: batchOperations
