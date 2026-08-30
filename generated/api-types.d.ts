@@ -4,6 +4,68 @@
  */
 
 export interface paths {
+    "/agent/auth/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the OAuth Device Authorization ceremony (RFC 8628)
+         * @description The agent-auth bootstrap: an agent with no WAVE credential yet requests a device
+         *     code, then a human approves wallet access in a browser once. Proxies Privy's
+         *     device authorization endpoint; the app secret never reaches the agent, and every
+         *     later wallet operation uses short-lived tokens plus an ephemeral signing key.
+         *
+         *     The response carries `device_code` (secret, poll with it), `user_code` (short,
+         *     human-readable), `verification_uri` (the approve URL), `verification_uri_complete`
+         *     (the same URL with the user code prefilled - a page at `/agent/auth/verify` on the
+         *     api host, no /v1 prefix), `expires_in` (seconds, 600), and `interval` (poll
+         *     interval seconds, 5).
+         *
+         *     A 403 means device authorization is not enabled for the app in the Privy
+         *     dashboard - an operator action, not a caller error.
+         */
+        post: operations["agentAuthDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/auth/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Poll for / refresh the ceremony tokens
+         * @description Two grants, whitelisted exactly:
+         *     `device_code` - poll with the device_code from the device endpoint at the given
+         *     interval. While approval is pending the upstream 400 body passes through
+         *     verbatim (`authorization_pending`, `slow_down`, `expired_token`,
+         *     `access_denied`) - these are the polling protocol, not failures to hide. On
+         *     approval the response carries `access_token` and `refresh_token`.
+         *     `refresh_token` - exchange a refresh token for a new access token; the old refresh
+         *     token is invalidated immediately and a REPLACEMENT refresh_token is returned in
+         *     the same response, so a client that stores it never loses its refresh credential.
+         *     An absent refresh_token in a refresh response means the grant was revoked
+         *     (or the token expired): restart the ceremony from the device endpoint.
+         */
+        post: operations["agentAuthToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/batch": {
         parameters: {
             query?: never;
@@ -1946,6 +2008,135 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    agentAuthDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The device grant (codes, verification URI, expiry, poll interval) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        device_code: string;
+                        user_code: string;
+                        /**
+                         * Format: uri
+                         * @description The approve URL the human opens
+                         */
+                        verification_uri: string;
+                        /**
+                         * Format: uri
+                         * @description The same URL with the user code prefilled
+                         */
+                        verification_uri_complete: string;
+                        /** @description Seconds until the device code expires (600) */
+                        expires_in: number;
+                        /** @description Poll interval in seconds (5) */
+                        interval: number;
+                    };
+                };
+            };
+            /** @description Device authorization not enabled for the app (dashboard toggle) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            /** @description Upstream auth endpoint unreachable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ceremony not configured on this deployment (no app id) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    agentAuthToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    grant_type: "device_code";
+                    device_code: string;
+                } | {
+                    /** @enum {string} */
+                    grant_type: "refresh_token";
+                    refresh_token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Tokens. First approval returns access_token plus the initial refresh_token; a refresh exchange returns access_token plus a REPLACEMENT refresh_token (the old one is invalidated by the same call). An absent refresh_token signals revocation: restart the ceremony. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        access_token: string;
+                        /** @description Present on first approval and on every refresh exchange (rotation); absent only when the grant is revoked or expired */
+                        refresh_token?: string;
+                    };
+                };
+            };
+            /** @description Invalid grant_type, missing credential for the grant, or the upstream polling protocol error passed through verbatim */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            /** @description Upstream auth endpoint unreachable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ceremony not configured on this deployment (no app id) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     batchOperations: {
         parameters: {
             query?: never;
