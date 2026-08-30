@@ -21,9 +21,10 @@ export interface paths {
          *     later wallet operation uses short-lived tokens plus an ephemeral signing key.
          *
          *     The response carries `device_code` (secret, poll with it), `user_code` (short,
-         *     human-readable), `verification_uri_complete` (the approve URL - a page at
-         *     `/agent/auth/verify` on the api host echoing the code, no /v1 prefix),
-         *     `expires_in` (seconds, 600), and `interval` (poll interval seconds, 5).
+         *     human-readable), `verification_uri` (the approve URL), `verification_uri_complete`
+         *     (the same URL with the user code prefilled - a page at `/agent/auth/verify` on the
+         *     api host, no /v1 prefix), `expires_in` (seconds, 600), and `interval` (poll
+         *     interval seconds, 5).
          *
          *     A 403 means device authorization is not enabled for the app in the Privy
          *     dashboard - an operator action, not a caller error.
@@ -2040,6 +2041,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            429: components["responses"]["RateLimitError"];
             /** @description Upstream auth endpoint unreachable */
             502: {
                 headers: {
@@ -2071,11 +2073,12 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    grant_type: "device_code" | "refresh_token";
-                    /** @description Required when grant_type is device_code */
-                    device_code?: string;
-                    /** @description Required when grant_type is refresh_token */
-                    refresh_token?: string;
+                    grant_type: "device_code";
+                    device_code: string;
+                } | {
+                    /** @enum {string} */
+                    grant_type: "refresh_token";
+                    refresh_token: string;
                 };
             };
         };
@@ -2101,6 +2104,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            429: components["responses"]["RateLimitError"];
             /** @description Upstream auth endpoint unreachable */
             502: {
                 headers: {

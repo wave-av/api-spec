@@ -129,9 +129,10 @@ paths:
         later wallet operation uses short-lived tokens plus an ephemeral signing key.
 
         The response carries `device_code` (secret, poll with it), `user_code` (short,
-        human-readable), `verification_uri_complete` (the approve URL - a page at
-        `/agent/auth/verify` on the api host echoing the code, no /v1 prefix),
-        `expires_in` (seconds, 600), and `interval` (poll interval seconds, 5).
+        human-readable), `verification_uri` (the approve URL), `verification_uri_complete`
+        (the same URL with the user code prefilled - a page at `/agent/auth/verify` on the
+        api host, no /v1 prefix), `expires_in` (seconds, 600), and `interval` (poll
+        interval seconds, 5).
 
         A 403 means device authorization is not enabled for the app in the Privy
         dashboard - an operator action, not a caller error.
@@ -163,6 +164,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
         "502":
           description: Upstream auth endpoint unreachable
           content:
@@ -195,18 +198,27 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [grant_type]
-              properties:
-                grant_type:
-                  type: string
-                  enum: [device_code, refresh_token]
-                device_code:
-                  type: string
-                  description: Required when grant_type is device_code
-                refresh_token:
-                  type: string
-                  description: Required when grant_type is refresh_token
+              oneOf:
+                - title: DeviceCodeGrant
+                  description: Poll for tokens while approval is pending (grant_type=device_code)
+                  type: object
+                  required: [grant_type, device_code]
+                  properties:
+                    grant_type:
+                      type: string
+                      enum: [device_code]
+                    device_code:
+                      type: string
+                - title: RefreshTokenGrant
+                  description: Exchange a refresh token for a new access token (grant_type=refresh_token)
+                  type: object
+                  required: [grant_type, refresh_token]
+                  properties:
+                    grant_type:
+                      type: string
+                      enum: [refresh_token]
+                    refresh_token:
+                      type: string
       responses:
         "200":
           description: Tokens (access_token, refresh_token on first approval)
@@ -227,6 +239,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
         "502":
           description: Upstream auth endpoint unreachable
           content:
