@@ -2085,8 +2085,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @enum {string} */
-                    grant_type: "urn:ietf:params:oauth:grant-type:device_code";
+                    /**
+                     * @description The registered RFC 8628 URN (canonical, what the upstream token endpoint requires) or the bare shorthand (accepted at this seam and canonicalized to the URN before forwarding)
+                     * @enum {string}
+                     */
+                    grant_type: "urn:ietf:params:oauth:grant-type:device_code" | "device_code";
                     device_code: string;
                 } | {
                     /** @enum {string} */
