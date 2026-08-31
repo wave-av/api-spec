@@ -1,0 +1,20 @@
+openapi.yaml
+  s_13086dcbacd4a6::t_784930069768b2 199-203,214,225,234-238,243,249-251
+  s_13086dcbacd4a6::t_efde9ff8ae1009 146,155,159,162,165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "e3ef0542000e37d0b92ba3700ac7959ff82dcf54",
+  "prompts": {},
+  "sessions": {
+    "s_13086dcbacd4a6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fef676a74ffeGDIpvQIhMKNdae",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
