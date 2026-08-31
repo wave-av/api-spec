@@ -1,0 +1,19 @@
+.github/.token-budget-baseline
+  s_698bf2658b3146::t_4b79dbc0d08e97 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "c4a482cb76557192b7189b4c0d8fcadb92b4384e",
+  "prompts": {},
+  "sessions": {
+    "s_698bf2658b3146": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "968b7da8-2338-4c75-b96e-b606f0948603",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
