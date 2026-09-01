@@ -38,6 +38,14 @@ security:
   - BearerAuth: []
 
 tags:
+  - name: Pricing
+    description: Seller-facing pricing tier manifests (pricing-pages).
+  - name: Custody
+    description: Money-engine held-fund capability operations (operator-plane).
+  - name: Engine
+    description: The media-engine capability contract.
+  - name: Gpu
+    description: The WAVE-hosted GPU inference plane.
   - name: Agent Auth
     description: >-
       The OAuth Device Authorization Grant (RFC 8628) ceremony that lets a self-hosted
@@ -2043,6 +2051,179 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimitError'
 
+  /pricing/manifests:
+    get:
+      tags: [Pricing]
+      summary: List the caller-org's pricing tier manifests
+      operationId: pricingManifestsList
+      description: |
+        Gateway-native read (pricing-pages E0). Returns every pricing manifest the
+        authenticated org has published, newest-first. Requires `pricing:read`.
+        Org is the VALIDATED principal only — no cross-org reads.
+      responses:
+        '200':
+          description: The org's manifests
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [org, manifests]
+                properties:
+                  org: { type: string }
+                  manifests:
+                    type: array
+                    items: { $ref: '#/components/schemas/PricingManifest' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Pricing]
+      summary: Validate + upsert the caller-org's tier manifest
+      operationId: pricingManifestsCreate
+      description: |
+        Gateway-native write (pricing-pages E0). Validates the tier manifest against the
+        rail law server-side and upserts it for the caller-org. Requires `pricing:write`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, tiers]
+              properties:
+                slug: { type: string }
+                tiers: { type: array, items: { type: object, additionalProperties: true } }
+      responses:
+        '200':
+          description: The upserted manifest
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PricingManifest' }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /custody/{op}:
+    post:
+      tags: [Custody]
+      summary: Held-fund capability operation (grant / revoke / inspect / exercise)
+      operationId: custodyOperation
+      description: |
+        The money-engine custody surface (capability-custody). `op` is one of
+        grant | revoke | inspect | exercise. Every operation is scoped to the
+        authenticated principal's org; grants persist METADATA in the CapabilityAccount DO and
+        the secret envelope ciphertext-only in KV (crypto-shreddable on revoke). Requires
+        `custody:write` — deliberately NOT in UNIFORM_CUSTOMER_SCOPES (operator-plane).
+      parameters:
+        - name: op
+          in: path
+          required: true
+          description: The custody operation
+          schema: { type: string, enum: [grant, revoke, inspect, exercise] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [grantId]
+              properties:
+                grantId: { type: string }
+                provider: { type: string }
+                scopes: { type: array, items: { type: string } }
+                ttlSeconds: { type: number }
+      responses:
+        '200':
+          description: The operation receipt (metadata only — never a secret field)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          description: CUSTODY_UNCONFIGURED — bindings/flag absent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /engine/capabilities:
+    get:
+      tags: [Engine]
+      summary: The media-engine capability contract
+      operationId: engineCapabilities
+      description: |
+        Served through the WAVE gateway (engine:read). Returns the engine's capability
+        JSON — the codecs/operations this deployment accepts.
+      responses:
+        '200':
+          description: The capability contract
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /gpu/infer:
+    post:
+      tags: [Gpu]
+      summary: Dispatch a GPU inference job on the WAVE-hosted GPU plane
+      operationId: gpuInfer
+      description: |
+        The WAVE-hosted GPU inference plane (RunPod-backed). Requires `gpu:write`. Metered
+        as wave_edge_gpu_hours, billed verbatim.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model: { type: string }
+                input: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: The job receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    get:
+      tags: [Gpu]
+      summary: GPU plane status
+      operationId: gpuStatus
+      description: Requires `gpu:read`.
+      responses:
+        '200':
+          description: Plane status
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -3920,6 +4101,17 @@ components:
           type: object
           additionalProperties: true
           description: Scheme-specific metadata (e.g. settlement mode, session id).
+
+    PricingManifest:
+      type: object
+      properties:
+        slug: { type: string }
+        org: { type: string }
+        tiers: { type: array, items: { type: object, additionalProperties: true } }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+      additionalProperties: true
+
 
     IdentityResolveResponse:
       description: >
