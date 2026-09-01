@@ -970,8 +970,8 @@ export interface paths {
         };
         /**
          * The media-engine capability contract
-         * @description Served by wave-media-engine (engine.wave.online) through the gateway (engine:read).
-         *     Returns the engine's capability JSON — the codecs/operations this deployment accepts.
+         * @description Served through the WAVE gateway (engine:read). Returns the engine's capability
+         *     JSON — the codecs/operations this deployment accepts.
          */
         get: operations["engineCapabilities"];
         put?: never;
@@ -997,8 +997,8 @@ export interface paths {
         put?: never;
         /**
          * Dispatch a GPU inference job on the WAVE-hosted GPU plane
-         * @description wave-gpu-edge (Phase C, RunPod-backed). Requires `gpu:write`. The gateway stamps
-         *     x-wave-gateway-secret; the edge emits x-wave-meter: wave_edge_gpu_hours billed verbatim.
+         * @description The WAVE-hosted GPU inference plane (RunPod-backed). Requires `gpu:write`. Metered
+         *     as wave_edge_gpu_hours, billed verbatim.
          */
         post: operations["gpuInfer"];
         delete?: never;
