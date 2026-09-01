@@ -1,0 +1,14 @@
+generated/api-types.d.ts
+  h_af5ac1a9798224 913-1009,1953-1970,4131-4330
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "76146bf91cc34515dab7d032fec972774aaa9220",
+  "prompts": {},
+  "humans": {
+    "h_af5ac1a9798224": {
+      "author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
