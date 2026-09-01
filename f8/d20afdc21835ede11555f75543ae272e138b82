@@ -1,0 +1,16 @@
+generated/api-types.d.ts
+  h_af5ac1a9798224 4176,4213,4222
+openapi.yaml
+  h_af5ac1a9798224 2149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "f8d20afdc21835ede11555f75543ae272e138b82",
+  "prompts": {},
+  "humans": {
+    "h_af5ac1a9798224": {
+      "author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
