@@ -38,6 +38,14 @@ security:
   - BearerAuth: []
 
 tags:
+  - name: Pricing
+    description: Seller-facing pricing tier manifests (pricing-pages).
+  - name: Custody
+    description: Money-engine held-fund capability operations (operator-plane).
+  - name: Engine
+    description: The media-engine capability contract.
+  - name: Gpu
+    description: The WAVE-hosted GPU inference plane.
   - name: Agent Auth
     description: >-
       The OAuth Device Authorization Grant (RFC 8628) ceremony that lets a self-hosted
