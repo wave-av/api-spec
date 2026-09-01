@@ -2146,7 +2146,7 @@ paths:
           description: CUSTODY_UNCONFIGURED — bindings/flag absent
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ValidationError' }
+              schema: { $ref: '#/components/schemas/Error' }
 
   /engine/capabilities:
     get:

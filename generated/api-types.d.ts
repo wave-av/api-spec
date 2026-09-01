@@ -1961,13 +1961,6 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        ValidationError: {
-            ok?: boolean;
-            error?: {
-                code?: string;
-                message?: string;
-            };
-        };
         /** @description The resolved fleet directory entry, DISCRIMINATED on the outer `agent` value: `agent: "telephony"` serves the TelephonyResolveResponse variant; every other directory key serves the AgentResolveResponse variant. Generated clients can narrow on `agent`. */
         IdentityResolveResponse: components["schemas"]["AgentResolveResponse"] | components["schemas"]["TelephonyResolveResponse"];
         AgentResolveResponse: {
@@ -4180,15 +4173,7 @@ export interface operations {
                     "application/json": components["schemas"]["PricingManifest"];
                 };
             };
-            /** @description Manifest fails the rail-law validation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ValidationError"];
-                };
-            };
+            400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };
@@ -4225,15 +4210,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description INVALID_JSON / unknown op / bad grant id */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ValidationError"];
-                };
-            };
+            400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             /** @description CUSTODY_UNCONFIGURED — bindings/flag absent */
@@ -4242,7 +4219,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ValidationError"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
