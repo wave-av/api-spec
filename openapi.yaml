@@ -2093,10 +2093,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PricingManifest' }
         '400':
-          description: Manifest fails the rail-law validation
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ValidationError' }
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2140,10 +2137,7 @@ paths:
                 type: object
                 additionalProperties: true
         '400':
-          description: INVALID_JSON / unknown op / bad grant id
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ValidationError' }
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4110,15 +4104,6 @@ components:
         updatedAt: { type: string }
       additionalProperties: true
 
-    ValidationError:
-      type: object
-      properties:
-        ok: { type: boolean }
-        error:
-          type: object
-          properties:
-            code: { type: string }
-            message: { type: string }
 
     IdentityResolveResponse:
       description: >
