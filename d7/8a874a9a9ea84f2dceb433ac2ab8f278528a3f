@@ -1,0 +1,21 @@
+README.md
+  s_4657dee555390b::t_1f1b5d26487189 3
+package.json
+  s_4657dee555390b::t_4951eea433722d 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "d78a874a9a9ea84f2dceb433ac2ab8f278528a3f",
+  "prompts": {},
+  "sessions": {
+    "s_4657dee555390b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c714314b-1edf-4e54-a112-2a97f2377df1",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
