@@ -72,6 +72,14 @@ All notable changes to this project are documented here. The format is based on
   now declined with a warning rather than silently running.
   (wave-av/wave-foundation-public#73)
 
+- **`X402PaymentRequired.error_detail` nesting** (`openapi.yaml`): `error_detail` referenced the
+  `Error` envelope (`{ error: { code, ... } }`), but the gateway nests the bare error object
+  directly under `error_detail` (`{ code, message, ... }`), with no inner `error` wrapper —
+  confirmed against a live 402 receipt (`curl https://api.wave.online/v1/clips`). The inner
+  object is now extracted as the `ErrorBody` component schema (referenced by `Error`, so every
+  other response is unchanged) and `error_detail` composes `ErrorBody` instead, matching the wire
+  shape so generated types no longer expect a nonexistent `error_detail.error` member.
+
 ### Added
 
 - **Fleet agent directory resolve** (`GET /identity/resolve`) — identity-fabric E1. Adds the
@@ -105,6 +113,14 @@ All notable changes to this project are documented here. The format is based on
     tag description explains the direct-to-relay flow, the `join` query parameter /
     `x-wave-moq-join` header token carriers, and pins the surface to
     `draft-ietf-moq-transport-18` (draft-19, published 2026-07-06, is not yet deployed).
+- **`X402PaymentRequired.error_detail.payment_rejected`** (`openapi.yaml`) — documents the
+  additive `{ reason, rail }` deny verdict the gateway now publishes on a 402 when a submitted
+  payment was REJECTED, so generated types and docs can discover the diagnostic field. Optional
+  and conditional: absent on an ordinary unpaid challenge, present with a rejection reason token
+  and rail name when a submitted credential was denied — confirmed against a live rejected-payment
+  receipt (`curl -H "X-PAYMENT: <malformed>" https://api.wave.online/v1/clips`), which returned
+  `error_detail.payment_rejected: { reason: "invalid_payment_header", rail: "base-usdc" }`.
+  Closes #46.
 - **WAVE Attestation Standard v1** (`attestation/` directory):
   - `attestation/ATTESTATION-STANDARD-v1.md` — Frozen v1 specification: wire envelope
     shape, field types, canonicalization algorithm (`canonicalJson` + `attestationId`),
