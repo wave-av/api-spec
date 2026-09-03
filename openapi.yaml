@@ -10028,7 +10028,7 @@ components:
             camera-control:write: Grants the camera-control capability.
             cameras:write: Grants the cameras capability.
             campus:write: Grants the campus capability.
-            captions:write: Grants the live capability.
+            captions:write: Grants the captions capability.
             challenge:write: Grants the challenge capability.
             chapters:write: Grants the chapters capability.
             ci:write: Grants the ci capability.

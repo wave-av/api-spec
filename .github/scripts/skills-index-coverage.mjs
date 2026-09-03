@@ -59,12 +59,27 @@ try {
   console.error(`could not read/parse ${ALLOWLIST_PATH}: ${err.message}`);
   process.exit(2);
 }
-const allowSet = new Set(allowlist.map((e) => norm(e.name)));
+const allowByName = new Map(allowlist.map((e) => [norm(e.name), e]));
 for (const e of allowlist) {
   if (!e.name || !e.justification) {
     console.error(`allowlist entry missing name/justification: ${JSON.stringify(e)}`);
     process.exit(2);
   }
+}
+
+// Dotted-path lookup for `expect` predicates, e.g. "pricing.model" -> skill.pricing.model.
+function getPath(obj, path) {
+  return path.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), obj);
+}
+
+// An allowlist entry with an `expect` predicate is honored ONLY while the live skill's
+// metadata still matches every expected field — if the gateway later reprices or rescopes
+// the capability, the exemption stops applying and coverage is enforced again instead of
+// silently staying exempt on a name match alone.
+function allowlistStillApplies(entry, liveSkill) {
+  if (!entry.expect) return true;
+  if (!liveSkill) return false;
+  return Object.entries(entry.expect).every(([path, expected]) => getPath(liveSkill, path) === expected);
 }
 
 const covered = new Set();
@@ -76,25 +91,56 @@ for (const t of doc.tags ?? []) {
   if (t.name) covered.add(norm(t.name));
 }
 
+const FETCH_TIMEOUT_MS = 20_000;
+
 let skills;
 try {
-  const res = await fetch(SKILLS_INDEX_URL);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(SKILLS_INDEX_URL, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   skills = await res.json();
 } catch (err) {
-  console.error(`could not fetch ${SKILLS_INDEX_URL}: ${err.message}`);
+  const reason = err.name === 'AbortError' ? `timed out after ${FETCH_TIMEOUT_MS}ms` : err.message;
+  console.error(`could not fetch ${SKILLS_INDEX_URL}: ${reason}`);
+  process.exit(2);
+}
+
+if (!Array.isArray(skills)) {
+  console.error(`${SKILLS_INDEX_URL} did not return an array (got ${typeof skills}): ${JSON.stringify(skills).slice(0, 200)}`);
   process.exit(2);
 }
 
 const missing = [];
+let allowlistedCount = 0;
 for (const s of skills) {
+  if (!s || typeof s.name !== 'string') {
+    console.error(`skills-index entry missing a string "name": ${JSON.stringify(s)}`);
+    process.exit(2);
+  }
   const key = norm(s.name);
   if (covered.has(key)) continue;
-  if (allowSet.has(key)) continue;
+  const entry = allowByName.get(key);
+  if (entry) {
+    if (allowlistStillApplies(entry, s)) {
+      allowlistedCount++;
+      continue;
+    }
+    console.error(
+      `::error::allowlist entry "${entry.name}" no longer matches its "expect" predicate against the ` +
+      `live skill (${JSON.stringify(entry.expect)} vs live ${JSON.stringify(s)}) — treating "${s.name}" as ` +
+      `uncovered instead of silently honoring a stale exemption.`,
+    );
+  }
   missing.push(s.name);
 }
 
-console.log(`skills-index-coverage: ${skills.length - missing.length}/${skills.length} live capabilities covered (${allowlist.length} allowlisted)`);
+console.log(`skills-index-coverage: ${skills.length - missing.length}/${skills.length} live capabilities covered (${allowlistedCount} allowlisted)`);
 if (missing.length) {
   console.error(`::error::${missing.length} live priced capabilities have no matching operation/tag in ${specPath}: ${missing.join(', ')}`);
   process.exit(1);
