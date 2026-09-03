@@ -144,3 +144,23 @@ jobs:
               exit 1
             fi
           fi
+
+  # Docs are GENERATED from openapi.yaml, but the gateway's live capability index is the actual
+  # source of truth for what customers can call and pay for — the two drift when a capability
+  # ships at the gateway before anyone documents it here. This job fetches the live index and
+  # fails if a live, non-allowlisted capability has no matching operation/tag in the spec.
+  # See .github/scripts/skills-index-coverage.mjs and the allowlist next to it.
+  skills-index-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+      - name: Check every live priced capability has an operation
+        run: node .github/scripts/skills-index-coverage.mjs openapi.yaml
