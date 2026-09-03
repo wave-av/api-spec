@@ -156,9 +156,7 @@ tags:
       WAVE ai API — priced capability surface documented from the live gateway
       skills index; the request/response shape is not yet published (draft).
   - name: Analytics
-    description: >-
-      WAVE analytics API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+    description: Account-level usage and engagement analytics.
   - name: Api Gateway
     description: >-
       WAVE api-gateway API — priced capability surface documented from the live gateway
@@ -196,9 +194,7 @@ tags:
       WAVE benchmark API — priced capability surface documented from the live gateway
       skills index; the request/response shape is not yet published (draft).
   - name: Billing
-    description: >-
-      WAVE billing API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+    description: Account billing status and usage-based billing detail.
   - name: Bmd
     description: >-
       WAVE bmd API — priced capability surface documented from the live gateway
@@ -217,8 +213,8 @@ tags:
       skills index; the request/response shape is not yet published (draft).
   - name: Cameras
     description: >-
-      WAVE cameras API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+      Managed PTZ/robotic camera registration and control-command dispatch
+      (iris, focus, zoom, white balance, gain, shutter, recording, presets).
   - name: Campus
     description: >-
       WAVE campus API — priced capability surface documented from the live gateway
@@ -381,8 +377,10 @@ tags:
       skills index; the request/response shape is not yet published (draft).
   - name: Live
     description: >-
-      WAVE live API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+      Real-time audio transcription, with an optional fast-LLM step (summarize,
+      moderate, translate, or a custom instruction) run over the transcript. Processes
+      one provided audio chunk per call — it does not attach a persistent caption feed
+      to a live stream.
   - name: Live Annotation
     description: >-
       WAVE live-annotation API — priced capability surface documented from the live gateway
@@ -416,9 +414,7 @@ tags:
       WAVE mobile-producer API — priced capability surface documented from the live gateway
       skills index; the request/response shape is not yet published (draft).
   - name: Moderate
-    description: >-
-      WAVE moderate API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+    description: AI-assisted content moderation for chat, comments, and other text surfaces.
   - name: Monetization
     description: >-
       WAVE monetization API — priced capability surface documented from the live gateway
@@ -501,8 +497,8 @@ tags:
       skills index; the request/response shape is not yet published (draft).
   - name: Productions
     description: >-
-      WAVE productions API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+      Multi-camera production sessions — program/preview camera switching and
+      graphics-overlay control for a live production.
   - name: Products
     description: >-
       WAVE products API — priced capability surface documented from the live gateway
@@ -629,8 +625,8 @@ tags:
       skills index; the request/response shape is not yet published (draft).
   - name: Streams
     description: >-
-      WAVE streams API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+      Live stream lifecycle — create a stream, start/stop it, read its status and
+      per-stream analytics, and mark highlight moments for later clipping.
   - name: Studio
     description: >-
       WAVE studio API — priced capability surface documented from the live gateway
@@ -661,8 +657,8 @@ tags:
       skills index; the request/response shape is not yet published (draft).
   - name: Usage
     description: >-
-      WAVE usage API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+      Raw per-dimension usage totals from the underlying meter ledger — see Billing
+      for the billed-and-priced view.
   - name: USB Relay
     description: >-
       WAVE usb-relay API — priced capability surface documented from the live gateway
@@ -1108,6 +1104,1215 @@ paths:
           $ref: '#/components/responses/RateLimitError'
 
   # Clips API
+  # Streams — live stream lifecycle (MCP-18 contract rows 1-7)
+  /streams:
+    get:
+      tags: [Streams]
+      summary: List streams
+      description: >-
+        List the caller's streams, newest first. Requires the `streams:read` scope.
+      operationId: listStreams
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of streams to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: status
+          in: query
+          description: Filter by stream status.
+          schema:
+            type: string
+            enum: [idle, live, ended]
+      responses:
+        '200':
+          description: Paginated list of streams
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [streams, total, limit, offset]
+                properties:
+                  streams:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Stream'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Streams]
+      summary: Create a stream
+      description: >-
+        Create a stream. Provisions a Cloudflare Stream live input and returns its
+        ingest/playback URLs. Requires the `streams:write` scope.
+      operationId: createStream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStreamRequest'
+      responses:
+        '201':
+          description: Stream created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stream'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /streams/{streamId}:
+    get:
+      tags: [Streams]
+      summary: Get a stream
+      description: Requires the `streams:read` scope.
+      operationId: getStream
+      parameters:
+        - $ref: '#/components/parameters/StreamIdParam'
+      responses:
+        '200':
+          description: Stream details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stream'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /streams/{streamId}/start:
+    post:
+      tags: [Streams]
+      summary: Start a stream
+      description: >-
+        Transition a stream to `live` and open a stream session. Requires the
+        `streams:write` scope.
+      operationId: startStream
+      parameters:
+        - $ref: '#/components/parameters/StreamIdParam'
+      responses:
+        '200':
+          description: Stream started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stream_id:
+                    type: string
+                  session_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [live]
+                  ingest_url:
+                    type: [string, 'null']
+                  started_at:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Stream is already live.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /streams/{streamId}/stop:
+    post:
+      tags: [Streams]
+      summary: Stop a stream
+      description: >-
+        Close the active stream session and transition the stream to `ended`.
+        Requires the `streams:write` scope.
+      operationId: stopStream
+      parameters:
+        - $ref: '#/components/parameters/StreamIdParam'
+      responses:
+        '200':
+          description: Stream stopped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stream_id:
+                    type: string
+                  session_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [ended]
+                  ended_at:
+                    type: string
+                    format: date-time
+                  duration_minutes:
+                    type: number
+                  viewer_count_peak:
+                    type: integer
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Stream is not currently live.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /streams/{streamId}/status:
+    get:
+      tags: [Streams]
+      summary: Get a stream's status
+      description: >-
+        Lightweight status document (connection state, current viewer count).
+        Requires the `streams:read` scope.
+      operationId: getStreamStatus
+      parameters:
+        - $ref: '#/components/parameters/StreamIdParam'
+      responses:
+        '200':
+          description: Stream status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stream_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [idle, live, ended]
+                  current_viewers:
+                    type: integer
+                  protocol_active:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+                  updated_at:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /streams/{streamId}/analytics:
+    get:
+      tags: [Streams]
+      summary: Get a stream's analytics
+      description: >-
+        Aggregated viewer/quality metrics for one stream's sessions. Requires the
+        `streams:read` scope.
+      operationId: getStreamAnalytics
+      parameters:
+        - $ref: '#/components/parameters/StreamIdParam'
+        - name: from
+          in: query
+          description: Range start (ISO 8601 timestamp).
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: Range end (ISO 8601 timestamp).
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Stream analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stream_id:
+                    type: string
+                  metrics:
+                    type: object
+                    properties:
+                      peak_concurrent_viewers:
+                        type: integer
+                      sample_count:
+                        type: integer
+                      avg_quality_score:
+                        type: [number, 'null']
+                  timeseries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                        viewer_count:
+                          type: integer
+                        quality_score:
+                          type: [number, 'null']
+                        latency_ms:
+                          type: [number, 'null']
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /streams/{streamId}/highlights:
+    get:
+      tags: [Streams]
+      summary: List a stream's highlights
+      description: Requires the `streams:read` scope.
+      operationId: listStreamHighlights
+      parameters:
+        - $ref: '#/components/parameters/StreamIdParam'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Paginated list of highlights
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  highlights:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Highlight'
+                  stream_id:
+                    type: string
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    post:
+      tags: [Streams]
+      summary: Mark a highlight
+      description: >-
+        Mark a moment in a stream as a highlight for later clipping. Requires the
+        `streams:write` scope.
+      operationId: markStreamHighlight
+      parameters:
+        - $ref: '#/components/parameters/StreamIdParam'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  maxLength: 255
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: Defaults to now.
+                confidence:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                duration_seconds:
+                  type: number
+                  minimum: 0
+      responses:
+        '201':
+          description: Highlight marked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Highlight'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # Moderation
+  /moderate:
+    post:
+      tags: [Moderate]
+      summary: Moderate content
+      description: >-
+        Run AI-assisted moderation over a piece of text content (a chat message,
+        title, description, comment, username, or bio) and get back an allow/flag/
+        block/review verdict. Requires the `moderate:write` scope. To moderate a chat
+        message, set `contentType` to `chat` and, optionally, `context.streamId` to
+        the stream the message belongs to — this endpoint moderates arbitrary text
+        content; it does not itself track a chat message id or apply an action to a
+        stored message.
+      operationId: moderateContent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerateRequest'
+      responses:
+        '200':
+          description: Moderation verdict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerateResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Live Pipeline
+  /live/pipeline:
+    post:
+      tags: [Live]
+      summary: Transcribe an audio clip and run a fast-LLM step over it
+      description: >-
+        Transcribes ONE provided audio chunk (multipart `file`, max 25MB) and,
+        given `llm_model`, optionally runs a fast-LLM step (`mode`: summarize,
+        moderate, translate, or custom) over the transcript. This does NOT attach a
+        persistent caption feed to a live stream — call it once per audio chunk.
+        Requires the account's live-pipeline feature to be armed; a 404 means it is
+        not enabled for this account. Requires the `captions:write` scope.
+      operationId: startLivePipeline
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, llm_model]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Audio bytes to transcribe.
+                stream_id:
+                  type: string
+                  maxLength: 128
+                  description: >-
+                    Client-chosen correlation id (letters, digits, `. _ : -`, 1-128
+                    chars), echoed back for per-stream correlation.
+                language:
+                  type: string
+                  description: ISO 639 language hint (transcribe task only).
+                task:
+                  type: string
+                  enum: [transcribe, translate]
+                  default: transcribe
+                model:
+                  type: string
+                  enum: [whisper-large-v3-turbo, whisper-large-v3]
+                  description: Default whisper-large-v3-turbo; translate forces whisper-large-v3.
+                mode:
+                  type: string
+                  enum: [summarize, moderate, translate, custom]
+                  default: summarize
+                instruction:
+                  type: string
+                  maxLength: 500
+                  description: Custom instruction, used when mode=custom.
+                llm_model:
+                  type: string
+                  description: Fast LLM model id to run the pipeline step.
+                max_tokens:
+                  type: integer
+                  minimum: 1
+                  maximum: 4096
+                  default: 256
+      responses:
+        '200':
+          description: Transcript plus the LLM step's output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transcript:
+                    type: string
+                  duration:
+                    type: number
+                  llm:
+                    type: object
+                    properties:
+                      mode:
+                        type: string
+                      model:
+                        type: string
+                      output:
+                        type: string
+                      usage:
+                        type: object
+                        properties:
+                          prompt_tokens:
+                            type: integer
+                          completion_tokens:
+                            type: integer
+                  stream_id:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: The live-pipeline feature is not armed for this account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: Transcription is temporarily unavailable — retry after the given delay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /live/caption:
+    post:
+      tags: [Live]
+      summary: Transcribe an audio clip
+      description: >-
+        Transcribes ONE provided audio chunk (multipart `file`, max 25MB) via the
+        same caption engine `/live/pipeline` uses, without the LLM step. Requires
+        the account's live-pipeline feature to be armed; a 404 means it is not
+        enabled for this account. Requires the `captions:write` scope.
+      operationId: transcribeLiveAudio
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                stream_id:
+                  type: string
+                  maxLength: 128
+                language:
+                  type: string
+                task:
+                  type: string
+                  enum: [transcribe, translate]
+                  default: transcribe
+                model:
+                  type: string
+                  enum: [whisper-large-v3-turbo, whisper-large-v3]
+                response_format:
+                  type: string
+                  enum: [verbose_json, json, text]
+                  default: verbose_json
+                format:
+                  type: string
+                  enum: [json, vtt, srt, scc, text]
+                  default: json
+                  description: Output shape. Non-json returns a serialized caption file body.
+                t0:
+                  type: number
+                  description: Windowed-mode start offset (seconds) on the stream timeline.
+                seq:
+                  type: integer
+                  description: Windowed-mode window index, echoed back for ordering.
+      responses:
+        '200':
+          description: Transcription result (JSON, or a serialized caption file when `format` != json)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                description: >-
+                  Relays the transcription engine's JSON (text, segments, language,
+                  duration) verbatim, plus `stream_id`/`window` when supplied.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: The live-pipeline feature is not armed for this account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: Transcription is temporarily unavailable — retry after the given delay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Productions
+  /productions:
+    get:
+      tags: [Productions]
+      summary: List productions
+      description: Requires the `productions:read` scope.
+      operationId: listProductions
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [setup, rehearsal, live, paused, ended]
+      responses:
+        '200':
+          description: Paginated list of productions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  productions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Production'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Productions]
+      summary: Create a production
+      description: Requires the `productions:write` scope.
+      operationId: createProduction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductionRequest'
+      responses:
+        '201':
+          description: Production created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Production'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /productions/{productionId}:
+    get:
+      tags: [Productions]
+      summary: Get a production
+      description: Requires the `productions:read` scope.
+      operationId: getProduction
+      parameters:
+        - $ref: '#/components/parameters/ProductionIdParam'
+      responses:
+        '200':
+          description: Production details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Production'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /productions/{productionId}/camera:
+    post:
+      tags: [Productions]
+      summary: Switch a production's camera
+      description: >-
+        Switch the program or preview bus to a camera index; persisted on the
+        production row. Requires the `productions:write` scope.
+      operationId: switchProductionCamera
+      parameters:
+        - $ref: '#/components/parameters/ProductionIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchCameraRequest'
+      responses:
+        '200':
+          description: Camera switched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  productionId:
+                    type: string
+                  bus:
+                    type: string
+                    enum: [program, preview]
+                  cameraIndex:
+                    type: integer
+                  transition:
+                    type: string
+                    enum: [cut, dissolve, wipe, fade]
+                  switchedAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /productions/{productionId}/overlay:
+    post:
+      tags: [Productions]
+      summary: Show, hide, or update a production's graphic overlay
+      description: >-
+        Persists overlay state into the production's `overlays` map, keyed by
+        `graphic_id`. Requires the `productions:write` scope.
+      operationId: setProductionOverlay
+      parameters:
+        - $ref: '#/components/parameters/ProductionIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [graphic_id, action]
+              properties:
+                graphic_id:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                action:
+                  type: string
+                  enum: [show, hide, update]
+                data:
+                  type: object
+                  additionalProperties: true
+                  description: Data bindings for the graphic template.
+      responses:
+        '200':
+          description: Overlay state updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  productionId:
+                    type: string
+                  graphicId:
+                    type: string
+                  action:
+                    type: string
+                    enum: [show, hide, update]
+                  data:
+                    type: [object, 'null']
+                    additionalProperties: true
+                  updatedAt:
+                    type: string
+                    format: date-time
+                  overlays:
+                    type: object
+                    additionalProperties: true
+                    description: The production's full overlay map after this update.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # Cameras
+  /cameras:
+    get:
+      tags: [Cameras]
+      summary: List registered cameras
+      description: Requires the `cameras:read` scope.
+      operationId: listCameras
+      responses:
+        '200':
+          description: List of registered cameras
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cameras:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Camera'
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Cameras]
+      summary: Register a camera
+      description: Requires the `cameras:write` scope.
+      operationId: registerCamera
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterCameraRequest'
+      responses:
+        '201':
+          description: Camera registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Camera'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /cameras/{cameraId}/control:
+    post:
+      tags: [Cameras]
+      summary: Send a control command to a camera
+      description: >-
+        Queues a control command for a registered camera (`camera_commands`, status
+        `queued`). There is no protocol-general hardware dispatcher at this layer
+        yet — a follow-up dispatcher marks the command `acked` or `failed`; this
+        call never fabricates an `acked` status for a command not yet delivered.
+        Requires the `cameras:write` scope.
+      operationId: controlCamera
+      parameters:
+        - name: cameraId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlCameraRequest'
+      responses:
+        '200':
+          description: Command queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cameraId:
+                    type: string
+                  commandId:
+                    type: string
+                  command:
+                    $ref: '#/components/schemas/ControlCameraRequest'
+                  status:
+                    type: string
+                    enum: [queued, acked, failed]
+        '400':
+          description: Invalid or unrecognized control command.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # Billing
+  /billing:
+    get:
+      tags: [Billing]
+      summary: Get the current billing account
+      description: >-
+        Returns the caller-org's billing status. An org with no Stripe customer yet
+        returns `billingAccount: null` and `plan: "free"` rather than an error.
+        Requires the `billing:read` scope.
+      operationId: getBilling
+      responses:
+        '200':
+          description: Billing account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /billing/usage:
+    get:
+      tags: [Billing]
+      summary: Get billed usage for a date range
+      description: >-
+        Per-dimension billed usage, defaulting to the current billing period.
+        Requires the `billing:read` scope.
+      operationId: getBillingUsage
+      parameters:
+        - name: from
+          in: query
+          description: Range start (YYYY-MM-DD). Defaults to the start of the current month.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: Range end (YYYY-MM-DD). Defaults to today.
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Billed usage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingUsageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          description: Billing usage is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /usage:
+    get:
+      tags: [Billing]
+      summary: Get raw per-dimension usage
+      description: >-
+        Raw per-dimension usage counters for a date range (defaults to today),
+        keyed by meter dimension (e.g. `wave_braid_minutes`, `transcription_seconds`,
+        `duration_ms:srt`) — the underlying meter ledger, not a billing-period
+        rollup. See `GET /billing/usage` for the billed-and-priced view. Requires
+        the `usage:read` scope.
+      operationId: getUsage
+      parameters:
+        - name: from
+          in: query
+          description: Range start (YYYYMMDD). Defaults to today.
+          schema:
+            type: string
+        - name: to
+          in: query
+          description: Range end (YYYYMMDD). Defaults to today.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Raw usage totals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Analytics
+  /analytics/overview:
+    get:
+      tags: [Analytics]
+      summary: Get an account-level analytics overview
+      description: >-
+        Aggregates the org's usage ledger over a date range: total events, total
+        quantity, active days, and the top dimensions by quantity. Requires the
+        `analytics:read` scope.
+      operationId: getAnalyticsOverview
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsFromParam'
+        - $ref: '#/components/parameters/AnalyticsToParam'
+      responses:
+        '200':
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizationId:
+                    type: string
+                  period:
+                    $ref: '#/components/schemas/DateRange'
+                  summary:
+                    type: object
+                    properties:
+                      totalEvents:
+                        type: integer
+                      totalQuantity:
+                        type: number
+                      activeDays:
+                        type: integer
+                      topDimensions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            dimension:
+                              type: string
+                            quantity:
+                              type: number
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          description: Analytics are temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analytics/top-content:
+    get:
+      tags: [Analytics]
+      summary: Get top content by usage
+      description: >-
+        Top usage dimensions for the org over a date range, ranked by quantity.
+        Requires the `analytics:read` scope.
+      operationId: getAnalyticsTopContent
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsFromParam'
+        - $ref: '#/components/parameters/AnalyticsToParam'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Top content by usage
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizationId:
+                    type: string
+                  period:
+                    $ref: '#/components/schemas/DateRange'
+                  topContent:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rank:
+                          type: integer
+                        dimension:
+                          type: string
+                        quantity:
+                          type: number
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          description: Analytics are temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analytics/engagement:
+    get:
+      tags: [Analytics]
+      summary: Get account-wide engagement analytics
+      description: >-
+        Engagement metrics (event volume, average events per day, peak day) over a
+        date range. Requires the `analytics:read` scope.
+      operationId: getAnalyticsEngagement
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsFromParam'
+        - $ref: '#/components/parameters/AnalyticsToParam'
+      responses:
+        '200':
+          description: Engagement analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizationId:
+                    type: string
+                  period:
+                    $ref: '#/components/schemas/DateRange'
+                  engagement:
+                    type: object
+                    properties:
+                      totalEvents:
+                        type: integer
+                      totalQuantity:
+                        type: number
+                      averageEventsPerDay:
+                        type: number
+                      peakDay:
+                        type: [string, 'null']
+                      peakEvents:
+                        type: integer
+                      activeDays:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          description: Analytics are temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /clips:
     get:
       tags: [Clips]
@@ -1145,6 +2350,11 @@ paths:
     post:
       tags: [Clips]
       summary: Create a clip
+      description: >-
+        Produces clip/spritesheet/audio/frame outputs from a recording via
+        Cloudflare Media Transformations. `source` is a recording id the gateway
+        resolves org-scoped — a raw storage key is rejected. Requires the
+        `clips:write` scope.
       operationId: createClip
       requestBody:
         required: true
@@ -1158,9 +2368,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Clip'
+                $ref: '#/components/schemas/ClipCreateResponse'
         '400':
-          $ref: '#/components/responses/ValidationError'
+          description: Validation error (the clip route's own envelope, not the shared Error schema).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClipError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /clips/{clipId}:
     get:
@@ -3685,51 +4905,6 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimitError'
 
-  /billing:
-    post:
-      tags: [Billing]
-      operationId: billing
-      summary: WAVE billing API
-      x-schema-status: draft
-      x-skill-url: https://gateway.wave.online/.well-known/wave-skills/billing.json
-      description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `billing:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: null
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on billing; a flat per-call gate, not necessarily the metered rate.
-      security:
-        - bearerWithScopes: [billing:write]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Capability response (draft — shape not yet published).
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-
   /bmd:
     post:
       tags: [Bmd]
@@ -3888,51 +5063,6 @@ paths:
         x-price-note: Observed live via an unauthenticated x402 402 challenge on camera-control; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [camera-control:write]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Capability response (draft — shape not yet published).
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-
-  /cameras:
-    post:
-      tags: [Cameras]
-      operationId: cameras
-      summary: WAVE cameras API
-      x-schema-status: draft
-      x-skill-url: https://gateway.wave.online/.well-known/wave-skills/cameras.json
-      description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `cameras:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: null
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on cameras; a flat per-call gate, not necessarily the metered rate.
-      security:
-        - bearerWithScopes: [cameras:write]
       requestBody:
         required: false
         content:
@@ -6205,51 +7335,6 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimitError'
 
-  /moderate:
-    post:
-      tags: [Moderate]
-      operationId: moderate
-      summary: WAVE moderate API
-      x-schema-status: draft
-      x-skill-url: https://gateway.wave.online/.well-known/wave-skills/moderate.json
-      description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `moderate:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: null
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on moderate; a flat per-call gate, not necessarily the metered rate.
-      security:
-        - bearerWithScopes: [moderate:write]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Capability response (draft — shape not yet published).
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-
   /monetization:
     post:
       tags: [Monetization]
@@ -7128,51 +8213,6 @@ paths:
         x-price-note: Observed live via an unauthenticated x402 402 challenge on production-graph; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [production-graph:write]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Capability response (draft — shape not yet published).
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-
-  /productions:
-    post:
-      tags: [Productions]
-      operationId: productions
-      summary: WAVE productions API
-      x-schema-status: draft
-      x-skill-url: https://gateway.wave.online/.well-known/wave-skills/productions.json
-      description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `productions:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: null
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on productions; a flat per-call gate, not necessarily the metered rate.
-      security:
-        - bearerWithScopes: [productions:write]
       requestBody:
         required: false
         content:
@@ -8588,51 +9628,6 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimitError'
 
-  /streams:
-    post:
-      tags: [Streams]
-      operationId: streams
-      summary: WAVE streams API
-      x-schema-status: draft
-      x-skill-url: https://gateway.wave.online/.well-known/wave-skills/streams.json
-      description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `streams:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: wave_stream_bridge_minutes
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on streams; a flat per-call gate, not necessarily the metered rate.
-      security:
-        - bearerWithScopes: [streams:write]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Capability response (draft — shape not yet published).
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-
   /studio:
     post:
       tags: [Studio]
@@ -8926,51 +9921,6 @@ paths:
         x-price-note: Observed live via an unauthenticated x402 402 challenge on unsubscribe; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [unsubscribe:write]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Capability response (draft — shape not yet published).
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-
-  /usage:
-    post:
-      tags: [Usage]
-      operationId: usage
-      summary: WAVE usage API
-      x-schema-status: draft
-      x-skill-url: https://gateway.wave.online/.well-known/wave-skills/usage.json
-      description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `usage:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: null
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on usage; a flat per-call gate, not necessarily the metered rate.
-      security:
-        - bearerWithScopes: [usage:write]
       requestBody:
         required: false
         content:
@@ -10210,6 +11160,32 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    StreamIdParam:
+      name: streamId
+      in: path
+      required: true
+      schema:
+        type: string
+    ProductionIdParam:
+      name: productionId
+      in: path
+      required: true
+      schema:
+        type: string
+    AnalyticsFromParam:
+      name: from
+      in: query
+      description: Range start (ISO 8601 timestamp). Defaults to 30 days before `to`.
+      schema:
+        type: string
+        format: date-time
+    AnalyticsToParam:
+      name: to
+      in: query
+      description: Range end (ISO 8601 timestamp). Defaults to now.
+      schema:
+        type: string
+        format: date-time
 
   responses:
     ValidationError:
@@ -10610,20 +11586,66 @@ components:
 
     ClipCreate:
       type: object
-      required: [videoId, startTime, endTime]
+      description: >-
+        The real live-route request contract. `videoId` is NOT accepted — the
+        live route requires `source` (a recording id) instead.
+      required: [source, in]
       properties:
-        videoId:
+        source:
           type: string
-        startTime:
-          type: number
-        endTime:
-          type: number
-        title:
+          minLength: 1
+          description: A recording id the gateway resolves to an org-scoped source URL.
+        sourceType:
           type: string
-        description:
+          enum: [recording_id]
+          default: recording_id
+          description: >-
+            Only `recording_id` is accepted — a raw storage key (`r2_key`) is
+            rejected outright (cross-tenant read protection).
+        visibility:
           type: string
-        category:
+          enum: [public, private]
+          default: private
+        in:
           type: string
+          pattern: '^\d+(\.\d+)?(s|m)$'
+          description: 'Clip start offset, a time string like "5s" or "2m" (0-10m).'
+        out:
+          type: string
+          pattern: '^\d+(\.\d+)?(s|m)$'
+          description: 'Clip end offset, a time string. Provide `out` or `duration`, not both.'
+        duration:
+          type: string
+          pattern: '^\d+(\.\d+)?(s|m)$'
+          description: 'Output clip length, a time string (1s-60s). Provide `out` or `duration`, not both.'
+        width:
+          type: integer
+          minimum: 10
+          maximum: 2000
+        height:
+          type: integer
+          minimum: 10
+          maximum: 2000
+        fit:
+          type: string
+          enum: [contain, cover, scale-down]
+          default: contain
+        formats:
+          type: array
+          default: [mp4]
+          items:
+            type: string
+            enum: [mp4, spritesheet, m4a, frame]
+          description: '`frame` produces a single JPEG still at `in` and needs neither `out` nor `duration`.'
+        quality:
+          type: string
+          enum: [720p, 1080p, 4k]
+          default: 720p
+        spritesheetFrames:
+          type: integer
+          minimum: 1
+          maximum: 120
+          default: 30
 
     ClipUpdate:
       type: object
@@ -10673,6 +11695,608 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    ClipCreateResponse:
+      type: object
+      description: The real POST /clips 201 response.
+      properties:
+        ok:
+          type: boolean
+          const: true
+        clipId:
+          type: string
+        org:
+          type: string
+          description: The gateway-resolved owning organization.
+        visibility:
+          type: string
+          enum: [public, private]
+        source:
+          type: string
+        in:
+          type: string
+        duration:
+          type: string
+          description: 'Output clip duration, a time string like "12s".'
+        quality:
+          type: string
+          enum: [720p, 1080p, 4k]
+        assets:
+          type: array
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+                enum: [clip, spritesheet, audio, frame]
+              key:
+                type: string
+                description: 'Org-prefixed storage key: ‹org›/{clips|public}/‹clipId›/…'
+              contentType:
+                type: string
+              url:
+                type: [string, 'null']
+                description: Delivery URL — plain for public, HMAC-signed for private. null when delivery isn't configured.
+
+    ClipError:
+      type: object
+      description: >-
+        The clip-creation route's own error envelope for POST /clips — distinct from the
+        gateway-normalized `Error` schema used elsewhere in this document.
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        error:
+          type: string
+        detail:
+          description: Optional structured detail. Absent or null on most errors.
+
+    # Streams / Productions / Cameras / Billing / Analytics schemas (MCP-18 contract)
+    Stream:
+      type: object
+      description: >-
+        A live stream. Never carries the Cloudflare stream key or any other
+        ingest secret — only the public ingest/playback URLs.
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: [string, 'null']
+        protocol:
+          type: string
+          enum: [webrtc, srt, rtmp, auto]
+        status:
+          type: string
+          enum: [idle, live, ended]
+        privacy:
+          type: string
+          enum: [public, private]
+        viewer_count:
+          type: integer
+        peak_viewer_count:
+          type: integer
+        ingest_url:
+          type: [string, 'null']
+        playback_url:
+          type: [string, 'null']
+        cloudflare_live_input_uid:
+          type: [string, 'null']
+        metadata:
+          type: object
+          additionalProperties: true
+        started_at:
+          type: [string, 'null']
+          format: date-time
+        ended_at:
+          type: [string, 'null']
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateStreamRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 5000
+        protocol:
+          type: string
+          enum: [webrtc, srt, rtmp, auto]
+          default: auto
+        recording:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+        privacy:
+          type: string
+          enum: [public, private]
+          default: public
+        metadata:
+          type: object
+          additionalProperties: true
+
+    Highlight:
+      type: object
+      properties:
+        id:
+          type: string
+        stream_id:
+          type: string
+        organization_id:
+          type: string
+        title:
+          type: [string, 'null']
+        settings:
+          type: object
+          additionalProperties: true
+          description: '{label, timestamp, confidence, source}'
+        created_at:
+          type: string
+          format: date-time
+
+    ModerateRequest:
+      type: object
+      required: [content, contentType]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 50000
+        contentType:
+          type: string
+          enum: [text, title, description, comment, chat, username, bio]
+        context:
+          type: object
+          properties:
+            streamId:
+              type: string
+            userId:
+              type: string
+            previousContent:
+              type: array
+              items:
+                type: string
+          description: streamId attributes the moderated content to a stream (e.g. a chat message).
+        options:
+          type: object
+          properties:
+            returnDetails:
+              type: boolean
+              default: true
+            categories:
+              type: array
+              items:
+                type: string
+              description: >-
+                Subset of harassment, hate_speech, violence, sexual_content, spam,
+                misinformation, self_harm, illegal_activity, personal_information,
+                copyright.
+            customRules:
+              type: array
+              items:
+                type: object
+                required: [name, pattern, action]
+                properties:
+                  name:
+                    type: string
+                  pattern:
+                    type: string
+                    description: A regular expression evaluated against content.
+                  action:
+                    type: string
+                    enum: [flag, block]
+
+    ModerateResponse:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        action:
+          type: string
+          enum: [allow, flag, block, review]
+        violations:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              severity:
+                type: string
+                enum: [low, medium, high, critical]
+              confidence:
+                type: number
+              description:
+                type: string
+              matchedText:
+                type: string
+              rule:
+                type: string
+        confidence:
+          type: number
+        reasoning:
+          type: string
+        suggestedAction:
+          type: string
+        metadata:
+          type: object
+          properties:
+            contentId:
+              type: string
+            processingTimeMs:
+              type: integer
+            model:
+              type: string
+            categoriesChecked:
+              type: array
+              items:
+                type: string
+
+    Production:
+      type: object
+      properties:
+        id:
+          type: string
+        organization_id:
+          type: string
+        user_id:
+          type: [string, 'null']
+        title:
+          type: string
+        description:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [setup, rehearsal, live, paused, ended]
+        layout:
+          type: string
+          enum: [single, split, pip, grid, custom]
+        stream_ids:
+          type: array
+          items:
+            type: string
+        record:
+          type: boolean
+        program_camera_index:
+          type: [integer, 'null']
+        preview_camera_index:
+          type: [integer, 'null']
+        last_transition:
+          type: [string, 'null']
+        overlays:
+          type: object
+          additionalProperties: true
+        settings:
+          type: object
+          additionalProperties: true
+        started_at:
+          type: [string, 'null']
+          format: date-time
+        ended_at:
+          type: [string, 'null']
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateProductionRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+        layout:
+          type: string
+          enum: [single, split, pip, grid, custom]
+          default: single
+        stream_ids:
+          type: array
+          items:
+            type: string
+        record:
+          type: boolean
+          default: false
+
+    SwitchCameraRequest:
+      type: object
+      required: [cameraIndex, bus]
+      properties:
+        cameraIndex:
+          type: integer
+          minimum: 0
+          maximum: 15
+        bus:
+          type: string
+          enum: [program, preview]
+        transition:
+          type: string
+          enum: [cut, dissolve, wipe, fade]
+          default: cut
+
+    Camera:
+      type: object
+      properties:
+        id:
+          type: string
+        organization_id:
+          type: string
+        name:
+          type: string
+        manufacturer:
+          type: string
+          enum: [blackmagic, sony, canon, ptzoptics, other]
+        control_protocol:
+          type: string
+          enum: [bmd_rest, visca_ip, visca_serial, canon_xc, onvif]
+        address:
+          type: [string, 'null']
+          description: IPv4 address the camera was registered with.
+        status:
+          type: string
+          enum: [offline, online, discovering, error]
+        presets:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RegisterCameraRequest:
+      type: object
+      required: [name, manufacturer, ipAddress, controlProtocol]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        manufacturer:
+          type: string
+          enum: [blackmagic, sony, canon, ptzoptics, other]
+        model:
+          type: string
+        ipAddress:
+          type: string
+          format: ipv4
+        controlProtocol:
+          type: string
+          enum: [bmd_rest, visca_ip, visca_serial, canon_xc, onvif]
+
+    ControlCameraRequest:
+      description: >-
+        Discriminated union on `type`. Supply only the fields the chosen variant
+        needs.
+      oneOf:
+        - type: object
+          required: [type, value]
+          properties:
+            type:
+              const: set_iris
+            value:
+              type: number
+        - type: object
+          required: [type, value]
+          properties:
+            type:
+              const: set_focus
+            value:
+              type: number
+        - type: object
+          required: [type, value]
+          properties:
+            type:
+              const: set_zoom
+            value:
+              type: number
+        - type: object
+          required: [type, temperature, tint]
+          properties:
+            type:
+              const: set_white_balance
+            temperature:
+              type: number
+            tint:
+              type: number
+        - type: object
+          required: [type, value]
+          properties:
+            type:
+              const: set_gain
+            value:
+              type: number
+        - type: object
+          required: [type, angle]
+          properties:
+            type:
+              const: set_shutter
+            angle:
+              type: number
+        - type: object
+          required: [type]
+          properties:
+            type:
+              const: start_recording
+        - type: object
+          required: [type]
+          properties:
+            type:
+              const: stop_recording
+        - type: object
+          required: [type]
+          properties:
+            type:
+              const: start_prerecord
+        - type: object
+          required: [type]
+          properties:
+            type:
+              const: autofocus_trigger
+        - type: object
+          required: [type, channel, level]
+          properties:
+            type:
+              const: set_audio_level
+            channel:
+              type: number
+            level:
+              type: number
+        - type: object
+          required: [type, presetId]
+          properties:
+            type:
+              const: recall_preset
+            presetId:
+              type: string
+              format: uuid
+        - type: object
+          required: [type, name, slot]
+          properties:
+            type:
+              const: save_preset
+            name:
+              type: string
+              minLength: 1
+            slot:
+              type: integer
+              minimum: 1
+              maximum: 20
+      discriminator:
+        propertyName: type
+
+    DateRange:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+
+    BillingAccount:
+      type: object
+      description: >-
+        The caller-org's billing status. `billingAccount: null` and `plan: "free"`
+        mean the org has no Stripe customer yet.
+      properties:
+        organizationId:
+          type: string
+        billingAccount:
+          type: [object, 'null']
+          properties:
+            customerId:
+              type: string
+            email:
+              type: [string, 'null']
+            paymentMethod:
+              type: [object, 'null']
+              properties:
+                brand:
+                  type: string
+                last4:
+                  type: string
+                expMonth:
+                  type: integer
+                expYear:
+                  type: integer
+        plan:
+          type: string
+          description: '"free" when the org has no billing account.'
+        subscription:
+          type: [object, 'null']
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+            currentPeriodEnd:
+              type: integer
+              description: Unix seconds.
+            plan:
+              type: [object, 'null']
+              properties:
+                priceId:
+                  type: string
+                unitAmount:
+                  type: [integer, 'null']
+                currency:
+                  type: string
+                interval:
+                  type: [string, 'null']
+
+    BillingUsageResponse:
+      type: object
+      properties:
+        organizationId:
+          type: string
+        period:
+          $ref: '#/components/schemas/DateRange'
+        usage:
+          type: array
+          items:
+            type: object
+            properties:
+              dimension:
+                type: string
+              unit:
+                type: string
+              quantity:
+                type: number
+              billedQuantity:
+                type: number
+        total:
+          type: number
+
+    UsageResponse:
+      type: object
+      description: Raw per-dimension usage from the underlying meter ledger.
+      properties:
+        org:
+          type: string
+        range:
+          type: object
+          properties:
+            from:
+              type: string
+            to:
+              type: string
+            days:
+              type: integer
+        totals:
+          type: object
+          additionalProperties:
+            type: number
+          description: >-
+            Meter dimension → summed quantity (e.g. wave_braid_minutes,
+            transcription_seconds, duration_ms:srt). The dimension set is
+            append-only and not enumerated here.
 
     # Voice schemas
     Voice:
