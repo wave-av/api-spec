@@ -6,6 +6,46 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Spec coverage from the live gateway skills index** (v1.1.0). Diffed the live capability
+  index (`https://gateway.wave.online/.well-known/wave-skills.json`, 178 priced capabilities)
+  against this spec's 72 operations and added a draft operation for every capability that had
+  none: 158 new `POST /{name}` operations (one per missing product), 157 new tags, and a
+  `bearerWithScopes` OAuth2 security scheme carrying one scope per capability, all drawn
+  verbatim from the live index (no invented fields). Each new operation carries:
+  - `x-schema-status: draft` — the request/response shape is `additionalProperties: true`
+    because the actual payload contract is not published anywhere the spec can read it.
+  - `x-skill-url` — the capability's own skill document.
+  - `x-price` — `model`/`currency`/`network`/`meter` from the live index, plus, where an
+    unauthenticated `GET` on the route returned a real x402 402 challenge, the observed
+    `atomicAmount` and `asset` (verified live 2026-09-02; most capabilities gate at a flat
+    1000-atomic-unit entry price, one at 600000 — these are the gateway's real numbers, not
+    estimates).
+  - Coverage: **before 21/178 → after 178/178** (1 allowlisted: `internal`, which the live
+    index itself marks `pricing.model=free` and `auth.scope=null`).
+
+- **`skills-index-coverage` CI check** (`.github/scripts/skills-index-coverage.mjs`,
+  `.github/scripts/skills-index-allowlist.json`) — fetches the live skills index on every PR
+  and push to `main` and fails if a live, non-allowlisted priced capability has no matching
+  path segment or tag in `openapi.yaml`. Wired into `foundation-gate.yml`.
+
+### Deprecated
+
+- **`GET/POST /videos/{videoId}/chapters` and `POST /videos/{videoId}/chapters/detect`** —
+  marked `deprecated: true` / `x-status: unrouted`. Verified live 2026-09-02: the gateway
+  returns `403 ROUTE_NOT_MAPPED` ("this path and method are not part of the WAVE API") for
+  both paths. The live-priced Chapters capability is the flat `POST /chapters` operation
+  (added above); the nested shape stays documented — deprecated rather than deleted — until
+  it is either wired up or formally removed.
+
+- **`/leaderboard` and `/platform`** — confirmed live 2026-09-02: both return
+  `403 ROUTE_NOT_MAPPED` at the gateway. Neither appears in this spec (never did) nor in the
+  live gateway skills index (not a priced capability), so nothing here needed a
+  `deprecated: true` marker — they are documented on the publicly served `openapi.json` at
+  the API host but are not real operations. Recommend the publicly served copy drop them;
+  out of scope for this spec since they were never present here.
+
 ### Fixed
 
 - `pr-agent` lane: fork-triggered `/` commands are now refused, and the AI
