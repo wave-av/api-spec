@@ -1,0 +1,26 @@
+openapi.yaml
+  s_73ce9d874d7339::t_01787540963b89 10031
+.github/scripts/skills-index-allowlist.json
+  s_73ce9d874d7339::t_4464c4bc0eb877 4-8
+.github/scripts/skills-index-coverage.mjs
+  s_73ce9d874d7339::t_13ab77d122fe1f 83,94-95,98-105,109-115,122-125
+  s_73ce9d874d7339::t_14da38dac5ef6c 62,70-82
+  s_73ce9d874d7339::t_a65a76c4c3c6ae 120,128-139,143
+  s_73ce9d874d7339::t_7d97d7cc8ab84a 84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "79d44d5dd6115b52c67b4ba9d0c13dfef51111c0",
+  "prompts": {},
+  "sessions": {
+    "s_73ce9d874d7339": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "98a8bbf9-cb78-42d8-a6f5-f3aaa2c16b46",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
