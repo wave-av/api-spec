@@ -4185,25 +4185,27 @@ export interface components {
     schemas: {
         /** @description WAVE-normalized error envelope returned by the api.wave.online gateway. Upstream provider, auth, and quota failures are *interpreted* into this single shape — raw upstream errors (stack traces, vendor SDK objects) are never leaked to the caller. `error.code` is a stable machine-readable code (e.g. AUTH_REQUIRED, SCOPE_OVERREACH, RATE_LIMIT_EXCEEDED, UPSTREAM_ERROR); `error.message` is human-readable. */
         Error: {
-            error: {
-                /** @description Stable machine-readable error code. */
-                code: string;
-                /** @description Human-readable explanation, safe to surface to end users. */
-                message: string;
-                /** @description Optional structured context (e.g. failing field, retry limit, requested scopes) — never raw upstream payloads. */
-                details?: {
-                    [key: string]: unknown;
-                };
-                /** @description Actionable next steps, ordered most→least likely to resolve the error. Written to be acted on by a human OR an agent. */
-                suggestions?: string[];
-                /** @description Closest valid alternatives when the caller likely made a typo or wrong choice (e.g. an unknown scope, product, or route). */
-                did_you_mean?: string[];
-                /**
-                 * Format: uri
-                 * @description Documentation link for this error.
-                 */
-                doc_url?: string;
+            error: components["schemas"]["ErrorBody"];
+        };
+        /** @description The normalized WAVE error object itself — the value of the `Error` envelope's `error` member. Referenced directly by bodies that carry the error object under a different key (the 402 x402 challenge nests it under `error_detail` without the envelope wrapper). */
+        ErrorBody: {
+            /** @description Stable machine-readable error code. */
+            code: string;
+            /** @description Human-readable explanation, safe to surface to end users. */
+            message: string;
+            /** @description Optional structured context (e.g. failing field, retry limit, requested scopes) — never raw upstream payloads. */
+            details?: {
+                [key: string]: unknown;
             };
+            /** @description Actionable next steps, ordered most→least likely to resolve the error. Written to be acted on by a human OR an agent. */
+            suggestions?: string[];
+            /** @description Closest valid alternatives when the caller likely made a typo or wrong choice (e.g. an unknown scope, product, or route). */
+            did_you_mean?: string[];
+            /**
+             * Format: uri
+             * @description Documentation link for this error.
+             */
+            doc_url?: string;
         };
         Pagination: {
             page?: number;
@@ -5092,7 +5094,15 @@ export interface components {
             error: string;
             /** @description Payment options; sign one and retry with the `x-payment` header. */
             accepts: components["schemas"]["X402Accepts"][];
-            error_detail?: components["schemas"]["Error"];
+            error_detail?: components["schemas"]["ErrorBody"] & {
+                /** @description Present ONLY when a submitted payment was REJECTED (as opposed to no payment having been made at all): the sanitized deny verdict, so a paying caller can tell a rejected payment apart from an unpaid challenge and correct the named field. `reason` is a lowercase snake_case token from the gateway's closed deny vocabulary (e.g. `invalid_permit_header`, `session_expired`, `duplicate`, `rate_limited`); internal detail that cannot be published verbatim collapses to the generic `payment_rejected`. `rail` names the payment rail that denied (e.g. `base-usdc`, `tempo-pathusd`), or `unknown`. */
+                payment_rejected?: {
+                    /** @description Sanitized machine-readable rejection reason token. */
+                    reason: string;
+                    /** @description The payment rail the rejection occurred on. */
+                    rail: string;
+                };
+            };
             /** @description Machine-executable directive for agent callers — a `pay` directive carrying the same `accepts` options. */
             next_action?: {
                 [key: string]: unknown;
