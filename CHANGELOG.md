@@ -19,10 +19,10 @@ All notable changes to this project are documented here. The format is based on
   unauthenticated) and its poll counterpart, modelling the device-code grant shape and the
   honest `403` while the user has not yet approved. (#66)
 - **Registered RFC 8628 grant type URN** (`openapi.yaml`) — the device-authorization poll's
-  `grant_type` enum now requires the registered URN
-  `urn:ietf:params:oauth:grant-type:device_code` instead of the bare `device_code` shorthand.
-  **Breaking:** removes the bare-shorthand enum value from the spec (the live gateway still
-  accepts both forms on the wire, so no client is broken by this alone). (#68)
+  `grant_type` enum now also documents the registered URN
+  `urn:ietf:params:oauth:grant-type:device_code` alongside the existing bare `device_code`
+  shorthand; both remain valid and the bare form is canonicalized to the URN before
+  forwarding upstream. Non-breaking: no enum value was removed. (#68)
 - **`POST /batch` endpoint** (`openapi.yaml`) — documents the batch operation contract: an
   `operations` array of method, enforced `/v1` path, and optional body, capped at 25 items
   per call. (#64)
