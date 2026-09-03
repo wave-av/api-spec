@@ -355,6 +355,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/videos/{videoId}/chapters/detect/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Poll a chapter-detection job
+         * @description Current state of a detection job started by POST /videos/{videoId}/chapters/detect. Poll until `status` reaches a terminal state.
+         */
+        get: operations["getChapterDetectionJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/videos/{videoId}/chapters/{chapterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a chapter */
+        delete: operations["deleteChapter"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/editor/projects": {
         parameters: {
             query?: never;
@@ -4207,6 +4244,14 @@ export interface components {
              */
             doc_url?: string;
         };
+        /** @description RFC 8628 §3.5 device-flow error passthrough from POST /agent/auth/token — a flat `{error}` string, not the WAVE error envelope, because it is the polling protocol, not a failure. */
+        DeviceFlowError: {
+            /**
+             * @description `authorization_pending`: not yet approved, keep polling at the named interval. `slow_down`: poll less often. `expired_token`: the device_code expired, restart at /agent/auth/device. `access_denied`: the human declined. `invalid_grant`: the grant is no longer valid.
+             * @enum {string}
+             */
+            error: "authorization_pending" | "slow_down" | "expired_token" | "access_denied" | "invalid_grant";
+        };
         Pagination: {
             page?: number;
             perPage?: number;
@@ -4341,8 +4386,14 @@ export interface components {
             updatedAt?: string;
         };
         ClipCreate: {
+            /**
+             * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+             * @example rec-demo-0001
+             */
             videoId: string;
+            /** @description Clip start, in seconds from the start of the recording. */
             startTime: number;
+            /** @description Clip end, in seconds from the start of the recording. `endTime - startTime` must be 1-60 seconds. */
             endTime: number;
             title?: string;
             description?: string;
@@ -4461,6 +4512,10 @@ export interface components {
             updatedAt?: string;
         };
         CaptionJobCreate: {
+            /**
+             * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+             * @example rec-demo-0001
+             */
             videoId: string;
             /** @default en */
             sourceLanguage: string;
@@ -4735,6 +4790,10 @@ export interface components {
             updatedAt?: string;
         };
         TranscriptionCreate: {
+            /**
+             * @description An org-owned recording id, or an https URL to a media file.
+             * @example rec-demo-0001
+             */
             sourceId: string;
             /** @enum {string} */
             sourceType: "video" | "audio";
@@ -4841,6 +4900,10 @@ export interface components {
             topK: number;
         };
         SearchIndexDoc: {
+            /**
+             * @description Document id, unique within `namespace`. Letters, digits, `.`, `_`, `:`, `-`, 1-128 characters.
+             * @example doc-1
+             */
             id: string;
             /** @enum {string} */
             namespace: "streams" | "users" | "clips" | "transcripts";
@@ -4849,6 +4912,10 @@ export interface components {
             metadata?: Record<string, never>;
         };
         SearchIndexRequest: {
+            /**
+             * @description Document id, unique within `namespace`. Letters, digits, `.`, `_`, `:`, `-`, 1-128 characters.
+             * @example doc-1
+             */
             id: string;
             /** @enum {string} */
             namespace: "streams" | "users" | "clips" | "transcripts";
@@ -4902,11 +4969,28 @@ export interface components {
                 count?: number;
             }[];
         };
-        /** @description `org` is derived from the caller's authenticated principal, not sent in the body. */
+        /**
+         * @description `org` is derived from the caller's authenticated principal, not sent in the body.
+         * @example {
+         *       "ns": "demo-braid",
+         *       "sources": [
+         *         {
+         *           "label": "mic-1",
+         *           "track": "cam-1",
+         *           "url": "https://wave.online/samples/input.mp4"
+         *         },
+         *         {
+         *           "label": "mic-2",
+         *           "track": "cam-2",
+         *           "url": "https://wave.online/samples/input.mp4"
+         *         }
+         *       ]
+         *     }
+         */
         BraidPublishRequest: {
             /** @description Namespace for the published track. Republishing the same ns replaces the prior machine. */
             ns: string;
-            /** @description Named audio sources to braid into one interleaved multichannel track. Each source needs a `label`/`track` and either a `url` or a `path`. */
+            /** @description Named audio sources to braid into one interleaved multichannel track, at least 2. Each source needs a `label`/`track` and either a `url` or a `path`. */
             sources: {
                 label: string;
                 track: string;
@@ -4990,10 +5074,20 @@ export interface components {
          * @enum {string}
          */
         RenderTemplate: "slate" | "lowerThird" | "announce" | "stat" | "hero" | "quote" | "backdrop" | "field" | "badge" | "endcard" | "sting" | "ident" | "kinetic" | "ticker" | "countdown" | "receipt" | "code" | "session" | "chart" | "audiogram" | "manifesto" | "changelog";
-        /** @description A render Brief — a template plus its props. Brand-parametric: an optional BYO `brandKit` (logo SVG, fonts as data URLs, colors) renders any template on a tenant's brand. */
+        /**
+         * @description A render Brief — a template plus its props. Brand-parametric: an optional BYO `brandKit` (logo SVG, fonts as data URLs, colors) renders any template on a tenant's brand.
+         * @example {
+         *       "template": "slate",
+         *       "props": {
+         *         "product": "WAVE",
+         *         "accent": "#16d6aa",
+         *         "tagline": "Media infrastructure for the agentic internet."
+         *       }
+         *     }
+         */
         RenderBrief: {
             template: components["schemas"]["RenderTemplate"];
-            /** @description Template-specific props (see the live contract for per-template shapes). All string props are HTML-escaped; width/height ≤ 4096, durationMs ≤ 60000, fps ≤ 60. */
+            /** @description Template-specific props. Each template publishes its own required and optional props (names, types, bounds, and defaults) in the live contract at `GET /render/openapi.json` so a caller can validate a Brief before sending it — this schema stays open by design. All string props are HTML-escaped; width/height ≤ 4096, durationMs ≤ 60000, fps ≤ 60. */
             props: {
                 [key: string]: unknown;
             };
@@ -5380,6 +5474,7 @@ export interface operations {
                      * @enum {string}
                      */
                     grant_type: "urn:ietf:params:oauth:grant-type:device_code" | "device_code";
+                    /** @description The `device_code` value returned by POST /agent/auth/device. Poll with it at the interval that response named until approval completes, expires, or is denied. */
                     device_code: string;
                 } | {
                     /** @enum {string} */
@@ -5402,13 +5497,13 @@ export interface operations {
                     };
                 };
             };
-            /** @description Invalid grant_type, missing credential for the grant, or the upstream polling protocol error passed through verbatim */
+            /** @description Invalid grant_type or a missing credential for the grant returns the WAVE error envelope. A device_code that is not yet approved, not yet due for another poll, or no longer valid returns the RFC 8628 §3.5 device-flow error passed through verbatim, one of `authorization_pending` (not yet approved, keep polling), `slow_down` (poll less often), `expired_token` (the device_code expired, restart at /agent/auth/device), `access_denied` (the human declined), or `invalid_grant`. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["Error"] | components["schemas"]["DeviceFlowError"];
                 };
             };
             429: components["responses"]["RateLimitError"];
@@ -5968,6 +6063,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+                 * @example rec-demo-0001
+                 */
                 videoId: string;
             };
             cookie?: never;
@@ -5992,6 +6091,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+                 * @example rec-demo-0001
+                 */
                 videoId: string;
             };
             cookie?: never;
@@ -6018,6 +6121,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+                 * @example rec-demo-0001
+                 */
                 videoId: string;
             };
             cookie?: never;
@@ -6035,6 +6142,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DetectionJob"];
+                };
+            };
+        };
+    };
+    getChapterDetectionJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+                 * @example rec-demo-0001
+                 */
+                videoId: string;
+                /**
+                 * @description Detection job id returned by POST /videos/{videoId}/chapters/detect.
+                 * @example job-demo-0001
+                 */
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The detection job view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectionJob"];
+                };
+            };
+            /** @description No detection job with this id for this video. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteChapter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+                 * @example rec-demo-0001
+                 */
+                videoId: string;
+                /**
+                 * @description Chapter id, as returned by POST /videos/{videoId}/chapters or a detection job.
+                 * @example chp-demo-0001
+                 */
+                chapterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Chapter deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No chapter with this id for this video. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -6812,6 +6997,10 @@ export interface operations {
             };
             header?: never;
             path: {
+                /**
+                 * @description Document id, unique within `namespace`. Letters, digits, `.`, `_`, `:`, `-`, 1-128 characters.
+                 * @example doc-1
+                 */
                 id: string;
             };
             cookie?: never;

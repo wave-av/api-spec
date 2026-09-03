@@ -860,6 +860,10 @@ paths:
                         and canonicalized to the URN before forwarding)
                     device_code:
                       type: string
+                      description: >-
+                        The `device_code` value returned by POST /agent/auth/device.
+                        Poll with it at the interval that response named until approval
+                        completes, expires, or is denied.
                 - title: RefreshTokenGrant
                   description: Exchange a refresh token for a new access token (grant_type=refresh_token)
                   type: object
@@ -893,12 +897,18 @@ paths:
                       absent only when the grant is revoked or expired
         "400":
           description: >-
-            Invalid grant_type, missing credential for the grant, or the upstream
-            polling protocol error passed through verbatim
+            Invalid grant_type or a missing credential for the grant returns the WAVE error
+            envelope. A device_code that is not yet approved, not yet due for another poll, or no
+            longer valid returns the RFC 8628 §3.5 device-flow error passed through verbatim, one
+            of `authorization_pending` (not yet approved, keep polling), `slow_down` (poll less
+            often), `expired_token` (the device_code expired, restart at /agent/auth/device),
+            `access_denied` (the human declined), or `invalid_grant`.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                oneOf:
+                  - $ref: "#/components/schemas/Error"
+                  - $ref: "#/components/schemas/DeviceFlowError"
         "429":
           $ref: "#/components/responses/RateLimitError"
         "502":
@@ -1460,8 +1470,12 @@ paths:
         - name: videoId
           in: path
           required: true
+          description: >-
+            Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own
+            returns 404.
           schema:
             type: string
+          example: rec-demo-0001
       responses:
         '200':
           description: List of chapters
@@ -1488,8 +1502,12 @@ paths:
         - name: videoId
           in: path
           required: true
+          description: >-
+            Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own
+            returns 404.
           schema:
             type: string
+          example: rec-demo-0001
       requestBody:
         required: true
         content:
@@ -1519,8 +1537,12 @@ paths:
         - name: videoId
           in: path
           required: true
+          description: >-
+            Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own
+            returns 404.
           schema:
             type: string
+          example: rec-demo-0001
       requestBody:
         content:
           application/json:
@@ -1533,6 +1555,77 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DetectionJob'
+
+  /videos/{videoId}/chapters/detect/{jobId}:
+    get:
+      tags: [Chapters]
+      summary: Poll a chapter-detection job
+      operationId: getChapterDetectionJob
+      description: >-
+        Current state of a detection job started by POST /videos/{videoId}/chapters/detect. Poll
+        until `status` reaches a terminal state.
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          description: >-
+            Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own
+            returns 404.
+          schema:
+            type: string
+          example: rec-demo-0001
+        - name: jobId
+          in: path
+          required: true
+          description: Detection job id returned by POST /videos/{videoId}/chapters/detect.
+          schema:
+            type: string
+          example: job-demo-0001
+      responses:
+        '200':
+          description: The detection job view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectionJob'
+        '404':
+          description: No detection job with this id for this video.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /videos/{videoId}/chapters/{chapterId}:
+    delete:
+      tags: [Chapters]
+      summary: Delete a chapter
+      operationId: deleteChapter
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          description: >-
+            Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own
+            returns 404.
+          schema:
+            type: string
+          example: rec-demo-0001
+        - name: chapterId
+          in: path
+          required: true
+          description: Chapter id, as returned by POST /videos/{videoId}/chapters or a detection job.
+          schema:
+            type: string
+          example: chp-demo-0001
+      responses:
+        '204':
+          description: Chapter deleted
+        '404':
+          description: No chapter with this id for this video.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # Editor API
   /editor/projects:
@@ -2212,8 +2305,11 @@ paths:
         - name: id
           in: path
           required: true
+          description: Document id, unique within `namespace`. Letters, digits, `.`, `_`, `:`, `-`, 1-128 characters.
           schema:
             type: string
+            pattern: '^[A-Za-z0-9._:-]{1,128}$'
+          example: doc-1
         - name: namespace
           in: query
           required: true
@@ -10337,6 +10433,22 @@ components:
           format: uri
           description: Documentation link for this error.
 
+    DeviceFlowError:
+      type: object
+      description: >-
+        RFC 8628 §3.5 device-flow error passthrough from POST /agent/auth/token — a flat `{error}`
+        string, not the WAVE error envelope, because it is the polling protocol, not a failure.
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum: [authorization_pending, slow_down, expired_token, access_denied, invalid_grant]
+          description: >-
+            `authorization_pending`: not yet approved, keep polling at the named interval.
+            `slow_down`: poll less often. `expired_token`: the device_code expired, restart at
+            /agent/auth/device. `access_denied`: the human declined. `invalid_grant`: the grant is
+            no longer valid.
+
     Pagination:
       type: object
       properties:
@@ -10614,10 +10726,18 @@ components:
       properties:
         videoId:
           type: string
+          description: >-
+            Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own
+            returns 404.
+          example: rec-demo-0001
         startTime:
           type: number
+          description: Clip start, in seconds from the start of the recording.
         endTime:
           type: number
+          description: >-
+            Clip end, in seconds from the start of the recording. `endTime - startTime` must be
+            1-60 seconds.
         title:
           type: string
         description:
@@ -10864,6 +10984,10 @@ components:
       properties:
         videoId:
           type: string
+          description: >-
+            Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own
+            returns 404.
+          example: rec-demo-0001
         sourceLanguage:
           type: string
           default: en
@@ -11360,6 +11484,8 @@ components:
       properties:
         sourceId:
           type: string
+          description: An org-owned recording id, or an https URL to a media file.
+          example: rec-demo-0001
         sourceType:
           type: string
           enum: [video, audio]
@@ -11559,6 +11685,9 @@ components:
       properties:
         id:
           type: string
+          pattern: '^[A-Za-z0-9._:-]{1,128}$'
+          description: Document id, unique within `namespace`. Letters, digits, `.`, `_`, `:`, `-`, 1-128 characters.
+          example: doc-1
         namespace:
           type: string
           enum: [streams, users, clips, transcripts]
@@ -11575,6 +11704,9 @@ components:
       properties:
         id:
           type: string
+          pattern: '^[A-Za-z0-9._:-]{1,128}$'
+          description: Document id, unique within `namespace`. Letters, digits, `.`, `_`, `:`, `-`, 1-128 characters.
+          example: doc-1
         namespace:
           type: string
           enum: [streams, users, clips, transcripts]
@@ -11692,15 +11824,25 @@ components:
       required: [ns, sources]
       description: >-
         `org` is derived from the caller's authenticated principal, not sent in the body.
+      example:
+        ns: demo-braid
+        sources:
+          - label: mic-1
+            track: cam-1
+            url: https://wave.online/samples/input.mp4
+          - label: mic-2
+            track: cam-2
+            url: https://wave.online/samples/input.mp4
       properties:
         ns:
           type: string
           description: Namespace for the published track. Republishing the same ns replaces the prior machine.
         sources:
           type: array
+          minItems: 2
           description: >-
-            Named audio sources to braid into one interleaved multichannel track. Each source needs
-            a `label`/`track` and either a `url` or a `path`.
+            Named audio sources to braid into one interleaved multichannel track, at least 2. Each
+            source needs a `label`/`track` and either a `url` or a `path`.
           items:
             type: object
             required: [label, track]
@@ -11846,14 +11988,22 @@ components:
         A render Brief — a template plus its props. Brand-parametric: an optional BYO `brandKit`
         (logo SVG, fonts as data URLs, colors) renders any template on a tenant's brand.
       required: [template, props]
+      example:
+        template: slate
+        props:
+          product: WAVE
+          accent: '#16d6aa'
+          tagline: Media infrastructure for the agentic internet.
       properties:
         template:
           $ref: '#/components/schemas/RenderTemplate'
         props:
           type: object
           description: >-
-            Template-specific props (see the live contract for per-template shapes). All string
-            props are HTML-escaped; width/height ≤ 4096, durationMs ≤ 60000, fps ≤ 60.
+            Template-specific props. Each template publishes its own required and optional props
+            (names, types, bounds, and defaults) in the live contract at `GET /render/openapi.json`
+            so a caller can validate a Brief before sending it — this schema stays open by design.
+            All string props are HTML-escaped; width/height ≤ 4096, durationMs ≤ 60000, fps ≤ 60.
           additionalProperties: true
     RenderResult:
       description: The delivery envelope (Accept application/json). `sha256` is the determinism receipt.
