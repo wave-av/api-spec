@@ -10,8 +10,7 @@ All notable changes to this project are documented here. The format is based on
 
 - **`X402PaymentRequired.error_detail.payment_rejected`** (`openapi.yaml`) — documents the
   additive `{ reason, rail }` deny verdict the gateway publishes on a 402 when a submitted payment
-  was rejected; absent on an ordinary unpaid challenge. Also corrects `error_detail` to the flat
-  `ErrorBody` the gateway returns (the spec previously pointed at the `Error` wrapper). Live
+  was rejected; absent on an ordinary unpaid challenge. Live
   receipt: a malformed `X-PAYMENT` header returns `payment_rejected: { reason:
   "invalid_payment_header", rail: "base-usdc" }`. Closes #46. (#76)
 - **Spec coverage from the live gateway skills index** (v1.1.0). Diffed the live capability
@@ -136,7 +135,7 @@ All notable changes to this project are documented here. The format is based on
   the API host but are not real operations. Recommend the publicly served copy drop them;
   out of scope for this spec since they were never present here.
 
-## [1.0.0] - 2026-04-05
+### Fixed
 
 - **`X402PaymentRequired.error_detail` nesting** (`openapi.yaml`): `error_detail` referenced the
   `Error` envelope (`{ error: { code, ... } }`), but the gateway nests the bare error object
@@ -144,7 +143,9 @@ All notable changes to this project are documented here. The format is based on
   confirmed against a live 402 receipt (`curl https://api.wave.online/v1/clips`). The inner
   object is now extracted as the `ErrorBody` component schema (referenced by `Error`, so every
   other response is unchanged) and `error_detail` composes `ErrorBody` instead, matching the wire
-  shape so generated types no longer expect a nonexistent `error_detail.error` member.
+  shape so generated types no longer expect a nonexistent `error_detail.error` member. (#76)
+
+## [1.0.0] - 2026-04-05
 
 ### Added
 
