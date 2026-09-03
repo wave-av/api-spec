@@ -1,0 +1,23 @@
+CHANGELOG.md
+  s_28ffb89b51a63a::t_301cc255129d8d 11-16,141-148
+generated/api-types.d.ts
+  s_28ffb89b51a63a::t_fdb2fc19b54320 4188-4198,4200-4208,5097-5105
+openapi.yaml
+  s_28ffb89b51a63a::t_737a889981c427 10298-10315,10317-10338,11997-12019
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "de07b86987c20e30db69f45c1483a2243ba69315",
+  "prompts": {},
+  "sessions": {
+    "s_28ffb89b51a63a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aaaefc5ccf010b7c5",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
