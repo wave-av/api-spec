@@ -1,0 +1,35 @@
+[
+  {
+    "path": "/leaderboard",
+    "method": "GET",
+    "direction": "undocumented-live",
+    "justification": "Gateway-NATIVE root surface, not a /v1 operation this spec describes. The published contract injects it at serve time with an explicit per-operation server override of https://api.wave.online (no /v1 prefix) because it is served pre-auth at the host root. Documenting it here as a /v1 path would state a URL that does not exist. Exempt only while it stays the unauthenticated, public-tagged, read-only surface it is today: the expectAbsent guard below drops this exemption the moment the operation gains a security requirement, which is exactly what the in-flight work to move these three behind operator auth will do.",
+    "expect": {
+      "tags.0": "public",
+      "summary": "Public dispatch-model eval leaderboard (measured rows only: model/task/score/date)"
+    },
+    "expectAbsent": ["security", "requestBody"]
+  },
+  {
+    "path": "/platform",
+    "method": "GET",
+    "direction": "undocumented-live",
+    "justification": "Gateway-NATIVE root surface, same shape and same reasoning as GET /leaderboard: injected at serve time with a per-operation server override of https://api.wave.online, served pre-auth at the host root rather than under /v1. It reports platform-wide aggregate usage and is one of the three operations being moved behind operator auth; when that lands, the expectAbsent guard below lapses this exemption and the gate demands the operation be described or removed rather than silently re-exempted in its new shape.",
+    "expect": {
+      "tags.0": "public",
+      "summary": "Platform-wide live usage (inference + voice + codec + storage + realtime + clips + captions)"
+    },
+    "expectAbsent": ["security", "requestBody"]
+  },
+  {
+    "path": "/usage",
+    "method": "GET",
+    "direction": "undocumented-live",
+    "justification": "Gateway-NATIVE root surface injected at serve time, served pre-auth at the host root. NOTE THE COLLISION, which is why this entry is the narrowest of the three: openapi.yaml separately declares POST /usage as an x402-priced draft operation under /v1, so the segment `usage` means two different things in the two documents — a free public GET at the root and a priced POST under /v1. This entry exempts ONLY the published GET; it says nothing about the draft POST, and the two must be reconciled before that draft is promoted. Like its siblings this operation is being moved behind operator auth, and the expectAbsent guard lapses the exemption when it is.",
+    "expect": {
+      "tags.0": "public",
+      "summary": "LIVE inference funnel usage (registry-grounded, GROUP BY model, spend to 8 decimals)"
+    },
+    "expectAbsent": ["security", "requestBody"]
+  }
+]
