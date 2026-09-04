@@ -33,9 +33,18 @@
 # specific to this repo's own published artifact does not belong inside the mirrored file.
 #
 # ON EXIT 2 (drift) the job files or updates ONE tracking issue, matched by exact title so repeated
-# runs comment instead of opening a new issue every morning. On exit 1 (UNKNOWN — a broken read) it
-# goes red and files NOTHING: a failed read says nothing about drift, and an issue claiming drift
-# on the strength of a failed fetch would be a false report.
+# runs comment instead of opening a new issue every morning. ON EXIT 0 it CLOSES that same issue:
+# an open issue is a claim about the current state of the default branch, and a claim nothing ever
+# retracts becomes false the moment it is fixed. Both jobs own the full lifecycle of their own
+# issue, and the two titles are distinct so neither touches the other's. On exit 1 (UNKNOWN — a
+# broken read) it goes red and files NOTHING: a failed read says nothing about drift, and an issue
+# claiming drift on the strength of a failed fetch would be a false report.
+#
+# ON ANY OTHER EXIT CODE both jobs go red. The scripts define exactly three codes; a fourth means a
+# crash — an interpreter error, an OOM kill, a code added to a script without teaching this file
+# about it. The per-code steps are all `if: code == ...`, so an unhandled code would match none of
+# them and leave the job GREEN. A gate that fails open is worse than no gate, because it is
+# trusted, so each job carries an explicit inverse default case.
 
 name: published-contract-drift
 
@@ -124,6 +133,21 @@ jobs:
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "exit code: $code"
 
+      # The script defines exactly three exit codes. ANY OTHER CODE IS A CRASH, not a verdict: an
+      # interpreter error, an OOM kill (137), a missing binary (127), or a fourth code someone adds
+      # to the script later without teaching this file about it. The steps below enumerate '1' and
+      # '2'; with no default case a crash would match none of them and leave the job GREEN — a gate
+      # that fails open and says nothing, which is worse than no gate because it is trusted. Every
+      # other step here is `if: code == ...`, so this one is deliberately the inverse.
+      - name: Fail on an unrecognized exit code
+        if: steps.fresh.outputs.code != '0' && steps.fresh.outputs.code != '1' && steps.fresh.outputs.code != '2'
+        env:
+          CODE: ${{ steps.fresh.outputs.code }}
+        run: |
+          echo "::error::published-drift-freshness exited $CODE, which is not one of its three documented codes (0 FRESH / 1 UNKNOWN / 2 STALE)."
+          echo "Treating an unrecognized exit as a failure: it is a crash, not a verdict, and must never read as a pass."
+          exit 1
+
       # exit 1 = UNKNOWN. A broken read is a TOOLING failure: go red everywhere, file nothing.
       - name: Fail loudly on a broken read
         if: steps.fresh.outputs.code == '1'
@@ -195,6 +219,33 @@ jobs:
           echo "::error::contract-drift.json no longer describes openapi.yaml. A tracking issue was filed or updated."
           exit 1
 
+      # exit 0 off the PR path = the receipt was regenerated and the condition that opened the issue
+      # is gone. Close it. An open issue is a CLAIM about the default branch's current state, so one
+      # nothing closes decays into a false claim that outlives its cause — and the next real
+      # staleness would comment on a stale issue rather than announce itself. Matched by the same
+      # exact literal title the filing step uses, so the two halves of the lifecycle cannot drift
+      # apart; the drift job's issue has a different title and is untouched by this.
+      - name: Close the tracking issue once the receipt is fresh again
+        if: steps.fresh.outputs.code == '0' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'contract-drift.json no longer matches openapi.yaml'
+        run: |
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title == \$ENV.TITLE)) | .[0].number // empty")
+
+          if [ -n "$existing" ]; then
+            {
+              echo "\`contract-drift.json\` matches \`openapi.yaml\` again — the receipt was regenerated, so this is resolved."
+              echo
+              echo "Run: [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) · commit \`$GITHUB_SHA\`"
+            } > /tmp/close-body.md
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "$(cat /tmp/close-body.md)"
+            echo "Closed issue #$existing — the receipt is fresh."
+          else
+            echo "Receipt is fresh and no tracking issue is open. Nothing to close."
+          fi
+
   # Networked. Scheduled and manual only.
   drift:
     name: published contract drift
@@ -232,6 +283,18 @@ jobs:
           name: contract-drift
           path: /tmp/contract-drift.json
           if-no-files-found: warn
+
+      # Same default case as the freshness job, for the same reason: the steps below enumerate '1'
+      # and '2', so without this an interpreter crash, an OOM kill or a code added later would match
+      # nothing and leave a networked gate green while saying nothing at all.
+      - name: Fail on an unrecognized exit code
+        if: steps.drift.outputs.code != '0' && steps.drift.outputs.code != '1' && steps.drift.outputs.code != '2'
+        env:
+          CODE: ${{ steps.drift.outputs.code }}
+        run: |
+          echo "::error::published-drift exited $CODE, which is not one of its three documented codes (0 OK / 1 UNKNOWN / 2 DRIFT)."
+          echo "Treating an unrecognized exit as a failure: it is a crash, not a verdict, and must never read as a pass."
+          exit 1
 
       # exit 1 = UNKNOWN. A broken read is a TOOLING failure: go red, file nothing.
       - name: Fail loudly on a broken read
@@ -283,3 +346,30 @@ jobs:
         run: |
           echo "::error::The published contract has drifted from openapi.yaml. A tracking issue was filed or updated."
           exit 1
+
+      # exit 0 = the contract was reconciled. Close the issue that exit 2 opened, for the same
+      # reason the freshness job closes its own: an open issue asserts that the published contract
+      # is CURRENTLY drifted, and nothing else in this workflow ever retracts that. Left alone it
+      # would sit open past the fix, and the next genuine drift would arrive as a comment on an
+      # issue everyone had already learned to ignore. Exact-title match, and this title is distinct
+      # from the freshness job's — the two lifecycles stay separate.
+      - name: Close the tracking issue once the contract matches again
+        if: steps.drift.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'Published contract has drifted from openapi.yaml'
+        run: |
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title == \$ENV.TITLE)) | .[0].number // empty")
+
+          if [ -n "$existing" ]; then
+            {
+              echo "The published contract matches \`openapi.yaml\` at operation granularity again — this is resolved."
+              echo
+              echo "Run: [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) · commit \`$GITHUB_SHA\`"
+            } > /tmp/close-body.md
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "$(cat /tmp/close-body.md)"
+            echo "Closed issue #$existing — the contract matches."
+          else
+            echo "No drift and no tracking issue is open. Nothing to close."
+          fi

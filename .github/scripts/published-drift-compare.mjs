@@ -65,27 +65,56 @@ export function getPath(obj, path) {
 }
 
 /**
+ * The security requirement that ACTUALLY applies to an operation.
+ *
+ * OpenAPI 3.x makes a document-level `security` the DEFAULT for every operation that does not state
+ * its own. So an operation with no `security` key, in a document that has one, is authenticated —
+ * and reading only the operation object would call it unauthenticated. That distinction is the
+ * whole point of the `expectAbsent: ["security"]` guard on this repo's live-surface exemptions,
+ * whose justifications say in as many words that the exemption lapses "the moment the operation
+ * gains a security requirement". Auth arriving at the document root is that moment just as much as
+ * auth arriving on the operation, so it has to be resolved before the predicate is evaluated.
+ *
+ * Only `security` is inherited here. It is the one operation field OpenAPI defines as a whole-value
+ * document default; `parameters` and `servers` merge under different rules and no predicate in this
+ * repo depends on them.
+ */
+export function effectiveOperation(liveOp, liveDoc) {
+  if (!liveOp || liveOp.security !== undefined || liveDoc?.security === undefined) return liveOp;
+  return { ...liveOp, security: liveDoc.security };
+}
+
+/**
  * An allowlist entry is honored ONLY while the live operation still matches every `expect` field
  * and carries none of the `expectAbsent` keys — the same idea as skills-index-coverage.mjs's
  * allowlistStillApplies(): an exemption that survives on a path match alone outlives its own
  * justification.
  *
- * Two deliberate refinements over that function, both required for OpenAPI operation objects:
+ * Three deliberate refinements over that function, all required for OpenAPI operation objects:
  *   - a `null` expectation matches an ABSENT key as well as a literal null, because for an
  *     operation "no `security` key" and "`security: null`" make the same claim;
  *   - `expectAbsent` names keys that must NOT appear. This is what makes an exemption granted for
  *     an UNAUTHENTICATED public route lapse the moment that route gains a `security` requirement:
  *     the exemption was reasoned about the unauthenticated shape and must not silently carry over
- *     to the authenticated one.
+ *     to the authenticated one. `liveDoc` is read so that document-level auth counts as gaining it
+ *     (see effectiveOperation);
+ *   - the `unpublished-repo` direction has NO live operation by construction — the operation is
+ *     declared here and not served — so there is nothing for a predicate to match. A predicate-free
+ *     entry there is still a valid exemption and is honored; one that states a predicate cannot be
+ *     graded at all and lapses rather than being honored blind. validateAllowlist rejects that
+ *     combination up front, so this branch is the belt to its braces.
  */
-export function allowlistStillApplies(entry, liveOp) {
-  if (!liveOp) return false;
-  for (const [path, expected] of Object.entries(entry.expect ?? {})) {
-    const actual = getPath(liveOp, path);
+export function allowlistStillApplies(entry, liveOp, liveDoc) {
+  const expect = entry.expect ?? {};
+  const expectAbsent = entry.expectAbsent ?? [];
+  if (!liveOp) return Object.keys(expect).length === 0 && expectAbsent.length === 0;
+  const op = effectiveOperation(liveOp, liveDoc);
+  for (const [path, expected] of Object.entries(expect)) {
+    const actual = getPath(op, path);
     if (expected === null ? actual !== null && actual !== undefined : !isDeepStrictEqual(actual, expected)) return false;
   }
-  for (const key of entry.expectAbsent ?? []) {
-    if (getPath(liveOp, key) !== undefined) return false;
+  for (const key of expectAbsent) {
+    if (getPath(op, key) !== undefined) return false;
   }
   return true;
 }
@@ -101,6 +130,17 @@ export function validateAllowlist(allowlist) {
       return `allowlist entry ${e.method} ${e.path} needs a real justification (>=20 chars)`;
     if (!DIRECTIONS.includes(e.direction))
       return `allowlist entry ${e.method} ${e.path} has an unknown direction ${JSON.stringify(e.direction)}`;
+    const hasPredicate = Object.keys(e.expect ?? {}).length > 0 || (e.expectAbsent ?? []).length > 0;
+    // The header of this file promises that a live-direction exemption carries "a justification AND
+    // a live predicate". Enforce the second half: without a predicate the entry is honored on
+    // path+method alone, can never lapse, and outlives the reasoning that granted it — the exact
+    // failure `expectAbsent` exists to prevent.
+    if (e.direction !== 'unpublished-repo' && !hasPredicate)
+      return `allowlist entry ${e.method} ${e.path} (${e.direction}) needs an expect or expectAbsent predicate — an exemption that cannot lapse outlives its justification`;
+    // The mirror image. `unpublished-repo` has no live operation to evaluate against, so a predicate
+    // there can never be true; the entry would validate, then silently never apply.
+    if (e.direction === 'unpublished-repo' && hasPredicate)
+      return `allowlist entry ${e.method} ${e.path} (unpublished-repo) cannot carry a predicate — the operation is not served, so there is no live operation to evaluate one against`;
     const key = `${e.direction} ${e.method.toUpperCase()} ${e.path}`;
     if (seen.has(key)) return `duplicate allowlist entry for ${key}`;
     seen.add(key);
@@ -119,10 +159,16 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
   const draftNotYetPublished = [];
   const enrichmentObservations = { descriptionsOverwritten: [], operationIdsSynthesized: 0, errorResponsesInjected: 0 };
 
+  // Every allowlist key `record` actually consults. What is left over at the end is an exemption
+  // that matched nothing — see unmatchedAllowlist below.
+  const usedAllowKeys = new Set();
+
   const record = (direction, path, method, entry, detail, liveOp) => {
-    const allow = allowByKey.get(`${direction} ${method.toUpperCase()} ${path}`);
+    const allowKey = `${direction} ${method.toUpperCase()} ${path}`;
+    const allow = allowByKey.get(allowKey);
     if (allow) {
-      if (allowlistStillApplies(allow, liveOp)) {
+      usedAllowKeys.add(allowKey);
+      if (allowlistStillApplies(allow, liveOp, liveDoc)) {
         allowlisted.push({ ...entry, direction, justification: allow.justification });
         return;
       }
@@ -130,7 +176,12 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
         ...entry,
         direction,
         justification: allow.justification,
-        reason: "the live operation no longer matches the entry's expect/expectAbsent predicate",
+        // Name the actual cause. "No longer matches the predicate" is false when there was never a
+        // live operation to match one against, and a wrong reason sends the reader hunting for a
+        // change in the published contract that never happened.
+        reason: liveOp
+          ? "the live operation no longer matches the entry's expect/expectAbsent predicate"
+          : 'this direction has no live operation, and the entry states a predicate that therefore cannot be evaluated',
       });
     }
     findings.push({ ...entry, direction, ...detail });
@@ -199,6 +250,17 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
     record('shared-drift', path, method, { path, method: method.toUpperCase() }, { severity: 'contract-mismatch', differences }, liveEntry.op);
   }
 
+  // An exemption `record` never consulted: its operation is no longer served, or openapi.yaml now
+  // documents it, so no pass ever reaches for the key. Without this it is invisible — the headline
+  // counts `allowlisted` and `lapsedAllowlistEntries`, and a dead entry appears in neither, so it
+  // reads as "no allowlist problem" indefinitely. A standing grant nobody reviews is the thing an
+  // allowlist is supposed to make impossible. Surfaced, not failed: a dead entry is stale
+  // bookkeeping, not drift, and reddening the daily job for it would train people to ignore it.
+  const unmatchedAllowlist = [...allowByKey.keys()]
+    .filter((k) => !usedAllowKeys.has(k))
+    .sort()
+    .map((key) => ({ key, justification: allowByKey.get(key).justification }));
+
   findings.sort((a, b) => `${a.direction} ${a.path} ${a.method}`.localeCompare(`${b.direction} ${b.path} ${b.method}`));
   draftNotYetPublished.sort((a, b) => `${a.path} ${a.method}`.localeCompare(`${b.path} ${b.method}`));
 
@@ -218,10 +280,12 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
       draftNotYetPublished: draftNotYetPublished.length,
       allowlisted: allowlisted.length,
       lapsedAllowlistEntries: lapsedAllowlist.length,
+      unmatchedAllowlistEntries: unmatchedAllowlist.length,
     },
     findings,
     allowlisted,
     lapsedAllowlist,
+    unmatchedAllowlist,
     draftNotYetPublished,
     enrichmentObservations,
     normalizationRules: normalize ? NORMALIZATION_RULES : ['NORMALIZATION DISABLED (--no-normalize)'],

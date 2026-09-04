@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { compare } from './published-drift-compare.mjs';
-import { DIGEST_FIELD, EXIT_UNKNOWN, checkFreshness, main, repoFacts } from './published-drift-freshness.mjs';
+import { DIGEST_FIELD, EXIT_UNKNOWN, checkFreshness, main, parseArgs, repoFacts } from './published-drift-freshness.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
@@ -102,9 +102,41 @@ test('an ungradable receipt is UNKNOWN, never FRESH', () => {
   assert.equal(checkFreshness(spec, []).status, 'unknown');
 });
 
+test('a digest that is not a digest is UNKNOWN, not STALE', () => {
+  // STALE and UNKNOWN are different claims that drive different CI behaviour: STALE (exit 2) files
+  // the routine staleness issue and tells the reader the spec moved; UNKNOWN (exit 1) goes red and
+  // files nothing. A malformed digest is the second — the receipt cannot be graded, which says
+  // nothing about whether the spec moved. Any non-empty string used to sail through the check and
+  // fail the equality test below it, so a merge marker or a truncated paste was reported as STALE.
+  const spec = doc({ '/a': { get: {} } });
+  for (const bad of ['invalid', '', '   ', 'TODO', 'a'.repeat(63), 'a'.repeat(65), `${'A'.repeat(64)}`, '<<<<<<< HEAD']) {
+    const receipt = receiptFor(spec);
+    receipt.sources[DIGEST_FIELD] = bad;
+    assert.equal(checkFreshness(spec, receipt).status, 'unknown', `${JSON.stringify(bad)} is not a gradable digest`);
+  }
+  // A well-formed digest that simply disagrees is still STALE — this narrows the gate, it does not
+  // blunt it.
+  const wrongButWellFormed = receiptFor(spec);
+  wrongButWellFormed.sources[DIGEST_FIELD] = 'b'.repeat(64);
+  assert.equal(checkFreshness(spec, wrongButWellFormed).status, 'stale');
+  assert.equal(checkFreshness(spec, receiptFor(spec)).status, 'fresh');
+});
+
+test('--receipt with no value is a usage error, not a misleading read error', () => {
+  // It used to set args.receipt = undefined, reach readFileSync, and surface as
+  // "could not read/parse undefined" — sending the reader after a missing file, not a missing arg.
+  assert.match(parseArgs(['--receipt']).error, /--receipt needs a value \(got nothing\)/);
+  assert.match(parseArgs(['openapi.yaml', '--receipt']).error, /--receipt needs a value/);
+  const ok = parseArgs(['openapi.yaml', '--receipt', 'contract-drift.json']);
+  assert.equal(ok.error, null);
+  assert.deepEqual({ spec: ok.spec, receipt: ok.receipt }, { spec: 'openapi.yaml', receipt: 'contract-drift.json' });
+  assert.equal(parseArgs([]).receipt, 'contract-drift.json', 'the default receipt still applies');
+});
+
 test('main() exits UNKNOWN on an unreadable spec or receipt, never FRESH', async () => {
   assert.equal(await main(['/nonexistent/openapi.yaml', '--receipt', '/nonexistent/r.json']), EXIT_UNKNOWN);
   assert.equal(await main([join(REPO_ROOT, 'openapi.yaml'), '--receipt', '/nonexistent/r.json']), EXIT_UNKNOWN);
+  assert.equal(await main(['--receipt']), EXIT_UNKNOWN, 'a usage error is UNKNOWN, never a verdict');
 });
 
 // ── The shipped artifact itself is the subject. ─────────────────────────────────────────────────

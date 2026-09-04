@@ -8,6 +8,9 @@
  * exact enrichment observed in the published document, so the normalizer is tested against the
  * shape it actually has to undo.
  *
+ * The EXEMPTION lifecycle — how an allowlist entry is granted, honored and lapses — lives in
+ * published-drift-allowlist.test.mjs. This file keeps normalization, indexing and the CLI contract.
+ *
  * Run: node --test .github/scripts/*.test.mjs
  */
 import test from 'node:test';
@@ -23,8 +26,8 @@ import {
   normalizePair,
   synthesizeOperationId,
 } from './published-drift-normalize.mjs';
-import { allowlistStillApplies, compare, diffOperation, indexOperations, validateAllowlist } from './published-drift-compare.mjs';
-import { EXIT_DRIFT, EXIT_OK, EXIT_UNKNOWN, fetchPublished, main } from './published-drift.mjs';
+import { compare, diffOperation, indexOperations } from './published-drift-compare.mjs';
+import { EXIT_DRIFT, EXIT_OK, EXIT_UNKNOWN, fetchPublished, main, parseArgs } from './published-drift.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
@@ -130,76 +133,6 @@ test('a draft repo-only operation is suppressed; promoting it out of draft makes
   assert.equal(afterPromotion.findings[0].severity, 'contract-ahead');
 });
 
-// ── Direction: undocumented-live, the security-relevant one. ────────────────────────────────────
-const injectedPublicOp = {
-  summary: 'LIVE inference funnel usage (registry-grounded, GROUP BY model, spend to 8 decimals)',
-  tags: ['public'],
-  responses: { 200: { description: 'ok' } },
-};
-
-test('an operation served live but absent from the spec is a security-relevant finding', () => {
-  const r = compare({ repoDoc: doc({}), liveDoc: doc({ '/usage': { get: injectedPublicOp } }) });
-  assert.equal(r.headline.undocumentedLive, 1);
-  assert.equal(r.findings[0].severity, 'security-relevant');
-  assert.equal(r.findings[0].method, 'GET');
-  assert.equal(r.findings[0].path, '/usage');
-});
-
-test('an allowlist entry suppresses it — and LAPSES the moment the operation gains auth', () => {
-  const allowlist = [
-    {
-      path: '/usage',
-      method: 'GET',
-      direction: 'undocumented-live',
-      justification: 'Gateway-native public root surface, exempt only while it stays unauthenticated.',
-      expect: { 'tags.0': 'public' },
-      expectAbsent: ['security'],
-    },
-  ];
-  const clean = compare({ repoDoc: doc({}), liveDoc: doc({ '/usage': { get: injectedPublicOp } }), allowlist });
-  assert.equal(clean.headline.undocumentedLive, 0);
-  assert.equal(clean.headline.allowlisted, 1);
-
-  const behindAuth = { ...injectedPublicOp, security: [{ bearerWithScopes: ['usage:read'] }] };
-  const lapsed = compare({ repoDoc: doc({}), liveDoc: doc({ '/usage': { get: behindAuth } }), allowlist });
-  assert.equal(lapsed.headline.undocumentedLive, 1, 'the exemption was granted for the unauthenticated shape only');
-  assert.equal(lapsed.headline.lapsedAllowlistEntries, 1);
-});
-
-test('an allowlist entry does not leak across directions', () => {
-  const allowlist = [
-    { path: '/x', method: 'POST', direction: 'unpublished-repo', justification: 'A justification long enough to pass.', expect: {} },
-  ];
-  const r = compare({ repoDoc: doc({}), liveDoc: doc({ '/x': { post: { responses: {} } } }), allowlist });
-  assert.equal(r.headline.undocumentedLive, 1, 'an unpublished-repo exemption must not silence an undocumented-live finding');
-});
-
-test('a null expectation matches an absent key as well as a literal null', () => {
-  assert.equal(allowlistStillApplies({ expect: { security: null } }, { tags: ['public'] }), true);
-  assert.equal(allowlistStillApplies({ expect: { security: null } }, { security: null }), true);
-  assert.equal(allowlistStillApplies({ expect: { security: null } }, { security: [] }), false);
-});
-
-// ── Allowlist hygiene. ──────────────────────────────────────────────────────────────────────────
-test('validateAllowlist rejects the ways an exemption goes bad', () => {
-  const ok = { path: '/a', method: 'GET', direction: 'undocumented-live', justification: 'A justification long enough.' };
-  assert.equal(validateAllowlist([ok]), null);
-  assert.match(validateAllowlist({}), /not an array/);
-  assert.match(validateAllowlist([{ ...ok, justification: 'too short' }]), /needs a real justification/);
-  assert.match(validateAllowlist([{ ...ok, direction: 'whatever' }]), /unknown direction/);
-  assert.match(validateAllowlist([ok, ok]), /duplicate allowlist entry/);
-});
-
-test('the COMMITTED allowlist is well-formed and every entry is a live-direction exemption with a predicate', () => {
-  const committed = JSON.parse(readFileSync(join(__dirname, 'published-drift-allowlist.json'), 'utf8'));
-  assert.equal(validateAllowlist(committed), null);
-  for (const e of committed) {
-    assert.equal(e.direction, 'undocumented-live', `${e.method} ${e.path}: only live surface should ever need an exemption`);
-    assert.ok(Object.keys(e.expect ?? {}).length > 0, `${e.method} ${e.path}: an exemption without a predicate cannot lapse`);
-    assert.ok(e.expectAbsent?.includes('security'), `${e.method} ${e.path}: must lapse when the route gains auth`);
-  }
-});
-
 // ── Index and path-item handling. ───────────────────────────────────────────────────────────────
 test('indexOperations skips path-item metadata and counts only real operations', () => {
   const ops = indexOperations(doc({ '/a': { get: {}, post: {}, parameters: [{ name: 'x' }], summary: 'shared', $ref: '#/x' } }));
@@ -217,6 +150,90 @@ test('fetchPublished reports a failure rather than throwing or defaulting', asyn
   });
   const notOk = async () => ({ ok: false, status: 503 });
   assert.match((await fetchPublished('https://example.invalid/x', notOk)).error, /HTTP 503/);
+});
+
+test('a redirect is refused rather than followed', async () => {
+  // redirect: 'follow' let whatever answers the published URL choose this CI job's next
+  // destination. The URL is a hardcoded HTTPS constant; a bounce is not a contract to grade, it is
+  // a read that did not happen — so it must come back as a failure, which main() turns into
+  // EXIT_UNKNOWN (red, no issue filed) rather than a verdict about drift.
+  const withHeaders = async () => ({ ok: false, status: 302, headers: new Headers({ location: 'https://elsewhere.invalid/x' }) });
+  const r = await fetchPublished('https://example.invalid/openapi.json', withHeaders);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /redirected \(HTTP 302\) to https:\/\/elsewhere\.invalid\/x — refusing to follow/);
+
+  // Every 3xx, and a 3xx with no Location at all, is still a refusal rather than a read.
+  for (const status of [301, 302, 307, 308]) {
+    const bounce = async () => ({ ok: false, status, headers: new Headers({ location: 'https://elsewhere.invalid/x' }) });
+    assert.equal((await fetchPublished('https://example.invalid/openapi.json', bounce)).ok, false, `HTTP ${status}`);
+  }
+  const noLocation = async () => ({ ok: false, status: 302, headers: new Headers() });
+  assert.match((await fetchPublished('https://example.invalid/openapi.json', noLocation)).error, /an undisclosed location/);
+
+  // A 200 still reads normally — this refuses redirects, not the endpoint.
+  const fine = async () => ({ ok: true, status: 200, headers: new Headers(), json: async () => ({ paths: {} }) });
+  assert.deepEqual(await fetchPublished('https://example.invalid/openapi.json', fine), { ok: true, doc: { paths: {} } });
+});
+
+test('a value-taking option with no value is a usage error, not a silent opposite', () => {
+  // `--live` with nothing after it used to mean "no snapshot", which takes the NETWORK branch —
+  // the exact branch the caller typed --live to avoid.
+  assert.match(parseArgs(['--live']).error, /--live needs a value \(got nothing\)/);
+  assert.match(parseArgs(['--live', '--json']).error, /--live needs a value \(got "--json"\)/);
+  assert.match(parseArgs(['--out']).error, /--out needs a value/);
+  assert.match(parseArgs(['--out', '--no-normalize']).error, /--out needs a value/);
+  // The valid forms are unchanged.
+  const ok = parseArgs(['openapi.yaml', '--live', 'live.json', '--out', 'drift.json', '--json', '--no-normalize']);
+  assert.equal(ok.error, null);
+  assert.deepEqual(
+    { spec: ok.spec, live: ok.live, out: ok.out, json: ok.json, normalize: ok.normalize },
+    { spec: 'openapi.yaml', live: 'live.json', out: 'drift.json', json: true, normalize: false },
+  );
+  assert.equal(parseArgs([]).spec, 'openapi.yaml', 'the default spec still applies');
+});
+
+test('a usage error exits UNKNOWN and never reaches the network', async () => {
+  assert.equal(await main(['--live']), EXIT_UNKNOWN);
+  assert.equal(await main(['--out']), EXIT_UNKNOWN);
+});
+
+test('--json keeps stdout parseable: the artifact and nothing else', async () => {
+  // The human report and the OK line used to be written to stdout alongside the JSON, so a
+  // consumer piping this into a parser got a stream it could not read.
+  const { writeFileSync, rmSync } = await import('node:fs');
+  const yaml = (await import('js-yaml')).default;
+  const spec = yaml.load(readFileSync(join(REPO_ROOT, 'openapi.yaml'), 'utf8'));
+  const served = {};
+  for (const [p, item] of Object.entries(spec.paths)) {
+    const kept = Object.fromEntries(Object.entries(item).filter(([, op]) => op?.['x-schema-status'] !== 'draft'));
+    if (Object.keys(kept).length) served[p] = kept;
+  }
+  const snapshot = join(process.env.RUNNER_TEMP ?? '/tmp', `published-drift-json-${process.pid}.json`);
+  writeFileSync(snapshot, JSON.stringify(doc(served)));
+
+  const chunks = [];
+  const realWrite = process.stdout.write.bind(process.stdout);
+  const realLog = console.log;
+  const realError = console.error;
+  process.stdout.write = (chunk, ...rest) => {
+    chunks.push(String(chunk));
+    return true;
+  };
+  console.log = (...a) => chunks.push(`${a.join(' ')}\n`);
+  console.error = () => {};
+  try {
+    const code = await main([join(REPO_ROOT, 'openapi.yaml'), '--live', snapshot, '--json']);
+    assert.equal(code, EXIT_OK);
+  } finally {
+    process.stdout.write = realWrite;
+    console.log = realLog;
+    console.error = realError;
+    rmSync(snapshot, { force: true });
+  }
+
+  const stdout = chunks.join('');
+  assert.doesNotThrow(() => JSON.parse(stdout), 'everything written to stdout under --json must be the artifact');
+  assert.equal(JSON.parse(stdout).headline.sharedDrift, 0);
 });
 
 test('an unreadable snapshot exits UNKNOWN, never OK', async () => {

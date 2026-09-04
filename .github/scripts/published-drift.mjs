@@ -63,12 +63,26 @@ export const EXIT_OK = 0;
 export const EXIT_UNKNOWN = 1;
 export const EXIT_DRIFT = 2;
 
-/** Fetch the published contract. Returns a result, never throws, never defaults to "no drift". */
+/**
+ * Fetch the published contract. Returns a result, never throws, never defaults to "no drift".
+ *
+ * REDIRECTS ARE NOT FOLLOWED. `redirect: 'follow'` would let whatever answers the published URL
+ * choose this job's next destination, and this job runs on a CI runner with a token in its
+ * environment. The URL is a single hardcoded HTTPS constant; there is no legitimate reason for it
+ * to bounce us somewhere else, and if it ever starts to, the honest answer is "I could not read the
+ * published contract" — EXIT_UNKNOWN, red, no issue filed — rather than grading whatever the
+ * redirect target happened to serve. Measured 2026-09-04: the endpoint answers HTTP/2 200 directly,
+ * so this refuses nothing that works today.
+ */
 export async function fetchPublished(url = PUBLISHED_SPEC_URL, doFetch = fetch) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await doFetch(url, { signal: controller.signal, redirect: 'follow' });
+    const res = await doFetch(url, { signal: controller.signal, redirect: 'manual' });
+    if (res.status >= 300 && res.status < 400) {
+      const target = res.headers?.get?.('location') ?? 'an undisclosed location';
+      return { ok: false, error: `${url} redirected (HTTP ${res.status}) to ${target} — refusing to follow` };
+    }
     if (!res.ok) return { ok: false, error: `HTTP ${res.status} from ${url}` };
     return { ok: true, doc: await res.json() };
   } catch (err) {
@@ -79,12 +93,27 @@ export async function fetchPublished(url = PUBLISHED_SPEC_URL, doFetch = fetch) 
   }
 }
 
+/**
+ * Value-taking options must actually be given a value. `--live` with nothing after it used to set
+ * `args.live = undefined`, which reads as "no snapshot" and silently takes the NETWORK branch — the
+ * opposite of what `--live` was typed to ask for, and the one branch the caller was trying to
+ * avoid. `--out` with no value silently wrote no artifact. In both cases a following option token
+ * was also accepted as a filename. An option that quietly means its opposite is worse than one that
+ * errors, so this returns a usage error the caller turns into EXIT_UNKNOWN.
+ */
 export function parseArgs(argv) {
-  const args = { spec: null, live: null, out: null, normalize: true, json: false };
+  const args = { spec: null, live: null, out: null, normalize: true, json: false, error: null };
+  const value = (name, next) => {
+    if (next === undefined || next.startsWith('--')) {
+      args.error ??= `${name} needs a value (got ${next === undefined ? 'nothing' : JSON.stringify(next)})`;
+      return null;
+    }
+    return next;
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--live') args.live = argv[++i];
-    else if (a === '--out') args.out = argv[++i];
+    if (a === '--live') args.live = value('--live', argv[++i]);
+    else if (a === '--out') args.out = value('--out', argv[++i]);
     else if (a === '--no-normalize') args.normalize = false;
     else if (a === '--json') args.json = true;
     else if (!a.startsWith('--') && args.spec === null) args.spec = a;
@@ -93,25 +122,38 @@ export function parseArgs(argv) {
   return args;
 }
 
-function report(r) {
+/**
+ * `say` is stdout normally and stderr under `--json`. Under `--json` stdout carries the artifact and
+ * nothing else — a consumer piping this into `jq` cannot parse a stream with prose in it — but the
+ * prose still has to go SOMEWHERE, because it carries the ::error:: and ::warning:: annotations CI
+ * renders. Dropping it would trade one defect for a quieter one.
+ */
+function report(r, say = console.log) {
   const h = r.headline;
-  console.log(
+  say(
     `published-drift: repo ${h.repoVersion} ${h.repoPaths} paths / ${h.repoOperations} ops vs published ` +
       `${h.publishedVersion} ${h.publishedPaths} paths / ${h.publishedOperations} ops — shared ${h.sharedOperations}`,
   );
-  console.log(
+  say(
     `published-drift: findings — undocumented-live ${h.undocumentedLive}, unpublished-repo ${h.unpublishedRepo}, ` +
       `shared-drift ${h.sharedDrift}; suppressed — draft ${h.draftNotYetPublished}, allowlisted ${h.allowlisted}`,
   );
-  console.log(
+  say(
     `published-drift: gateway enrichment normalized — ${r.enrichmentObservations.errorResponsesInjected} injected error ` +
       `responses, ${r.enrichmentObservations.operationIdsSynthesized} synthesized operationIds`,
   );
   if (r.enrichmentObservations.descriptionsOverwritten.length) {
-    console.log(
+    say(
       `::warning::${r.enrichmentObservations.descriptionsOverwritten.length} operations have a real description in ` +
         "openapi.yaml that the published contract replaced with its versioning boilerplate. " +
         'Not drift in this spec — a defect in the publishing service, tracked separately.',
+    );
+  }
+  for (const e of r.unmatchedAllowlist ?? []) {
+    say(
+      `::warning::allowlist entry ${e.key} matched no operation in this comparison — the operation is no longer ` +
+        'served, or openapi.yaml now documents it. Either way the exemption is dead and should be deleted rather ' +
+        `than left standing. Original justification: ${e.justification}`,
     );
   }
   for (const e of r.lapsedAllowlist) {
@@ -128,6 +170,11 @@ function report(r) {
 
 export async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
+  if (args.error) {
+    console.error(`published-drift: ${args.error}`);
+    console.error('published-drift: usage — node published-drift.mjs [openapi.yaml] [--live <file>] [--out <file>] [--json] [--no-normalize]');
+    return EXIT_UNKNOWN;
+  }
 
   let repoDoc;
   try {
@@ -208,14 +255,17 @@ export async function main(argv = process.argv.slice(2)) {
     ...result,
   };
   if (args.out) writeFileSync(args.out, `${JSON.stringify(artifact, null, 2)}\n`);
+  // Under --json, stdout is the artifact and only the artifact; every human line goes to stderr so
+  // the stream stays parseable.
+  const say = args.json ? console.error : console.log;
   if (args.json) process.stdout.write(`${JSON.stringify(artifact)}\n`);
-  report(result);
+  report(result, say);
 
   if (result.findings.length) {
     console.error(`published-drift: DRIFT — ${result.findings.length} unexplained operation-level difference(s).`);
     return EXIT_DRIFT;
   }
-  console.log('published-drift: OK — the published contract matches openapi.yaml at operation granularity.');
+  say('published-drift: OK — the published contract matches openapi.yaml at operation granularity.');
   return EXIT_OK;
 }
 

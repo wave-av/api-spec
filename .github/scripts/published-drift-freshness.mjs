@@ -58,6 +58,9 @@ export const EXIT_STALE = 2;
 /** The one field this gate adds to the artifact. Named here so the generator and the check agree. */
 export const DIGEST_FIELD = 'repoOperationsDigest';
 
+/** What `createHash('sha256').digest('hex')` produces, and therefore the only gradable digest. */
+export const SHA256_HEX = /^[0-9a-f]{64}$/;
+
 /**
  * The repo-side facts a receipt claims, recomputed from the spec. Pure: no I/O, no clock.
  * `paths` and `operations` mirror published-drift-compare.mjs's headline exactly, so a receipt and
@@ -98,6 +101,22 @@ export function checkFreshness(repoDoc, receipt) {
       ],
     };
   }
+  // A digest that is not a digest is an UNGRADABLE receipt, not a stale one. Without this any
+  // non-empty string — `"TODO"`, a truncated paste, a merge conflict marker — would fail the
+  // equality check below and be reported as STALE, which tells a reader the spec moved and sends
+  // them to regenerate a receipt whose real problem is that it is malformed. STALE and UNKNOWN also
+  // drive different CI behaviour (exit 2 files the routine staleness issue; exit 1 goes red and
+  // files nothing), so misclassifying one as the other files a false report.
+  if (!SHA256_HEX.test(recorded)) {
+    return {
+      status: 'unknown',
+      reasons: [
+        `the receipt's sources.${DIGEST_FIELD} is not a SHA-256 digest (got ${JSON.stringify(recorded.slice(0, 80))}) — ` +
+          'the receipt is malformed, which says nothing about whether the spec has moved. Regenerate it with ' +
+          'published-drift.mjs.',
+      ],
+    };
+  }
 
   const facts = repoFacts(repoDoc);
   const reasons = [];
@@ -116,12 +135,22 @@ export function checkFreshness(repoDoc, receipt) {
   return { status: reasons.length ? 'stale' : 'fresh', reasons };
 }
 
+/**
+ * `--receipt` must be given a real path. Left bare it used to set `args.receipt = undefined`, which
+ * reached `readFileSync` and surfaced as "could not read/parse undefined" — a read error for what
+ * is really a usage error, sending the reader to look for a missing file instead of a missing
+ * argument. A following option token was accepted as a path for the same reason.
+ */
 export function parseArgs(argv) {
-  const args = { spec: null, receipt: 'contract-drift.json' };
+  const args = { spec: null, receipt: 'contract-drift.json', error: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--receipt') args.receipt = argv[++i];
-    else if (!a.startsWith('--') && args.spec === null) args.spec = a;
+    if (a === '--receipt') {
+      const next = argv[++i];
+      if (next === undefined || next.startsWith('--'))
+        args.error ??= `--receipt needs a value (got ${next === undefined ? 'nothing' : JSON.stringify(next)})`;
+      else args.receipt = next;
+    } else if (!a.startsWith('--') && args.spec === null) args.spec = a;
   }
   args.spec ??= 'openapi.yaml';
   return args;
@@ -129,6 +158,11 @@ export function parseArgs(argv) {
 
 export async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
+  if (args.error) {
+    console.error(`published-drift-freshness: ${args.error}`);
+    console.error('published-drift-freshness: usage — node published-drift-freshness.mjs [openapi.yaml] [--receipt contract-drift.json]');
+    return EXIT_UNKNOWN;
+  }
 
   let repoDoc;
   try {
