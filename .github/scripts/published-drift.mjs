@@ -51,6 +51,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { compare, indexOperations, validateAllowlist } from './published-drift-compare.mjs';
+import { DIGEST_FIELD, repoFacts } from './published-drift-freshness.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -189,10 +190,21 @@ export async function main(argv = process.argv.slice(2)) {
       'Point-in-time operation-level diff between this repo\'s openapi.yaml and the contract the gateway publishes. ' +
       'It is a dated receipt, not a live view: regenerate with ' +
       '`node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json`. ' +
-      'The published-contract-drift workflow uploads a fresh copy on every scheduled run.',
+      'The published-contract-drift workflow uploads a fresh copy on every scheduled run. ' +
+      'The PUBLISHED half of this receipt ages on the gateway\'s schedule and only the scheduled ' +
+      'drift job can refresh it; the REPO half is pinned by ' +
+      `sources.${DIGEST_FIELD}, which the freshness job checks offline on every run so this file ` +
+      'cannot quietly disagree with the openapi.yaml sitting next to it.',
     generatedAt: new Date().toISOString(),
     criterion: ['CONTRACT-001', 'COMPAT-001', 'API-001'],
-    sources: { repoSpec: args.spec, repoCommit: process.env.GITHUB_SHA ?? null, publishedSpec: source },
+    // repoOperationsDigest pins the repo-side input this report consumed, so published-drift-freshness.mjs
+    // can tell offline whether the spec has moved since. See that file for what the digest covers.
+    sources: {
+      repoSpec: args.spec,
+      repoCommit: process.env.GITHUB_SHA ?? null,
+      publishedSpec: source,
+      [DIGEST_FIELD]: repoFacts(repoDoc).digest,
+    },
     ...result,
   };
   if (args.out) writeFileSync(args.out, `${JSON.stringify(artifact, null, 2)}\n`);

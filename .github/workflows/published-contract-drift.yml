@@ -14,6 +14,20 @@
 #   the serving repo already fixed by moving its own spec-drift check to a cron, and this file
 #   follows that precedent rather than reintroducing the defect here.
 #
+#   `freshness` runs EVERYWHERE, because it is offline. It asks the one question the other two do
+#   not: is the COMMITTED contract-drift.json still a receipt for the CURRENT openapi.yaml? `unit`
+#   never opens that file, and `drift` writes a fresh copy to /tmp and uploads it as a build
+#   artifact without ever diffing it against the committed one — so before this job, the committed
+#   receipt could disagree with the spec sitting beside it and nothing would say a word.
+#
+# WHY `freshness` IS ADVISORY ON A PULL REQUEST AND RED ON THE SCHEDULE. Clearing a stale verdict
+# means regenerating the receipt, and THAT needs the network. Failing a pull request for it would
+# reintroduce, by the back door, exactly the coupling this file rejects two paragraphs above: a
+# spec author blocked on an unauthenticated fetch. So on a PR the job posts a warning and a step
+# summary — an automated nudge, on the diff that caused it, where the author will see it. On the
+# schedule and on pushes to main there is no author to block and the receipt is simply wrong in
+# the default branch, so it goes red and files the same one-tracking-issue way `drift` does.
+#
 # WHY THIS IS A NEW FILE AND NOT A JOB IN foundation-gate.yml: foundation-gate.yml mirrors
 # wave-foundation's checks.yml and is contended by several in-flight branches. A gate that is
 # specific to this repo's own published artifact does not belong inside the mirrored file.
@@ -31,11 +45,18 @@ on:
       - '.github/scripts/published-drift*'
       - '.github/workflows/published-contract-drift.yml'
       - 'openapi.yaml'
+      # The committed receipt is a subject of this workflow, not just an output of it: a PR that
+      # regenerates it alone must still be graded.
+      - 'contract-drift.json'
   push:
     branches: [main]
     paths:
       - '.github/scripts/published-drift*'
       - '.github/workflows/published-contract-drift.yml'
+      # openapi.yaml belongs here too — a merged spec change is precisely what strands the receipt,
+      # and on main there is no PR left to carry the warning.
+      - 'openapi.yaml'
+      - 'contract-drift.json'
   schedule:
     # 07:10 UTC daily — deliberately after the serving repo's own pin-staleness cron (06:40 UTC),
     # so that picture is already fresh when this asks the published-contract question.
@@ -68,8 +89,111 @@ jobs:
         # js-yaml is installed explicitly rather than leaned on transitively, for the same reason
         # foundation-gate.yml does it: nothing this repo depends on is otherwise importable here.
         run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+      # The glob, not the directory: node's test-runner discovery skips dot-directories, so
+      # `node --test .github/scripts/` finds nothing and exits non-zero on the path itself.
       - name: node --test
-        run: node --test .github/scripts/published-drift.test.mjs
+        run: node --test .github/scripts/*.test.mjs
+
+  # Offline. Runs on every trigger — see the header for why its severity depends on which one.
+  freshness:
+    name: committed receipt freshness (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Required to file/update the tracking issue on the schedule/push path. On a pull_request the
+      # issue step never runs, and for a fork PR the token is read-only regardless.
+      issues: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+
+      - name: Is contract-drift.json still a receipt for openapi.yaml?
+        id: fresh
+        run: |
+          set +e
+          node .github/scripts/published-drift-freshness.mjs openapi.yaml --receipt contract-drift.json 2>&1 | tee /tmp/freshness.log
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "exit code: $code"
+
+      # exit 1 = UNKNOWN. A broken read is a TOOLING failure: go red everywhere, file nothing.
+      - name: Fail loudly on a broken read
+        if: steps.fresh.outputs.code == '1'
+        run: |
+          echo "::error::published-drift-freshness could not grade the committed receipt."
+          echo "This says NOTHING about whether it is stale. Fix the read, then re-run."
+          exit 1
+
+      # exit 2 on a PR = ADVISORY. The author cannot regenerate without the network; say so where
+      # they will see it and let the PR stay green.
+      - name: Warn that the committed receipt is stale
+        if: steps.fresh.outputs.code == '2' && github.event_name == 'pull_request'
+        run: |
+          echo "::warning file=contract-drift.json::This PR moves openapi.yaml past the committed contract-drift.json. Regenerate it with 'node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json' (needs network) when convenient — the daily job will chase it otherwise."
+          {
+            echo '### Committed receipt is stale'
+            echo
+            echo 'This is advisory, not a blocker — regenerating needs a network fetch of the published contract.'
+            echo
+            echo '```'
+            cat /tmp/freshness.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # exit 2 off the PR path = the default branch carries a wrong receipt. File or update exactly
+      # one tracking issue, matched by exact title so repeated runs comment instead of piling up.
+      #
+      # As in the drift job, nothing PR- or issue-controlled is interpolated into a shell command:
+      # the title is a fixed literal, the body is written to a file and passed with --body-file, and
+      # the issue number comes from a --jq filter over `gh issue list` output. The only interpolated
+      # values are $GITHUB_REPOSITORY, $GITHUB_RUN_ID and $GITHUB_SHA, which GitHub sets.
+      - name: File or update the tracking issue
+        if: steps.fresh.outputs.code == '2' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'contract-drift.json no longer matches openapi.yaml'
+        run: |
+          {
+            echo "The committed \`contract-drift.json\` records a different \`openapi.yaml\` than the one on the default branch, so it is a receipt for a spec that no longer exists."
+            echo
+            echo "Run: [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) · commit \`$GITHUB_SHA\`"
+            echo
+            echo '```'
+            cat /tmp/freshness.log
+            echo '```'
+            echo
+            echo "To clear this, regenerate the receipt and commit it:"
+            echo '```'
+            echo "node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json"
+            echo '```'
+            echo "That fetches the published contract, so it needs network access — which is why CI nudges rather than doing it for you."
+          } > /tmp/issue-body.md
+
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title == \$ENV.TITLE)) | .[0].number // empty")
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+            echo "Commented on existing issue #$existing"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file /tmp/issue-body.md
+          fi
+
+      # Red on the default branch too, so a silenced or rate-limited issue write can never make a
+      # stranded receipt look green.
+      - name: Fail on a stale receipt
+        if: steps.fresh.outputs.code == '2' && github.event_name != 'pull_request'
+        run: |
+          echo "::error::contract-drift.json no longer describes openapi.yaml. A tracking issue was filed or updated."
+          exit 1
 
   # Networked. Scheduled and manual only.
   drift:

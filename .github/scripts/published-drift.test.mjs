@@ -8,7 +8,7 @@
  * exact enrichment observed in the published document, so the normalizer is tested against the
  * shape it actually has to undo.
  *
- * Run: node --test .github/scripts/
+ * Run: node --test .github/scripts/*.test.mjs
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
