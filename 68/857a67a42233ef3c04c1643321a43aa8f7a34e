@@ -1,0 +1,53 @@
+.github/scripts/published-drift-freshness.test.mjs
+  s_418f585ff58cb5::t_4ecefaa2321b36 23
+  s_418f585ff58cb5::t_b6b3dec0816bed 105-135,139
+.github/scripts/published-drift-freshness.mjs
+  s_418f585ff58cb5::t_f80716711f6897 104-119
+  s_418f585ff58cb5::t_6e2264285162e4 161-165
+  s_418f585ff58cb5::t_3165800f656d8b 61-63
+  s_418f585ff58cb5::t_90d4ebf181c3d5 138-143,145,148-153
+.github/scripts/published-drift-compare.mjs
+  s_418f585ff58cb5::t_2cef89f5dcddf2 68-86,93,99-105,107-113,116-117
+  s_418f585ff58cb5::t_7f6efd3c41cdc5 162-165,167-168,170-171,179-184
+  s_418f585ff58cb5::t_c592365eb09447 283,288
+  s_418f585ff58cb5::t_664a48e686cb74 133-143
+  s_418f585ff58cb5::t_68a0f731dbf4fc 253-263
+  s_418f585ff58cb5::t_4f3a855b92ccea 67
+.github/scripts/published-drift.mjs
+  s_418f585ff58cb5::t_a5be3348b87e56 125-131,133,137,141,146,152-156
+  s_418f585ff58cb5::t_1930f8cd646e95 258-260,262,268
+  s_418f585ff58cb5::t_0fb7a03e7d42b7 66-76,81-85
+  s_418f585ff58cb5::t_4d5b2e5161c711 96-103,105-112,115-116
+  s_418f585ff58cb5::t_234a10c6242963 158,173-177
+  s_418f585ff58cb5::t_ebd31bf09a45d2 157
+.github/workflows/published-contract-drift.yml
+  s_418f585ff58cb5::t_40c88bdc590a53 136-143,146,148-150
+  s_418f585ff58cb5::t_4eda7eadf7321c 349-375
+  s_418f585ff58cb5::t_07451928c451f5 36-47
+  s_418f585ff58cb5::t_5029562f8712d5 287-298
+  s_418f585ff58cb5::t_7877e591307d4b 144-145,147
+  s_418f585ff58cb5::t_6ade6e2f8ce75e 222-248
+.github/scripts/published-drift.test.mjs
+  s_418f585ff58cb5::t_2f763b4ad55264 11-13
+  s_418f585ff58cb5::t_057db78798e0e2 164-171
+  s_418f585ff58cb5::t_deb4752d9d935e 29-30
+  s_418f585ff58cb5::t_79ed4b4b7c5ee3 155-163,172-238
+.github/scripts/published-drift-allowlist.test.mjs
+  s_418f585ff58cb5::t_688c04891c6752 1-214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "68857a67a42233ef3c04c1643321a43aa8f7a34e",
+  "prompts": {},
+  "sessions": {
+    "s_418f585ff58cb5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e5b410ce-aa9a-48d6-be5d-09400395b1b6",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
