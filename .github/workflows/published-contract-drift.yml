@@ -1,0 +1,161 @@
+# published-contract-drift.yml — does the contract the gateway PUBLISHES still match the one this
+# repo declares? See .github/scripts/published-drift.mjs for the full rationale.
+#
+# TWO JOBS, TWO TRIGGERS, ON PURPOSE.
+#
+#   `unit` runs on PULL REQUESTS. It is offline — node --test over hand-built fixtures, no network
+#   at all — so it is a property of the diff and belongs on the PR path.
+#
+#   `drift` runs on a SCHEDULE and on demand, never on a pull request. It fetches the live
+#   published contract, and whether it has drifted is NOT a property of any given PR: it is a
+#   fact about the world that changes on the serving deployment's schedule, not this repo's. Asking it
+#   on every PR would make every author here depend on an unauthenticated network fetch, so an
+#   outage could red the whole repo for a reason no author could act on. That is the exact defect
+#   the serving repo already fixed by moving its own spec-drift check to a cron, and this file
+#   follows that precedent rather than reintroducing the defect here.
+#
+# WHY THIS IS A NEW FILE AND NOT A JOB IN foundation-gate.yml: foundation-gate.yml mirrors
+# wave-foundation's checks.yml and is contended by several in-flight branches. A gate that is
+# specific to this repo's own published artifact does not belong inside the mirrored file.
+#
+# ON EXIT 2 (drift) the job files or updates ONE tracking issue, matched by exact title so repeated
+# runs comment instead of opening a new issue every morning. On exit 1 (UNKNOWN — a broken read) it
+# goes red and files NOTHING: a failed read says nothing about drift, and an issue claiming drift
+# on the strength of a failed fetch would be a false report.
+
+name: published-contract-drift
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/published-drift*'
+      - '.github/workflows/published-contract-drift.yml'
+      - 'openapi.yaml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/published-drift*'
+      - '.github/workflows/published-contract-drift.yml'
+  schedule:
+    # 07:10 UTC daily — deliberately after the serving repo's own pin-staleness cron (06:40 UTC),
+    # so that picture is already fresh when this asks the published-contract question.
+    - cron: '10 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Offline. Safe on every PR. This is what keeps the normalizer honest: it asserts that an
+  # enriched-but-identical operation reads as drift WITHOUT normalization and clean WITH it, so a
+  # normalizer that silently stopped working could not pass.
+  unit:
+    name: unit tests (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        # js-yaml is installed explicitly rather than leaned on transitively, for the same reason
+        # foundation-gate.yml does it: nothing this repo depends on is otherwise importable here.
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+      - name: node --test
+        run: node --test .github/scripts/published-drift.test.mjs
+
+  # Networked. Scheduled and manual only.
+  drift:
+    name: published contract drift
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Required to file/update the tracking issue on exit 2.
+      issues: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+
+      - name: Compare the published contract against openapi.yaml
+        id: drift
+        run: |
+          set +e
+          node .github/scripts/published-drift.mjs openapi.yaml --out /tmp/contract-drift.json | tee /tmp/drift.log
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "exit code: $code"
+
+      - name: Upload the diff artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: contract-drift
+          path: /tmp/contract-drift.json
+          if-no-files-found: warn
+
+      # exit 1 = UNKNOWN. A broken read is a TOOLING failure: go red, file nothing.
+      - name: Fail loudly on a broken read
+        if: steps.drift.outputs.code == '1'
+        run: |
+          echo "::error::published-drift could not read the published contract or the local spec."
+          echo "This says NOTHING about drift and no issue was filed. Fix the read, then re-run."
+          exit 1
+
+      # exit 2 = DRIFT. File or update exactly one tracking issue.
+      #
+      # Nothing PR- or issue-controlled is interpolated into a shell command: the title is a fixed
+      # literal, the body is written to a file by the script above and passed with --body-file, and
+      # the issue number comes from a --jq filter over `gh issue list` output rather than from a
+      # search string. The only interpolated value is $GITHUB_REPOSITORY, which GitHub sets.
+      - name: File or update the tracking issue
+        if: steps.drift.outputs.code == '2'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'Published contract has drifted from openapi.yaml'
+        run: |
+          {
+            echo "The gateway's published contract no longer matches this repo's \`openapi.yaml\` at operation granularity."
+            echo
+            echo "Run: [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) · commit \`$GITHUB_SHA\`"
+            echo
+            echo '```'
+            cat /tmp/drift.log
+            echo '```'
+            echo
+            echo "The full machine-readable diff is attached to the run as the \`contract-drift\` artifact."
+            echo "See \`.github/scripts/published-drift.mjs\` for what each direction means and how to clear it."
+          } > /tmp/issue-body.md
+
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title == \$ENV.TITLE)) | .[0].number // empty")
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+            echo "Commented on existing issue #$existing"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file /tmp/issue-body.md
+          fi
+
+      # The job's own verdict is red on drift too, so a silenced or rate-limited issue write can
+      # never make a drifted contract look green.
+      - name: Fail on drift
+        if: steps.drift.outputs.code == '2'
+        run: |
+          echo "::error::The published contract has drifted from openapi.yaml. A tracking issue was filed or updated."
+          exit 1
