@@ -9,7 +9,7 @@ All notable changes to this project are documented here. The format is based on
 ### Added
 
 - **Streams, productions, cameras, moderation, live pipeline, billing, and
-  analytics operations** (`openapi.yaml`) — 22 hand-documented operations
+  analytics operations** (`openapi.yaml`) — 26 hand-documented operations
   backing the hosted MCP tool surface, replacing the draft
   `additionalProperties: true` placeholders for `/billing`, `/cameras`,
   `/moderate`, `/productions`, `/streams`, and `/usage`: stream lifecycle

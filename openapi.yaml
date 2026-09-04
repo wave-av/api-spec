@@ -1563,6 +1563,7 @@ paths:
                 stream_id:
                   type: string
                   maxLength: 128
+                  pattern: '^[A-Za-z0-9._:-]{1,128}$'
                   description: >-
                     Client-chosen correlation id (letters, digits, `. _ : -`, 1-128
                     chars), echoed back for per-stream correlation.
@@ -1670,6 +1671,10 @@ paths:
                 stream_id:
                   type: string
                   maxLength: 128
+                  pattern: '^[A-Za-z0-9._:-]{1,128}$'
+                  description: >-
+                    Client-chosen correlation id (letters, digits, `. _ : -`, 1-128
+                    chars), echoed back for per-stream correlation.
                 language:
                   type: string
                 task:
@@ -2008,11 +2013,7 @@ paths:
         Requires the `cameras:write` scope.
       operationId: controlCamera
       parameters:
-        - name: cameraId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/CameraIdParam'
       requestBody:
         required: true
         content:
@@ -11168,6 +11169,12 @@ components:
         type: string
     ProductionIdParam:
       name: productionId
+      in: path
+      required: true
+      schema:
+        type: string
+    CameraIdParam:
+      name: cameraId
       in: path
       required: true
       schema:

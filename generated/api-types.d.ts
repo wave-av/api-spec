@@ -6004,6 +6004,7 @@ export interface components {
         PerPageParam: number;
         StreamIdParam: string;
         ProductionIdParam: string;
+        CameraIdParam: string;
         /** @description Range start (ISO 8601 timestamp). Defaults to 30 days before `to`. */
         AnalyticsFromParam: string;
         /** @description Range end (ISO 8601 timestamp). Defaults to now. */
@@ -6793,6 +6794,7 @@ export interface operations {
                 "multipart/form-data": {
                     /** Format: binary */
                     file: string;
+                    /** @description Client-chosen correlation id (letters, digits, `. _ : -`, 1-128 chars), echoed back for per-stream correlation. */
                     stream_id?: string;
                     language?: string;
                     /**
@@ -7095,7 +7097,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                cameraId: string;
+                cameraId: components["parameters"]["CameraIdParam"];
             };
             cookie?: never;
         };
