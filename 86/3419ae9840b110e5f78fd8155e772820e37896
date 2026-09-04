@@ -1,0 +1,49 @@
+.github/scripts/published-drift-compare.mjs
+  s_418f585ff58cb5::t_da3cb34095b44c 303-307,319
+  s_418f585ff58cb5::t_20059e1529bcb8 12-18,22-24,27-40
+  s_418f585ff58cb5::t_926cca2fc1599c 167
+  s_418f585ff58cb5::t_0eb086623accbd 237-255
+.github/scripts/published-drift-live-probe.test.mjs
+  s_418f585ff58cb5::t_a5a7dd8de44616 1-147
+.github/scripts/published-drift-draft-live.test.mjs
+  s_418f585ff58cb5::t_8ce6e67cec7d51 1-155,164-169,171,173,179-180,182-183
+  s_418f585ff58cb5::t_c5b0aeda6c24ca 156-163,170,172,174-178,181
+.github/scripts/published-drift.mjs
+  s_418f585ff58cb5::t_19c68deeea2b6d 246-284
+  s_418f585ff58cb5::t_278e50ae00f885 115,129
+  s_418f585ff58cb5::t_9e1d8713d6f84e 49-57
+  s_418f585ff58cb5::t_90356b014f551b 32-36
+  s_418f585ff58cb5::t_2172f4a6c13683 46,48
+  s_418f585ff58cb5::t_83e5d05c856e88 64
+  s_418f585ff58cb5::t_29ac54c1451c31 149-151
+.github/scripts/published-drift.test.mjs
+  s_418f585ff58cb5::t_ca92f1020ba54a 307-308
+  s_418f585ff58cb5::t_9d61a0d181a852 139
+  s_418f585ff58cb5::t_74cde4e769be3f 136-138
+  s_418f585ff58cb5::t_8fc91b3beb0a99 306
+.github/scripts/published-drift-live-probe.mjs
+  s_418f585ff58cb5::t_a0b0cdf60708e1 1-116
+.github/workflows/published-contract-drift.yml
+  s_418f585ff58cb5::t_b137d7d397628e 55-64
+  s_418f585ff58cb5::t_67fd3296890c4d 342
+  s_418f585ff58cb5::t_8851aff7250eaf 385
+  s_418f585ff58cb5::t_cb8e6fb3331262 272-277,280
+  s_418f585ff58cb5::t_63857867a8f4ad 4-5,10-13,21-40
+  s_418f585ff58cb5::t_51cedd4c1fccfd 41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "863419ae9840b110e5f78fd8155e772820e37896",
+  "prompts": {},
+  "sessions": {
+    "s_418f585ff58cb5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e5b410ce-aa9a-48d6-be5d-09400395b1b6",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
