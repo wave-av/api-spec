@@ -29,11 +29,11 @@
  *
  * EXIT CODES — the fleet's standing contract for scheduled upstream watchers, the same one the pin
  * watcher uses. A FAILED READ IS NEVER REPORTED AS "NO DRIFT".
- *   0  no drift — every difference is normalized enrichment, a draft operation, or a live
- *      allowlist entry whose predicate still holds.
- *   1  UNKNOWN — could not read the published spec or the local spec, or the allowlist is
- *      malformed. A TOOLING failure: it says nothing about drift and must go red WITHOUT filing
- *      the routine drift issue.
+ *   0  no drift — every difference is normalized enrichment, a draft operation the gateway does
+ *      NOT serve, or a live allowlist entry whose predicate still holds.
+ *   1  UNKNOWN — could not read the published spec or the local spec, the allowlist is malformed,
+ *      or a draft-liveness probe never resolved to live/not-live. A TOOLING failure: it says
+ *      nothing about drift and must go red WITHOUT filing the routine drift issue.
  *   2  DRIFT — at least one unexplained operation-level difference.
  * There is deliberately no exit 3: the pin watcher reserves 3 for PROVENANCE, a question about a
  * pin this repo does not have.
@@ -43,15 +43,25 @@
  *   node .github/scripts/published-drift.mjs openapi.yaml --live fixtures/live.json   # offline
  *   node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json
  *   node .github/scripts/published-drift.mjs openapi.yaml --no-normalize              # see the 71
+ *   node .github/scripts/published-drift.mjs openapi.yaml --draft-live-snapshot f.json  # offline
  *
- * NETWORK: one GET to the hardcoded public URL below, unauthenticated, bounded by an
- * AbortController timeout. Nothing else. `--live <file>` makes the run fully offline.
+ * NETWORK: one GET to the hardcoded public URL below for the published spec, unauthenticated,
+ * bounded by an AbortController timeout, PLUS — only on a real (non-`--live`) run — one
+ * unauthenticated request per `x-schema-status: draft` operation this repo declares that the
+ * published spec does not carry. See published-drift-live-probe.mjs for why: `draft` must not be
+ * able to suppress an operation the real gateway actually serves. `--live <file>` keeps this whole
+ * run offline end to end, INCLUDING the draft probe (which is skipped, preserving "draft always
+ * suppresses" for that run) — exactly what the offline test suite needs. To test the draft-carve-out
+ * itself without touching the network, pass `--draft-live-snapshot <file>` (with or without
+ * `--live`) — a JSON object of `"METHOD /path": { "status": "live"|"not-live" }` entries that
+ * substitutes for the real probe.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { compare, indexOperations, validateAllowlist } from './published-drift-compare.mjs';
 import { DIGEST_FIELD, repoFacts } from './published-drift-freshness.mjs';
+import { PROBE_UNKNOWN, probeDraftOperations } from './published-drift-live-probe.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -102,7 +112,7 @@ export async function fetchPublished(url = PUBLISHED_SPEC_URL, doFetch = fetch) 
  * errors, so this returns a usage error the caller turns into EXIT_UNKNOWN.
  */
 export function parseArgs(argv) {
-  const args = { spec: null, live: null, out: null, normalize: true, json: false, error: null };
+  const args = { spec: null, live: null, out: null, normalize: true, json: false, draftLiveSnapshot: null, error: null };
   const value = (name, next) => {
     if (next === undefined || next.startsWith('--')) {
       args.error ??= `${name} needs a value (got ${next === undefined ? 'nothing' : JSON.stringify(next)})`;
@@ -116,6 +126,7 @@ export function parseArgs(argv) {
     else if (a === '--out') args.out = value('--out', argv[++i]);
     else if (a === '--no-normalize') args.normalize = false;
     else if (a === '--json') args.json = true;
+    else if (a === '--draft-live-snapshot') args.draftLiveSnapshot = value('--draft-live-snapshot', argv[++i]);
     else if (!a.startsWith('--') && args.spec === null) args.spec = a;
   }
   args.spec ??= 'openapi.yaml';
@@ -135,8 +146,9 @@ function report(r, say = console.log) {
       `${h.publishedVersion} ${h.publishedPaths} paths / ${h.publishedOperations} ops — shared ${h.sharedOperations}`,
   );
   say(
-    `published-drift: findings — undocumented-live ${h.undocumentedLive}, unpublished-repo ${h.unpublishedRepo}, ` +
-      `shared-drift ${h.sharedDrift}; suppressed — draft ${h.draftNotYetPublished}, allowlisted ${h.allowlisted}`,
+    `published-drift: findings — undocumented-live ${h.undocumentedLive}, unpublished-repo ${h.unpublishedRepo} ` +
+      `(of which draft-but-live ${h.draftButLive}), shared-drift ${h.sharedDrift}; suppressed — draft ` +
+      `${h.draftNotYetPublished}, allowlisted ${h.allowlisted}`,
   );
   say(
     `published-drift: gateway enrichment normalized — ${r.enrichmentObservations.errorResponsesInjected} injected error ` +
@@ -231,7 +243,45 @@ export async function main(argv = process.argv.slice(2)) {
     return EXIT_UNKNOWN;
   }
 
-  const result = compare({ repoDoc, liveDoc, allowlist, normalize: args.normalize });
+  // Draft-liveness probe: does the real gateway serve any of the operations this repo marks
+  // `x-schema-status: draft` and the published spec omits? See published-drift-live-probe.mjs for
+  // the full rationale. `--draft-live-snapshot` substitutes a fixture (offline, deterministic —
+  // what the test suite uses); otherwise a real `--live <file>` run stays fully offline end to end
+  // and skips the probe, preserving the old "draft always suppresses" behavior for that mode; a
+  // real network run (no `--live`) always probes.
+  let draftLiveProbe = new Map();
+  if (args.draftLiveSnapshot) {
+    try {
+      const raw = JSON.parse(readFileSync(args.draftLiveSnapshot, 'utf8'));
+      draftLiveProbe = new Map(Object.entries(raw));
+    } catch (err) {
+      console.error(`published-drift: could not read/parse draft-live snapshot ${args.draftLiveSnapshot}: ${err.message}`);
+      return EXIT_UNKNOWN;
+    }
+  } else if (!args.live) {
+    const repoOpsForProbe = indexOperations(repoDoc);
+    const liveOpsForProbe = indexOperations(liveDoc);
+    const draftUnpublished = [...repoOpsForProbe.entries()]
+      .filter(([key, { op }]) => !liveOpsForProbe.has(key) && op['x-schema-status'] === 'draft')
+      .map(([, { path, method }]) => ({ path, method }));
+    draftLiveProbe = await probeDraftOperations(draftUnpublished);
+  }
+  // UNKNOWN IS NOT A PASS: a probe that never got a real verdict must never silently fall back to
+  // "not live" (which would just re-open the hole this file exists to close). Refuse loudly instead
+  // — same tier as an unreadable spec or an unreachable gateway — and name every route that failed.
+  const unresolvedProbes = [...draftLiveProbe.entries()].filter(([, r]) => r.status === PROBE_UNKNOWN);
+  if (unresolvedProbes.length) {
+    for (const [key, r] of unresolvedProbes) {
+      console.error(`published-drift: could not determine whether ${key} is live: ${r.error ?? 'unknown probe failure'}`);
+    }
+    console.error(
+      `published-drift: ${unresolvedProbes.length} draft-liveness probe(s) never resolved. This says nothing about ` +
+        'whether those routes are live and must not be graded as "still draft" — fix the read, then re-run.',
+    );
+    return EXIT_UNKNOWN;
+  }
+
+  const result = compare({ repoDoc, liveDoc, allowlist, normalize: args.normalize, draftLiveProbe });
   const artifact = {
     about:
       'Point-in-time operation-level diff between this repo\'s openapi.yaml and the contract the gateway publishes. ' +

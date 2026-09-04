@@ -1,24 +1,43 @@
 # published-contract-drift.yml — does the contract the gateway PUBLISHES still match the one this
 # repo declares? See .github/scripts/published-drift.mjs for the full rationale.
 #
-# TWO JOBS, TWO TRIGGERS, ON PURPOSE.
+# THREE JOBS. `unit` and `freshness` run everywhere including pull requests; `drift` now does too —
+# see the 2026-09-04 correction below for why that changed.
 #
 #   `unit` runs on PULL REQUESTS. It is offline — node --test over hand-built fixtures, no network
 #   at all — so it is a property of the diff and belongs on the PR path.
 #
-#   `drift` runs on a SCHEDULE and on demand, never on a pull request. It fetches the live
-#   published contract, and whether it has drifted is NOT a property of any given PR: it is a
-#   fact about the world that changes on the serving deployment's schedule, not this repo's. Asking it
-#   on every PR would make every author here depend on an unauthenticated network fetch, so an
-#   outage could red the whole repo for a reason no author could act on. That is the exact defect
-#   the serving repo already fixed by moving its own spec-drift check to a cron, and this file
-#   follows that precedent rather than reintroducing the defect here.
+#   `drift` ALSO runs on pull requests now (plus schedule and on demand, as before). It fetches the
+#   live published contract AND live-probes every `x-schema-status: draft` operation the PR's spec
+#   declares that the published contract omits (see published-drift-live-probe.mjs). Read the
+#   correction below for why this is on the PR path at all.
 #
 #   `freshness` runs EVERYWHERE, because it is offline. It asks the one question the other two do
 #   not: is the COMMITTED contract-drift.json still a receipt for the CURRENT openapi.yaml? `unit`
 #   never opens that file, and `drift` writes a fresh copy to /tmp and uploads it as a build
 #   artifact without ever diffing it against the committed one — so before this job, the committed
 #   receipt could disagree with the spec sitting beside it and nothing would say a word.
+#
+# CORRECTION, 2026-09-04 (WAVE GA VERDICT, CONTRACT-001 lane). This file used to argue — at length,
+# right here — that `drift` must never run on a pull request, because an unauthenticated network
+# fetch could red an author's PR for an outage they cannot act on. That reasoning was sound on its
+# own terms and WRONG in its conclusion, because of what it actually bought: a gate that runs on
+# `schedule`/`workflow_dispatch` alone is SKIPPED on every pull request — it can never block a
+# change, no matter how badly that change drifts the published contract. That is not a safety
+# margin; it is a gate that cannot gate, one of the thirteen named instances in the 2026-09-04 GA
+# verdict of "this repo built a checker, not a gate." The other defect that verdict named in the
+# same lane compounds it: `unpublishedRepo: 0` was zero by REDEFINITION — 158 operations were
+# shunted into a `draft` bucket the headline metric excludes, while 10 of 10 sampled answered a
+# live 402 in production (a route that genuinely does not exist answers 403 ROUTE_NOT_MAPPED
+# instead — verified as the control the same day). A metric that reaches zero by moving items to
+# an uncounted bucket is the purest form of that same defect. Both are fixed together here: `drift`
+# is reachable on the pull_request paths already declared below (a spec change is exactly the
+# diff this question is a property of), and `draft` no longer suppresses an operation the gateway
+# actually serves (see published-drift-compare.mjs's draft-live carve-out). The flakiness risk the
+# old comment named is real but bounded and handled, not a reason to stay unreachable: the probe
+# retries a transient failure and REFUSES (EXIT_UNKNOWN, red, no false pass) rather than guessing
+# when a route's liveness genuinely could not be determined — see the "Fail loudly on a broken
+# read" step below, which now also covers this.
 #
 # WHY `freshness` IS ADVISORY ON A PULL REQUEST AND RED ON THE SCHEDULE. Clearing a stale verdict
 # means regenerating the receipt, and THAT needs the network. Failing a pull request for it would
@@ -33,12 +52,16 @@
 # specific to this repo's own published artifact does not belong inside the mirrored file.
 #
 # ON EXIT 2 (drift) the job files or updates ONE tracking issue, matched by exact title so repeated
-# runs comment instead of opening a new issue every morning. ON EXIT 0 it CLOSES that same issue:
-# an open issue is a claim about the current state of the default branch, and a claim nothing ever
-# retracts becomes false the moment it is fixed. Both jobs own the full lifecycle of their own
-# issue, and the two titles are distinct so neither touches the other's. On exit 1 (UNKNOWN — a
-# broken read) it goes red and files NOTHING: a failed read says nothing about drift, and an issue
-# claiming drift on the strength of a failed fetch would be a false report.
+# runs comment instead of opening a new issue every morning — UNLESS the run is a pull_request, in
+# which case no issue is touched at all: the job still goes red on the PR itself (see the "Fail on
+# drift" / "Fail loudly on a broken read" steps, which are unconditional on event type), but the
+# tracking issue exists to describe the state of the DEFAULT BRANCH, and a PR that has not merged
+# has not changed that state. ON EXIT 0, off the PR path, it CLOSES that same issue: an open issue
+# is a claim about the current state of the default branch, and a claim nothing ever retracts
+# becomes false the moment it is fixed. Both jobs own the full lifecycle of their own issue, and
+# the two titles are distinct so neither touches the other's. On exit 1 (UNKNOWN — a broken read)
+# it goes red and files NOTHING: a failed read says nothing about drift, and an issue claiming
+# drift on the strength of a failed fetch would be a false report.
 #
 # ON ANY OTHER EXIT CODE both jobs go red. The scripts define exactly three codes; a fourth means a
 # crash — an interpreter error, an OOM kill, a code added to a script without teaching this file
@@ -246,10 +269,15 @@ jobs:
             echo "Receipt is fresh and no tracking issue is open. Nothing to close."
           fi
 
-  # Networked. Scheduled and manual only.
+  # Networked. Runs on pull_request (see the 2026-09-04 correction at the top of this file), on the
+  # schedule, and on demand. It does NOT file or close the tracking issue on a pull_request run —
+  # see the per-step conditions below — both because a fork PR's default GITHUB_TOKEN cannot write
+  # issues regardless of what this file requests, and because a single PR's drift verdict is not the
+  # right trigger for the standing "the default branch is drifted" claim that issue makes; it goes
+  # red on the PR itself instead, which is the whole point of this fix.
   drift:
     name: published contract drift
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -311,7 +339,7 @@ jobs:
       # the issue number comes from a --jq filter over `gh issue list` output rather than from a
       # search string. The only interpolated value is $GITHUB_REPOSITORY, which GitHub sets.
       - name: File or update the tracking issue
-        if: steps.drift.outputs.code == '2'
+        if: steps.drift.outputs.code == '2' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: 'Published contract has drifted from openapi.yaml'
@@ -354,7 +382,7 @@ jobs:
       # issue everyone had already learned to ignore. Exact-title match, and this title is distinct
       # from the freshness job's — the two lifecycles stay separate.
       - name: Close the tracking issue once the contract matches again
-        if: steps.drift.outputs.code == '0'
+        if: steps.drift.outputs.code == '0' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: 'Published contract has drifted from openapi.yaml'
