@@ -1,0 +1,22 @@
+.github/workflows/ga-evidence.yml
+  s_efe86faf2558e9::t_e40e0817a827ff 110-111
+  s_efe86faf2558e9::t_8c40ff6666afe0 114,120-121
+  s_efe86faf2558e9::t_8820222bd583c5 19-22
+  s_efe86faf2558e9::t_cb632cf5e2b451 122-123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "92a9f0f5194e0a713ec41618e4f5ebeeb57f95c1",
+  "prompts": {},
+  "sessions": {
+    "s_efe86faf2558e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2b6e2e9-ab55-4d57-9d9f-d57a588ae688",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
