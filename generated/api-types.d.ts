@@ -150,6 +150,462 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/streams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List streams
+         * @description List the caller's streams, newest first. Requires the `streams:read` scope.
+         */
+        get: operations["listStreams"];
+        put?: never;
+        /**
+         * Create a stream
+         * @description Create a stream. Provisions a Cloudflare Stream live input and returns its ingest/playback URLs. Requires the `streams:write` scope.
+         */
+        post: operations["createStream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a stream
+         * @description Requires the `streams:read` scope.
+         */
+        get: operations["getStream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a stream
+         * @description Transition a stream to `live` and open a stream session. Requires the `streams:write` scope.
+         */
+        post: operations["startStream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a stream
+         * @description Close the active stream session and transition the stream to `ended`. Requires the `streams:write` scope.
+         */
+        post: operations["stopStream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a stream's status
+         * @description Lightweight status document (connection state, current viewer count). Requires the `streams:read` scope.
+         */
+        get: operations["getStreamStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a stream's analytics
+         * @description Aggregated viewer/quality metrics for one stream's sessions. Requires the `streams:read` scope.
+         */
+        get: operations["getStreamAnalytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}/highlights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a stream's highlights
+         * @description Requires the `streams:read` scope.
+         */
+        get: operations["listStreamHighlights"];
+        put?: never;
+        /**
+         * Mark a highlight
+         * @description Mark a moment in a stream as a highlight for later clipping. Requires the `streams:write` scope.
+         */
+        post: operations["markStreamHighlight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/moderate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Moderate content
+         * @description Run AI-assisted moderation over a piece of text content (a chat message, title, description, comment, username, or bio) and get back an allow/flag/ block/review verdict. Requires the `moderate:write` scope. To moderate a chat message, set `contentType` to `chat` and, optionally, `context.streamId` to the stream the message belongs to — this endpoint moderates arbitrary text content; it does not itself track a chat message id or apply an action to a stored message.
+         */
+        post: operations["moderateContent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/live/pipeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcribe an audio clip and run a fast-LLM step over it
+         * @description Transcribes ONE provided audio chunk (multipart `file`, max 25MB) and, given `llm_model`, optionally runs a fast-LLM step (`mode`: summarize, moderate, translate, or custom) over the transcript. This does NOT attach a persistent caption feed to a live stream — call it once per audio chunk. Requires the account's live-pipeline feature to be armed; a 404 means it is not enabled for this account. Requires the `captions:write` scope.
+         */
+        post: operations["startLivePipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/live/caption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcribe an audio clip
+         * @description Transcribes ONE provided audio chunk (multipart `file`, max 25MB) via the same caption engine `/live/pipeline` uses, without the LLM step. Requires the account's live-pipeline feature to be armed; a 404 means it is not enabled for this account. Requires the `captions:write` scope.
+         */
+        post: operations["transcribeLiveAudio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/productions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List productions
+         * @description Requires the `productions:read` scope.
+         */
+        get: operations["listProductions"];
+        put?: never;
+        /**
+         * Create a production
+         * @description Requires the `productions:write` scope.
+         */
+        post: operations["createProduction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/productions/{productionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a production
+         * @description Requires the `productions:read` scope.
+         */
+        get: operations["getProduction"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/productions/{productionId}/camera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a production's camera
+         * @description Switch the program or preview bus to a camera index; persisted on the production row. Requires the `productions:write` scope.
+         */
+        post: operations["switchProductionCamera"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/productions/{productionId}/overlay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show, hide, or update a production's graphic overlay
+         * @description Persists overlay state into the production's `overlays` map, keyed by `graphic_id`. Requires the `productions:write` scope.
+         */
+        post: operations["setProductionOverlay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cameras": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List registered cameras
+         * @description Requires the `cameras:read` scope.
+         */
+        get: operations["listCameras"];
+        put?: never;
+        /**
+         * Register a camera
+         * @description Requires the `cameras:write` scope.
+         */
+        post: operations["registerCamera"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cameras/{cameraId}/control": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a control command to a camera
+         * @description Queues a control command for a registered camera (`camera_commands`, status `queued`). There is no protocol-general hardware dispatcher at this layer yet — a follow-up dispatcher marks the command `acked` or `failed`; this call never fabricates an `acked` status for a command not yet delivered. Requires the `cameras:write` scope.
+         */
+        post: operations["controlCamera"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the current billing account
+         * @description Returns the caller-org's billing status. An org with no Stripe customer yet returns `billingAccount: null` and `plan: "free"` rather than an error. Requires the `billing:read` scope.
+         */
+        get: operations["getBilling"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get billed usage for a date range
+         * @description Per-dimension billed usage, defaulting to the current billing period. Requires the `billing:read` scope.
+         */
+        get: operations["getBillingUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get raw per-dimension usage
+         * @description Raw per-dimension usage counters for a date range (defaults to today), keyed by meter dimension (e.g. `wave_braid_minutes`, `transcription_seconds`, `duration_ms:srt`) — the underlying meter ledger, not a billing-period rollup. See `GET /billing/usage` for the billed-and-priced view. Requires the `usage:read` scope.
+         */
+        get: operations["getUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an account-level analytics overview
+         * @description Aggregates the org's usage ledger over a date range: total events, total quantity, active days, and the top dimensions by quantity. Requires the `analytics:read` scope.
+         */
+        get: operations["getAnalyticsOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/top-content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get top content by usage
+         * @description Top usage dimensions for the org over a date range, ranked by quantity. Requires the `analytics:read` scope.
+         */
+        get: operations["getAnalyticsTopContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/engagement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get account-wide engagement analytics
+         * @description Engagement metrics (event volume, average events per day, peak day) over a date range. Requires the `analytics:read` scope.
+         */
+        get: operations["getAnalyticsEngagement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips": {
         parameters: {
             query?: never;
@@ -160,7 +616,10 @@ export interface paths {
         /** List clips */
         get: operations["listClips"];
         put?: never;
-        /** Create a clip */
+        /**
+         * Create a clip
+         * @description Produces clip/spritesheet/audio/frame outputs from a recording via Cloudflare Media Transformations. `source` is a recording id the gateway resolves org-scoped — a raw storage key is rejected. Requires the `clips:write` scope.
+         */
         post: operations["createClip"];
         delete?: never;
         options?: never;
@@ -1379,26 +1838,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/billing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * WAVE billing API
-         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `billing:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
-         */
-        post: operations["billing"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/bmd": {
         parameters: {
             query?: never;
@@ -1473,26 +1912,6 @@ export interface paths {
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `camera-control:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
          */
         post: operations["cameraControl"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/cameras": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * WAVE cameras API
-         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `cameras:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
-         */
-        post: operations["cameras"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2499,26 +2918,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/moderate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * WAVE moderate API
-         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `moderate:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
-         */
-        post: operations["moderate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/monetization": {
         parameters: {
             query?: never;
@@ -2913,26 +3312,6 @@ export interface paths {
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `production-graph:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
          */
         post: operations["productionGraph"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/productions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * WAVE productions API
-         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `productions:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
-         */
-        post: operations["productions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3559,26 +3938,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/streams": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * WAVE streams API
-         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `streams:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
-         */
-        post: operations["streams"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/studio": {
         parameters: {
             query?: never;
@@ -3713,26 +4072,6 @@ export interface paths {
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `unsubscribe:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
          */
         post: operations["unsubscribe"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/usage": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * WAVE usage API
-         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `usage:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
-         */
-        post: operations["usage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4340,13 +4679,48 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        /** @description The real live-route request contract. `videoId` is NOT accepted — the live route requires `source` (a recording id) instead. */
         ClipCreate: {
-            videoId: string;
-            startTime: number;
-            endTime: number;
-            title?: string;
-            description?: string;
-            category?: string;
+            /** @description A recording id the gateway resolves to an org-scoped source URL. */
+            source: string;
+            /**
+             * @description Only `recording_id` is accepted — a raw storage key (`r2_key`) is rejected outright (cross-tenant read protection).
+             * @default recording_id
+             * @enum {string}
+             */
+            sourceType: "recording_id";
+            /**
+             * @default private
+             * @enum {string}
+             */
+            visibility: "public" | "private";
+            /** @description Clip start offset, a time string like "5s" or "2m" (0-10m). */
+            in: string;
+            /** @description Clip end offset, a time string. Provide `out` or `duration`, not both. */
+            out?: string;
+            /** @description Output clip length, a time string (1s-60s). Provide `out` or `duration`, not both. */
+            duration?: string;
+            width?: number;
+            height?: number;
+            /**
+             * @default contain
+             * @enum {string}
+             */
+            fit: "contain" | "cover" | "scale-down";
+            /**
+             * @description `frame` produces a single JPEG still at `in` and needs neither `out` nor `duration`.
+             * @default [
+             *       "mp4"
+             *     ]
+             */
+            formats: ("mp4" | "spritesheet" | "m4a" | "frame")[];
+            /**
+             * @default 720p
+             * @enum {string}
+             */
+            quality: "720p" | "1080p" | "4k";
+            /** @default 30 */
+            spritesheetFrames: number;
         };
         ClipUpdate: {
             title?: string;
@@ -4371,6 +4745,341 @@ export interface components {
             progress?: number;
             /** Format: date-time */
             createdAt?: string;
+        };
+        /** @description The real POST /clips 201 response. */
+        ClipCreateResponse: {
+            /** @constant */
+            ok?: true;
+            clipId?: string;
+            /** @description The gateway-resolved owning organization. */
+            org?: string;
+            /** @enum {string} */
+            visibility?: "public" | "private";
+            source?: string;
+            in?: string;
+            /** @description Output clip duration, a time string like "12s". */
+            duration?: string;
+            /** @enum {string} */
+            quality?: "720p" | "1080p" | "4k";
+            assets?: {
+                /** @enum {string} */
+                kind?: "clip" | "spritesheet" | "audio" | "frame";
+                /** @description Org-prefixed storage key: ‹org›/{clips|public}/‹clipId›/… */
+                key?: string;
+                contentType?: string;
+                /** @description Delivery URL — plain for public, HMAC-signed for private. null when delivery isn't configured. */
+                url?: string | null;
+            }[];
+        };
+        /** @description The clip-creation route's own error envelope for POST /clips — distinct from the gateway-normalized `Error` schema used elsewhere in this document. */
+        ClipError: {
+            /** @constant */
+            ok: false;
+            error: string;
+            /** @description Optional structured detail. Absent or null on most errors. */
+            detail?: unknown;
+        };
+        /** @description A live stream. Never carries the Cloudflare stream key or any other ingest secret — only the public ingest/playback URLs. */
+        Stream: {
+            id?: string;
+            title?: string;
+            description?: string | null;
+            /** @enum {string} */
+            protocol?: "webrtc" | "srt" | "rtmp" | "auto";
+            /** @enum {string} */
+            status?: "idle" | "live" | "ended";
+            /** @enum {string} */
+            privacy?: "public" | "private";
+            viewer_count?: number;
+            peak_viewer_count?: number;
+            ingest_url?: string | null;
+            playback_url?: string | null;
+            cloudflare_live_input_uid?: string | null;
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            ended_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        CreateStreamRequest: {
+            title: string;
+            description?: string;
+            /**
+             * @default auto
+             * @enum {string}
+             */
+            protocol: "webrtc" | "srt" | "rtmp" | "auto";
+            recording?: {
+                enabled?: boolean;
+            };
+            /**
+             * @default public
+             * @enum {string}
+             */
+            privacy: "public" | "private";
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        Highlight: {
+            id?: string;
+            stream_id?: string;
+            organization_id?: string;
+            title?: string | null;
+            /** @description {label, timestamp, confidence, source} */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ModerateRequest: {
+            content: string;
+            /** @enum {string} */
+            contentType: "text" | "title" | "description" | "comment" | "chat" | "username" | "bio";
+            /** @description streamId attributes the moderated content to a stream (e.g. a chat message). */
+            context?: {
+                streamId?: string;
+                userId?: string;
+                previousContent?: string[];
+            };
+            options?: {
+                /** @default true */
+                returnDetails: boolean;
+                /** @description Subset of harassment, hate_speech, violence, sexual_content, spam, misinformation, self_harm, illegal_activity, personal_information, copyright. */
+                categories?: string[];
+                customRules?: {
+                    name: string;
+                    /** @description A regular expression evaluated against content. */
+                    pattern: string;
+                    /** @enum {string} */
+                    action: "flag" | "block";
+                }[];
+            };
+        };
+        ModerateResponse: {
+            allowed?: boolean;
+            /** @enum {string} */
+            action?: "allow" | "flag" | "block" | "review";
+            violations?: {
+                category?: string;
+                /** @enum {string} */
+                severity?: "low" | "medium" | "high" | "critical";
+                confidence?: number;
+                description?: string;
+                matchedText?: string;
+                rule?: string;
+            }[];
+            confidence?: number;
+            reasoning?: string;
+            suggestedAction?: string;
+            metadata?: {
+                contentId?: string;
+                processingTimeMs?: number;
+                model?: string;
+                categoriesChecked?: string[];
+            };
+        };
+        Production: {
+            id?: string;
+            organization_id?: string;
+            user_id?: string | null;
+            title?: string;
+            description?: string | null;
+            /** @enum {string} */
+            status?: "setup" | "rehearsal" | "live" | "paused" | "ended";
+            /** @enum {string} */
+            layout?: "single" | "split" | "pip" | "grid" | "custom";
+            stream_ids?: string[];
+            record?: boolean;
+            program_camera_index?: number | null;
+            preview_camera_index?: number | null;
+            last_transition?: string | null;
+            overlays?: {
+                [key: string]: unknown;
+            };
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            ended_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        CreateProductionRequest: {
+            title: string;
+            description?: string;
+            /**
+             * @default single
+             * @enum {string}
+             */
+            layout: "single" | "split" | "pip" | "grid" | "custom";
+            stream_ids?: string[];
+            /** @default false */
+            record: boolean;
+        };
+        SwitchCameraRequest: {
+            cameraIndex: number;
+            /** @enum {string} */
+            bus: "program" | "preview";
+            /**
+             * @default cut
+             * @enum {string}
+             */
+            transition: "cut" | "dissolve" | "wipe" | "fade";
+        };
+        Camera: {
+            id?: string;
+            organization_id?: string;
+            name?: string;
+            /** @enum {string} */
+            manufacturer?: "blackmagic" | "sony" | "canon" | "ptzoptics" | "other";
+            /** @enum {string} */
+            control_protocol?: "bmd_rest" | "visca_ip" | "visca_serial" | "canon_xc" | "onvif";
+            /** @description IPv4 address the camera was registered with. */
+            address?: string | null;
+            /** @enum {string} */
+            status?: "offline" | "online" | "discovering" | "error";
+            presets?: {
+                [key: string]: unknown;
+            }[];
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        RegisterCameraRequest: {
+            name: string;
+            /** @enum {string} */
+            manufacturer: "blackmagic" | "sony" | "canon" | "ptzoptics" | "other";
+            model?: string;
+            /** Format: ipv4 */
+            ipAddress: string;
+            /** @enum {string} */
+            controlProtocol: "bmd_rest" | "visca_ip" | "visca_serial" | "canon_xc" | "onvif";
+        };
+        /** @description Discriminated union on `type`. Supply only the fields the chosen variant needs. */
+        ControlCameraRequest: {
+            /** @constant */
+            type: "set_iris";
+            value: number;
+        } | {
+            /** @constant */
+            type: "set_focus";
+            value: number;
+        } | {
+            /** @constant */
+            type: "set_zoom";
+            value: number;
+        } | {
+            /** @constant */
+            type: "set_white_balance";
+            temperature: number;
+            tint: number;
+        } | {
+            /** @constant */
+            type: "set_gain";
+            value: number;
+        } | {
+            /** @constant */
+            type: "set_shutter";
+            angle: number;
+        } | {
+            /** @constant */
+            type: "start_recording";
+        } | {
+            /** @constant */
+            type: "stop_recording";
+        } | {
+            /** @constant */
+            type: "start_prerecord";
+        } | {
+            /** @constant */
+            type: "autofocus_trigger";
+        } | {
+            /** @constant */
+            type: "set_audio_level";
+            channel: number;
+            level: number;
+        } | {
+            /** @constant */
+            type: "recall_preset";
+            /** Format: uuid */
+            presetId: string;
+        } | {
+            /** @constant */
+            type: "save_preset";
+            name: string;
+            slot: number;
+        };
+        DateRange: {
+            from?: string;
+            to?: string;
+        };
+        /** @description The caller-org's billing status. `billingAccount: null` and `plan: "free"` mean the org has no Stripe customer yet. */
+        BillingAccount: {
+            organizationId?: string;
+            billingAccount?: {
+                customerId?: string;
+                email?: string | null;
+                paymentMethod?: {
+                    brand?: string;
+                    last4?: string;
+                    expMonth?: number;
+                    expYear?: number;
+                } | null;
+            } | null;
+            /** @description "free" when the org has no billing account. */
+            plan?: string;
+            subscription?: {
+                id?: string;
+                status?: string;
+                /** @description Unix seconds. */
+                currentPeriodEnd?: number;
+                plan?: {
+                    priceId?: string;
+                    unitAmount?: number | null;
+                    currency?: string;
+                    interval?: string | null;
+                } | null;
+            } | null;
+        };
+        BillingUsageResponse: {
+            organizationId?: string;
+            period?: components["schemas"]["DateRange"];
+            usage?: {
+                dimension?: string;
+                unit?: string;
+                quantity?: number;
+                billedQuantity?: number;
+            }[];
+            total?: number;
+        };
+        /** @description Raw per-dimension usage from the underlying meter ledger. */
+        UsageResponse: {
+            org?: string;
+            range?: {
+                from?: string;
+                to?: string;
+                days?: number;
+            };
+            /** @description Meter dimension → summed quantity (e.g. wave_braid_minutes, transcription_seconds, duration_ms:srt). The dimension set is append-only and not enumerated here. */
+            totals?: {
+                [key: string]: number;
+            };
         };
         Voice: {
             id?: string;
@@ -5293,6 +6002,13 @@ export interface components {
         MoqTrackParam: string;
         PageParam: number;
         PerPageParam: number;
+        StreamIdParam: string;
+        ProductionIdParam: string;
+        CameraIdParam: string;
+        /** @description Range start (ISO 8601 timestamp). Defaults to 30 days before `to`. */
+        AnalyticsFromParam: string;
+        /** @description Range end (ISO 8601 timestamp). Defaults to now. */
+        AnalyticsToParam: string;
     };
     requestBodies: never;
     headers: never;
@@ -5617,6 +6333,1041 @@ export interface operations {
             429: components["responses"]["RateLimitError"];
         };
     };
+    listStreams: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of streams to return. */
+                limit?: number;
+                offset?: number;
+                /** @description Filter by stream status. */
+                status?: "idle" | "live" | "ended";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of streams */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        streams: components["schemas"]["Stream"][];
+                        total: number;
+                        limit: number;
+                        offset: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStreamRequest"];
+            };
+        };
+        responses: {
+            /** @description Stream created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Stream"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Stream"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    startStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stream_id?: string;
+                        session_id?: string;
+                        /** @enum {string} */
+                        status?: "live";
+                        ingest_url?: string | null;
+                        /** Format: date-time */
+                        started_at?: string;
+                        message?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+            /** @description Stream is already live. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    stopStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream stopped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stream_id?: string;
+                        session_id?: string;
+                        /** @enum {string} */
+                        status?: "ended";
+                        /** Format: date-time */
+                        ended_at?: string;
+                        duration_minutes?: number;
+                        viewer_count_peak?: number;
+                        message?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+            /** @description Stream is not currently live. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getStreamStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stream_id?: string;
+                        /** @enum {string} */
+                        status?: "idle" | "live" | "ended";
+                        current_viewers?: number;
+                        protocol_active?: string;
+                        /** Format: date-time */
+                        created_at?: string;
+                        /** Format: date-time */
+                        updated_at?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    getStreamAnalytics: {
+        parameters: {
+            query?: {
+                /** @description Range start (ISO 8601 timestamp). */
+                from?: string;
+                /** @description Range end (ISO 8601 timestamp). */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream analytics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stream_id?: string;
+                        metrics?: {
+                            peak_concurrent_viewers?: number;
+                            sample_count?: number;
+                            avg_quality_score?: number | null;
+                        };
+                        timeseries?: {
+                            /** Format: date-time */
+                            timestamp?: string;
+                            viewer_count?: number;
+                            quality_score?: number | null;
+                            latency_ms?: number | null;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    listStreamHighlights: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of highlights */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        highlights?: components["schemas"]["Highlight"][];
+                        stream_id?: string;
+                        limit?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    markStreamHighlight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    label?: string;
+                    /**
+                     * Format: date-time
+                     * @description Defaults to now.
+                     */
+                    timestamp?: string;
+                    confidence?: number;
+                    duration_seconds?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Highlight marked */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Highlight"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    moderateContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Moderation verdict */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModerateResponse"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    startLivePipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description Audio bytes to transcribe.
+                     */
+                    file: string;
+                    /** @description Client-chosen correlation id (letters, digits, `. _ : -`, 1-128 chars), echoed back for per-stream correlation. */
+                    stream_id?: string;
+                    /** @description ISO 639 language hint (transcribe task only). */
+                    language?: string;
+                    /**
+                     * @default transcribe
+                     * @enum {string}
+                     */
+                    task?: "transcribe" | "translate";
+                    /**
+                     * @description Default whisper-large-v3-turbo; translate forces whisper-large-v3.
+                     * @enum {string}
+                     */
+                    model?: "whisper-large-v3-turbo" | "whisper-large-v3";
+                    /**
+                     * @default summarize
+                     * @enum {string}
+                     */
+                    mode?: "summarize" | "moderate" | "translate" | "custom";
+                    /** @description Custom instruction, used when mode=custom. */
+                    instruction?: string;
+                    /** @description Fast LLM model id to run the pipeline step. */
+                    llm_model: string;
+                    /** @default 256 */
+                    max_tokens?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Transcript plus the LLM step's output */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        transcript?: string;
+                        duration?: number;
+                        llm?: {
+                            mode?: string;
+                            model?: string;
+                            output?: string;
+                            usage?: {
+                                prompt_tokens?: number;
+                                completion_tokens?: number;
+                            };
+                        };
+                        stream_id?: string;
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description The live-pipeline feature is not armed for this account. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            /** @description Transcription is temporarily unavailable — retry after the given delay. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    transcribeLiveAudio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @description Client-chosen correlation id (letters, digits, `. _ : -`, 1-128 chars), echoed back for per-stream correlation. */
+                    stream_id?: string;
+                    language?: string;
+                    /**
+                     * @default transcribe
+                     * @enum {string}
+                     */
+                    task?: "transcribe" | "translate";
+                    /** @enum {string} */
+                    model?: "whisper-large-v3-turbo" | "whisper-large-v3";
+                    /**
+                     * @default verbose_json
+                     * @enum {string}
+                     */
+                    response_format?: "verbose_json" | "json" | "text";
+                    /**
+                     * @description Output shape. Non-json returns a serialized caption file body.
+                     * @default json
+                     * @enum {string}
+                     */
+                    format?: "json" | "vtt" | "srt" | "scc" | "text";
+                    /** @description Windowed-mode start offset (seconds) on the stream timeline. */
+                    t0?: number;
+                    /** @description Windowed-mode window index, echoed back for ordering. */
+                    seq?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Transcription result (JSON, or a serialized caption file when `format` != json) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description The live-pipeline feature is not armed for this account. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            /** @description Transcription is temporarily unavailable — retry after the given delay. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listProductions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                status?: "setup" | "rehearsal" | "live" | "paused" | "ended";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of productions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        productions?: components["schemas"]["Production"][];
+                        total?: number;
+                        limit?: number;
+                        offset?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createProduction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProductionRequest"];
+            };
+        };
+        responses: {
+            /** @description Production created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Production"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getProduction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                productionId: components["parameters"]["ProductionIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Production details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Production"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    switchProductionCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                productionId: components["parameters"]["ProductionIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwitchCameraRequest"];
+            };
+        };
+        responses: {
+            /** @description Camera switched */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        productionId?: string;
+                        /** @enum {string} */
+                        bus?: "program" | "preview";
+                        cameraIndex?: number;
+                        /** @enum {string} */
+                        transition?: "cut" | "dissolve" | "wipe" | "fade";
+                        /** Format: date-time */
+                        switchedAt?: string;
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    setProductionOverlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                productionId: components["parameters"]["ProductionIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    graphic_id: string;
+                    /** @enum {string} */
+                    action: "show" | "hide" | "update";
+                    /** @description Data bindings for the graphic template. */
+                    data?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Overlay state updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        productionId?: string;
+                        graphicId?: string;
+                        /** @enum {string} */
+                        action?: "show" | "hide" | "update";
+                        data?: {
+                            [key: string]: unknown;
+                        } | null;
+                        /** Format: date-time */
+                        updatedAt?: string;
+                        /** @description The production's full overlay map after this update. */
+                        overlays?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    listCameras: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of registered cameras */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cameras?: components["schemas"]["Camera"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    registerCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterCameraRequest"];
+            };
+        };
+        responses: {
+            /** @description Camera registered */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Camera"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    controlCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cameraId: components["parameters"]["CameraIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlCameraRequest"];
+            };
+        };
+        responses: {
+            /** @description Command queued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cameraId?: string;
+                        commandId?: string;
+                        command?: components["schemas"]["ControlCameraRequest"];
+                        /** @enum {string} */
+                        status?: "queued" | "acked" | "failed";
+                    };
+                };
+            };
+            /** @description Invalid or unrecognized control command. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    getBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Billing account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccount"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getBillingUsage: {
+        parameters: {
+            query?: {
+                /** @description Range start (YYYY-MM-DD). Defaults to the start of the current month. */
+                from?: string;
+                /** @description Range end (YYYY-MM-DD). Defaults to today. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Billed usage */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingUsageResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description Billing usage is temporarily unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getUsage: {
+        parameters: {
+            query?: {
+                /** @description Range start (YYYYMMDD). Defaults to today. */
+                from?: string;
+                /** @description Range end (YYYYMMDD). Defaults to today. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Raw usage totals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAnalyticsOverview: {
+        parameters: {
+            query?: {
+                /** @description Range start (ISO 8601 timestamp). Defaults to 30 days before `to`. */
+                from?: components["parameters"]["AnalyticsFromParam"];
+                /** @description Range end (ISO 8601 timestamp). Defaults to now. */
+                to?: components["parameters"]["AnalyticsToParam"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Analytics overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        organizationId?: string;
+                        period?: components["schemas"]["DateRange"];
+                        summary?: {
+                            totalEvents?: number;
+                            totalQuantity?: number;
+                            activeDays?: number;
+                            topDimensions?: {
+                                dimension?: string;
+                                quantity?: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description Analytics are temporarily unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAnalyticsTopContent: {
+        parameters: {
+            query?: {
+                /** @description Range start (ISO 8601 timestamp). Defaults to 30 days before `to`. */
+                from?: components["parameters"]["AnalyticsFromParam"];
+                /** @description Range end (ISO 8601 timestamp). Defaults to now. */
+                to?: components["parameters"]["AnalyticsToParam"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Top content by usage */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        organizationId?: string;
+                        period?: components["schemas"]["DateRange"];
+                        topContent?: {
+                            rank?: number;
+                            dimension?: string;
+                            quantity?: number;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description Analytics are temporarily unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAnalyticsEngagement: {
+        parameters: {
+            query?: {
+                /** @description Range start (ISO 8601 timestamp). Defaults to 30 days before `to`. */
+                from?: components["parameters"]["AnalyticsFromParam"];
+                /** @description Range end (ISO 8601 timestamp). Defaults to now. */
+                to?: components["parameters"]["AnalyticsToParam"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Engagement analytics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        organizationId?: string;
+                        period?: components["schemas"]["DateRange"];
+                        engagement?: {
+                            totalEvents?: number;
+                            totalQuantity?: number;
+                            averageEventsPerDay?: number;
+                            peakDay?: string | null;
+                            peakEvents?: number;
+                            activeDays?: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description Analytics are temporarily unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listClips: {
         parameters: {
             query?: {
@@ -5664,10 +7415,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Clip"];
+                    "application/json": components["schemas"]["ClipCreateResponse"];
                 };
             };
-            400: components["responses"]["ValidationError"];
+            /** @description Validation error (the clip route's own envelope, not the shared Error schema). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipError"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getClip: {
@@ -8045,37 +9807,6 @@ export interface operations {
             429: components["responses"]["RateLimitError"];
         };
     };
-    billing: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Capability response (draft — shape not yet published). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            402: components["responses"]["PaymentRequired"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimitError"];
-        };
-    };
     bmd: {
         parameters: {
             query?: never;
@@ -8170,37 +9901,6 @@ export interface operations {
         };
     };
     cameraControl: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Capability response (draft — shape not yet published). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            402: components["responses"]["PaymentRequired"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimitError"];
-        };
-    };
-    cameras: {
         parameters: {
             query?: never;
             header?: never;
@@ -9781,37 +11481,6 @@ export interface operations {
             429: components["responses"]["RateLimitError"];
         };
     };
-    moderate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Capability response (draft — shape not yet published). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            402: components["responses"]["PaymentRequired"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimitError"];
-        };
-    };
     monetization: {
         parameters: {
             query?: never;
@@ -10402,37 +12071,6 @@ export interface operations {
         };
     };
     productionGraph: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Capability response (draft — shape not yet published). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            402: components["responses"]["PaymentRequired"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimitError"];
-        };
-    };
-    productions: {
         parameters: {
             query?: never;
             header?: never;
@@ -11424,37 +13062,6 @@ export interface operations {
             429: components["responses"]["RateLimitError"];
         };
     };
-    streams: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Capability response (draft — shape not yet published). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            402: components["responses"]["PaymentRequired"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimitError"];
-        };
-    };
     studio: {
         parameters: {
             query?: never;
@@ -11642,37 +13249,6 @@ export interface operations {
         };
     };
     unsubscribe: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Capability response (draft — shape not yet published). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            402: components["responses"]["PaymentRequired"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimitError"];
-        };
-    };
-    usage: {
         parameters: {
             query?: never;
             header?: never;
