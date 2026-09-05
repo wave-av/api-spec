@@ -1,0 +1,31 @@
+.gitignore
+  s_efe86faf2558e9::t_c81eb21e3613d3 9-11
+scripts/ga/contract-001-check.mjs
+  s_efe86faf2558e9::t_5fc73d8de48c57 1-229
+scripts/ga/check-COMPAT-001.sh
+  s_efe86faf2558e9::t_00b6b05384119f 1-12
+scripts/ga/check-CONTRACT-001.sh
+  s_efe86faf2558e9::t_2d57c8c6882cac 1-11
+scripts/ga/ga-evidence.mjs
+  s_efe86faf2558e9::t_fd7c9faba529a0 1-266
+scripts/ga/compat-001-check.mjs
+  s_efe86faf2558e9::t_e3967cc75cf13d 1-182
+.github/workflows/ga-evidence.yml
+  s_efe86faf2558e9::t_21c4ca7031a379 1-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "b188764c3b7169137a3de5998dd4ef667dba44ae",
+  "prompts": {},
+  "sessions": {
+    "s_efe86faf2558e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2b6e2e9-ab55-4d57-9d9f-d57a588ae688",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
