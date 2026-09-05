@@ -50,6 +50,34 @@ export function probeKey({ path, method }) {
   return `${method.toUpperCase()} ${path}`;
 }
 
+const VALID_PROBE_STATUSES = new Set([PROBE_LIVE, PROBE_NOT_LIVE, PROBE_UNKNOWN]);
+
+/**
+ * Validate a `--draft-live-snapshot` file's parsed JSON before it becomes `draftLiveProbe`. This is
+ * the same shape `probeDraftOperations` returns, but a hand-written fixture is untrusted input:
+ *   - a `null` entry crashes the caller's unresolved-probe check (`r.status` on `null` throws),
+ *     the same tier of failure as an unreadable file, so it must return here instead;
+ *   - `{}` or a `status` outside {live, not-live, unknown} does not throw, but compare() reads
+ *     `probe.status === 'live'` and treats anything else — including a typo — as `not-live`,
+ *     silently suppressing a draft operation the snapshot may have meant to mark live.
+ * Returns an error string, or null when every entry is well-formed.
+ */
+export function validateDraftLiveSnapshot(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return `draft-live snapshot must be a JSON object (got ${Array.isArray(raw) ? 'array' : raw === null ? 'null' : typeof raw})`;
+  }
+  for (const [key, value] of Object.entries(raw)) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return `draft-live snapshot entry "${key}" must be an object (got ${Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value})`;
+    }
+    if (!VALID_PROBE_STATUSES.has(value.status)) {
+      return `draft-live snapshot entry "${key}" has status ${JSON.stringify(value.status)}, must be one of ` +
+        `${[...VALID_PROBE_STATUSES].join(', ')}`;
+    }
+  }
+  return null;
+}
+
 /**
  * One probe, one operation, never throws. Returns `{ status, httpStatus, code, error }` where
  * `status` is one of PROBE_LIVE / PROBE_NOT_LIVE / PROBE_UNKNOWN. `doFetch` is injectable so the

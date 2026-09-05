@@ -153,6 +153,57 @@ test('main(): an unparseable draft-live-snapshot exits UNKNOWN, never OK', async
   }
 });
 
+test('main(): a null entry in a draft-live-snapshot exits UNKNOWN rather than crashing', async () => {
+  // Before validation, `r.status` on a null probe result threw inside main()'s unresolved-probe
+  // check — an untrusted fixture file could crash the process instead of failing loud with EXIT_UNKNOWN.
+  const yaml = (await import('js-yaml')).default;
+  const spec = yaml.load(readFileSync(join(REPO_ROOT, 'openapi.yaml'), 'utf8'));
+  const { served } = servedWithoutDrafts(spec);
+  const { writeFileSync, rmSync } = await import('node:fs');
+  const liveSnapshot = join(process.env.RUNNER_TEMP ?? '/tmp', `published-drift-draftlive-nullentry-live-${process.pid}.json`);
+  const snapshot = join(process.env.RUNNER_TEMP ?? '/tmp', `published-drift-draftlive-nullentry-${process.pid}.json`);
+  writeFileSync(liveSnapshot, JSON.stringify(doc(served)));
+  writeFileSync(snapshot, JSON.stringify({ 'POST /does-not-matter': null }));
+  try {
+    assert.equal(
+      await main([join(REPO_ROOT, 'openapi.yaml'), '--live', liveSnapshot, '--draft-live-snapshot', snapshot]),
+      EXIT_UNKNOWN,
+    );
+  } finally {
+    rmSync(liveSnapshot, { force: true });
+    rmSync(snapshot, { force: true });
+  }
+});
+
+test('main(): a draft-live-snapshot entry with no status, or an unsupported status, exits UNKNOWN', async () => {
+  // `{}` (missing status) or a typo'd status used to pass through as a Map entry and be graded
+  // downstream as silently "not live" — this must be caught as invalid input instead.
+  const yaml = (await import('js-yaml')).default;
+  const spec = yaml.load(readFileSync(join(REPO_ROOT, 'openapi.yaml'), 'utf8'));
+  const { served } = servedWithoutDrafts(spec);
+  const { writeFileSync, rmSync } = await import('node:fs');
+  const liveSnapshot = join(process.env.RUNNER_TEMP ?? '/tmp', `published-drift-draftlive-badentry-live-${process.pid}.json`);
+  const bareEntry = join(process.env.RUNNER_TEMP ?? '/tmp', `published-drift-draftlive-bare-${process.pid}.json`);
+  const badStatus = join(process.env.RUNNER_TEMP ?? '/tmp', `published-drift-draftlive-badstatus-${process.pid}.json`);
+  writeFileSync(liveSnapshot, JSON.stringify(doc(served)));
+  writeFileSync(bareEntry, JSON.stringify({ 'POST /does-not-matter': {} }));
+  writeFileSync(badStatus, JSON.stringify({ 'POST /does-not-matter': { status: 'sort-of-live' } }));
+  try {
+    assert.equal(
+      await main([join(REPO_ROOT, 'openapi.yaml'), '--live', liveSnapshot, '--draft-live-snapshot', bareEntry]),
+      EXIT_UNKNOWN,
+    );
+    assert.equal(
+      await main([join(REPO_ROOT, 'openapi.yaml'), '--live', liveSnapshot, '--draft-live-snapshot', badStatus]),
+      EXIT_UNKNOWN,
+    );
+  } finally {
+    rmSync(liveSnapshot, { force: true });
+    rmSync(bareEntry, { force: true });
+    rmSync(badStatus, { force: true });
+  }
+});
+
 // ── The refuse path: an unresolved probe result must never be graded, only refused. ──────────────
 // main()'s real network path calls probeDraftOperations() (retries exhausted -> PROBE_UNKNOWN;
 // drilled directly in published-drift-live-probe.test.mjs) and then checks every entry for

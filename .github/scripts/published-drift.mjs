@@ -61,7 +61,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { compare, indexOperations, validateAllowlist } from './published-drift-compare.mjs';
 import { DIGEST_FIELD, repoFacts } from './published-drift-freshness.mjs';
-import { PROBE_UNKNOWN, probeDraftOperations } from './published-drift-live-probe.mjs';
+import { PROBE_UNKNOWN, probeDraftOperations, validateDraftLiveSnapshot } from './published-drift-live-probe.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -253,6 +253,11 @@ export async function main(argv = process.argv.slice(2)) {
   if (args.draftLiveSnapshot) {
     try {
       const raw = JSON.parse(readFileSync(args.draftLiveSnapshot, 'utf8'));
+      const snapshotError = validateDraftLiveSnapshot(raw);
+      if (snapshotError) {
+        console.error(`published-drift: draft-live snapshot ${args.draftLiveSnapshot}: ${snapshotError}`);
+        return EXIT_UNKNOWN;
+      }
       draftLiveProbe = new Map(Object.entries(raw));
     } catch (err) {
       console.error(`published-drift: could not read/parse draft-live snapshot ${args.draftLiveSnapshot}: ${err.message}`);

@@ -15,6 +15,7 @@ import {
   probeDraftOperations,
   probeKey,
   probeOperation,
+  validateDraftLiveSnapshot,
 } from './published-drift-live-probe.mjs';
 
 const jsonResponse = (status, body) => ({
@@ -144,4 +145,32 @@ test('probeDraftOperations returns an empty map for an empty input without calli
   const results = await probeDraftOperations([], { doFetch });
   assert.equal(results.size, 0);
   assert.equal(called, false);
+});
+
+// ── validateDraftLiveSnapshot: a --draft-live-snapshot file is untrusted, hand-written input. ────
+test('validateDraftLiveSnapshot accepts every valid probe status, and an empty snapshot', () => {
+  assert.equal(validateDraftLiveSnapshot({}), null);
+  assert.equal(validateDraftLiveSnapshot({ 'GET /a': { status: PROBE_LIVE, httpStatus: 402, code: null } }), null);
+  assert.equal(validateDraftLiveSnapshot({ 'GET /a': { status: PROBE_NOT_LIVE, httpStatus: 403, code: 'ROUTE_NOT_MAPPED' } }), null);
+  assert.equal(validateDraftLiveSnapshot({ 'GET /a': { status: PROBE_UNKNOWN, error: 'timed out' } }), null);
+});
+
+test('validateDraftLiveSnapshot rejects a top-level shape that is not a plain object', () => {
+  assert.match(validateDraftLiveSnapshot(null), /must be a JSON object/);
+  assert.match(validateDraftLiveSnapshot([]), /must be a JSON object/);
+  assert.match(validateDraftLiveSnapshot('nope'), /must be a JSON object/);
+  assert.match(validateDraftLiveSnapshot(42), /must be a JSON object/);
+});
+
+test('validateDraftLiveSnapshot rejects a null entry — main() would otherwise crash reading r.status', () => {
+  assert.match(validateDraftLiveSnapshot({ 'GET /a': null }), /"GET \/a" must be an object/);
+});
+
+test('validateDraftLiveSnapshot rejects an entry with no status, or a status outside the three valid ones', () => {
+  // `{}` used to bypass validation entirely and silently read as "not live" downstream — a typo or
+  // a missing field would suppress a draft operation the snapshot may have meant to mark live.
+  assert.match(validateDraftLiveSnapshot({ 'GET /a': {} }), /has status undefined/);
+  assert.match(validateDraftLiveSnapshot({ 'GET /a': { httpStatus: 402 } }), /has status undefined/);
+  assert.match(validateDraftLiveSnapshot({ 'GET /a': { status: 'LIVE' } }), /has status "LIVE"/, 'case must match exactly, not fuzz-match');
+  assert.match(validateDraftLiveSnapshot({ 'GET /a': { status: 'maybe' } }), /has status "maybe"/);
 });
