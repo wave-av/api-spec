@@ -256,10 +256,15 @@ jobs:
   # Networked. NOW RUNS ON PULL REQUESTS TOO — see the header note on the narrowed blast radius.
   drift:
     name: published contract drift
-    # No `if:` guard. The workflow-level `pull_request` trigger is already PATH-FILTERED to
-    # openapi.yaml and the drift scripts, so this runs on spec-changing PRs and on nothing else.
+    # The workflow-level `pull_request` trigger is already PATH-FILTERED to openapi.yaml and the
+    # drift scripts, so this runs on spec-changing PRs, schedules, and manual dispatches — but the
+    # same `push.paths` filter also matches those same paths on a push to main (the freshness job's
+    # trigger), which would add this networked live-probe gate and its issue lifecycle to every
+    # post-merge push, outside the documented schedule/manual/PR scope. Excluding `push` here keeps
+    # this job on exactly the three events it documents itself as running on.
     # `pull_request` appears in this comment and in the trigger; published-drift-live.test.mjs
     # asserts the schedule-only guard has not come back.
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -357,8 +362,14 @@ jobs:
       # never make a drifted contract look green.
       - name: Fail on drift
         if: steps.drift.outputs.code == '2'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          echo "::error::The published contract has drifted from openapi.yaml. A tracking issue was filed or updated."
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "::error::The published contract has drifted from openapi.yaml. No tracking issue is filed on a pull request — fix the drift before merge."
+          else
+            echo "::error::The published contract has drifted from openapi.yaml. A tracking issue was filed or updated."
+          fi
           exit 1
 
       # exit 0 = the contract was reconciled. Close the issue that exit 2 opened, for the same

@@ -65,6 +65,21 @@ export const EXIT_OK = 0;
 export const EXIT_UNKNOWN = 1;
 export const EXIT_DRIFT = 2;
 
+/** The fixed placeholder segment substituted for every `{param}` template before a live probe. */
+export const PROBE_PLACEHOLDER = 'wave-drift-probe-placeholder';
+
+/**
+ * A declared-but-unpublished path can carry an OpenAPI `{param}` template (e.g. `/clips/{clipId}`).
+ * Probed literally, the gateway's router will not match it — it matches on a real path segment, not
+ * the literal string `{clipId}` — so it 404s and gets misclassified as unpublished, reintroducing
+ * the exact false-green this tier removes for any draft route that is actually live behind a path
+ * parameter. Substitute a fixed placeholder segment so the probe hits the route the same way a real
+ * request would.
+ */
+export function templateToProbePath(path) {
+  return path.replace(/\{[^}]+\}/g, PROBE_PLACEHOLDER);
+}
+
 /**
  * Fetch the published contract. Returns a result, never throws, never defaults to "no drift".
  *
@@ -252,10 +267,16 @@ export async function main(argv = process.argv.slice(2)) {
     const livePublished = indexOperations(liveDoc);
     const repoOnly = [...indexOperations(repoDoc).values()]
       .filter(({ path, method }) => !livePublished.has(`${method.toUpperCase()} ${path}`))
-      .map(({ path }) => path);
-    const baseUrl = String(repoDoc?.servers?.[0]?.url ?? '').replace(/\/$/, '');
+      .map(({ path }) => templateToProbePath(path));
+    // `repoDoc` is THIS PR's openapi.yaml, and the drift job now runs on pull requests — so on a
+    // fork PR `repoDoc` is attacker-controlled. Deriving the probe target from its `servers[0].url`
+    // would let a malicious PR point unauthenticated CI network calls at an arbitrary HTTPS host
+    // (an SSRF read primitive). `liveDoc` came from the trusted, hardcoded `PUBLISHED_SPEC_URL` a
+    // few lines up (never from `--live`, since that branch already returned before reaching here) —
+    // only ITS servers entry is a legitimate probe base.
+    const baseUrl = String(liveDoc?.servers?.[0]?.url ?? '').replace(/\/$/, '');
     if (!/^https:\/\//.test(baseUrl)) {
-      console.error(`published-drift: cannot probe live behaviour — ${args.spec} declares no https servers[0].url`);
+      console.error(`published-drift: cannot probe live behaviour — the published contract at ${source} declares no https servers[0].url`);
       return EXIT_UNKNOWN;
     }
     const probe = await probeOperations(baseUrl, repoOnly);

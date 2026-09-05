@@ -132,16 +132,25 @@ export function validateAllowlist(allowlist) {
     if (!DIRECTIONS.includes(e.direction))
       return `allowlist entry ${e.method} ${e.path} has an unknown direction ${JSON.stringify(e.direction)}`;
     const hasPredicate = Object.keys(e.expect ?? {}).length > 0 || (e.expectAbsent ?? []).length > 0;
+    // Directions `record()` never hands a live OpenAPI operation object to. `unpublished-repo` has
+    // none by construction (declared here, not served). `draft-but-live` has a live PROBE
+    // OBSERVATION ({status, bodyCode}), not an operation object — there is nothing shaped like an
+    // operation for `expect`/`expectAbsent` to walk. A predicate on either direction validates and
+    // then never gets to run: allowlistStillApplies always receives `liveOp: null` for both, so it
+    // always takes the "no live operation" branch, which is unconditionally false the moment a
+    // predicate is present.
+    const noLiveOperation = ['unpublished-repo', 'draft-but-live'].includes(e.direction);
     // The header of this file promises that a live-direction exemption carries "a justification AND
     // a live predicate". Enforce the second half: without a predicate the entry is honored on
     // path+method alone, can never lapse, and outlives the reasoning that granted it — the exact
     // failure `expectAbsent` exists to prevent.
-    if (e.direction !== 'unpublished-repo' && !hasPredicate)
+    if (!noLiveOperation && !hasPredicate)
       return `allowlist entry ${e.method} ${e.path} (${e.direction}) needs an expect or expectAbsent predicate — an exemption that cannot lapse outlives its justification`;
-    // The mirror image. `unpublished-repo` has no live operation to evaluate against, so a predicate
-    // there can never be true; the entry would validate, then silently never apply.
-    if (e.direction === 'unpublished-repo' && hasPredicate)
-      return `allowlist entry ${e.method} ${e.path} (unpublished-repo) cannot carry a predicate — the operation is not served, so there is no live operation to evaluate one against`;
+    // The mirror image. `unpublished-repo` and `draft-but-live` never receive a live operation to
+    // evaluate against, so a predicate on either can never be true; the entry would validate, then
+    // silently never apply.
+    if (noLiveOperation && hasPredicate)
+      return `allowlist entry ${e.method} ${e.path} (${e.direction}) cannot carry a predicate — there is no live operation to evaluate one against`;
     const key = `${e.direction} ${e.method.toUpperCase()} ${e.path}`;
     if (seen.has(key)) return `duplicate allowlist entry for ${key}`;
     seen.add(key);

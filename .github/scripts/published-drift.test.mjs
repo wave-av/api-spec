@@ -27,7 +27,9 @@ import {
   synthesizeOperationId,
 } from './published-drift-normalize.mjs';
 import { compare, diffOperation, indexOperations } from './published-drift-compare.mjs';
-import { EXIT_DRIFT, EXIT_OK, EXIT_UNKNOWN, fetchPublished, main, parseArgs } from './published-drift.mjs';
+import {
+  EXIT_DRIFT, EXIT_OK, EXIT_UNKNOWN, fetchPublished, main, parseArgs, templateToProbePath,
+} from './published-drift.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
@@ -190,6 +192,18 @@ test('a value-taking option with no value is a usage error, not a silent opposit
     { spec: 'openapi.yaml', live: 'live.json', out: 'drift.json', json: true, normalize: false },
   );
   assert.equal(parseArgs([]).spec, 'openapi.yaml', 'the default spec still applies');
+});
+
+test('templateToProbePath substitutes every {param} segment with a real placeholder', () => {
+  // Probed literally, an OpenAPI path template does not match the gateway's router (it matches a
+  // real segment, never the literal string `{clipId}`), so a draft route behind a path parameter
+  // would 404 and be misclassified as unpublished — the false-green this tier exists to remove.
+  assert.equal(templateToProbePath('/clips/{clipId}'), '/clips/wave-drift-probe-placeholder');
+  assert.equal(
+    templateToProbePath('/videos/{videoId}/chapters/{chapterId}'),
+    '/videos/wave-drift-probe-placeholder/chapters/wave-drift-probe-placeholder',
+  );
+  assert.equal(templateToProbePath('/clips'), '/clips', 'a path with no template is unchanged');
 });
 
 test('a usage error exits UNKNOWN and never reaches the network', async () => {

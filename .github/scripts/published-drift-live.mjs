@@ -44,6 +44,39 @@ export const UNMAPPED_CODES = new Set(['ROUTE_NOT_MAPPED']);
 export const LIVE_PROBE_TIMEOUT_MS = 20_000;
 
 /**
+ * The classifier only ever needs a short error code near the start of a JSON body. A probed
+ * endpoint is not trusted to return a small body — this bounds how much of it is ever buffered in
+ * memory, so a large response cannot turn a live probe into a CI memory-exhaustion vector.
+ */
+export const MAX_BODY_BYTES = 4096;
+
+/** Read at most `MAX_BODY_BYTES` bytes of a response body, decoded as UTF-8. Never throws. */
+export async function readBoundedText(res, maxBytes = MAX_BODY_BYTES) {
+  const reader = res.body?.getReader?.();
+  if (!reader) {
+    // No streamable body (e.g. a stub in tests) — fall back to the full read, already the prior
+    // behaviour for anything that does not expose a stream.
+    try { return await res.text(); } catch { return ''; }
+  }
+  const decoder = new TextDecoder();
+  let received = 0;
+  let out = '';
+  try {
+    while (received < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.length;
+      out += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    // Stop pulling bytes we will never read — a probed endpoint does not get to keep this socket
+    // busy past the prefix this classifier actually needs.
+    try { await reader.cancel(); } catch { /* best effort */ }
+  }
+  return out;
+}
+
+/**
  * The whole classification, as pure data. `unknown` is a first-class outcome and is NEVER folded
  * into either of the other two: a probe that could not run says nothing about publication, and
  * treating silence as "not published" is precisely the false-green this tier removes.
@@ -54,7 +87,12 @@ export function classifyLiveObservation({ status, bodyCode } = {}) {
   if (!Number.isInteger(status) || status === 0) return 'unknown';
   // An explicit "there is no route here" is the ONLY thing that confirms genuine non-publication.
   if (UNMAPPED_CODES.has(bodyCode)) return 'unpublished';
-  if (status === 404) return 'unpublished';
+  // A BARE 404 — no route-level refusal code — is ambiguous, not a refusal: it is also what a
+  // MAPPED resource route returns for a missing or unsubstituted path parameter (the gateway routed
+  // the request to a real handler, which then reported "no such resource"). Reading every bare 404
+  // as "unpublished" would suppress exactly the operations this tier exists to stop suppressing.
+  // Same discipline as the bare-5xx rule below: an ambiguous signal is UNKNOWN, never a verdict.
+  if (status === 404) return 'unknown';
   // 5xx WITHOUT a route-level refusal is an infrastructure wobble, not evidence either way. Calling
   // it "unpublished" would let a gateway outage silently empty this gate's findings.
   if (status >= 500) return bodyCode ? 'published' : 'unknown';
@@ -106,7 +144,7 @@ export async function probePath(baseUrl, path, doFetch = fetch) {
       headers: { accept: 'application/json' },
     });
     let text = '';
-    try { text = await res.text(); } catch { /* a body we cannot read is not a classification */ }
+    try { text = await readBoundedText(res); } catch { /* a body we cannot read is not a classification */ }
     return { path, status: res.status, bodyCode: extractBodyCode(text) };
   } catch (err) {
     return { path, status: 0, bodyCode: err?.name === 'AbortError' ? 'TIMEOUT' : (err?.name ?? 'FETCH_ERROR') };

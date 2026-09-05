@@ -35,7 +35,16 @@ test('A 402 CLASSIFIES AS PUBLISHED — a paywall is not an absence', () => {
 
 test('only an explicit route-level refusal counts as UNPUBLISHED', () => {
   assert.equal(classifyLiveObservation({ status: 403, bodyCode: 'ROUTE_NOT_MAPPED' }), 'unpublished');
-  assert.equal(classifyLiveObservation({ status: 404, bodyCode: null }), 'unpublished');
+  assert.equal(classifyLiveObservation({ status: 404, bodyCode: 'ROUTE_NOT_MAPPED' }), 'unpublished');
+});
+
+test('a BARE 404 is UNKNOWN, never UNPUBLISHED — a mapped resource route also 404s for a missing or unsubstituted id', () => {
+  // A resource route the gateway routed to a real handler (e.g. GET /clips/{clipId} with a
+  // nonexistent or unsubstituted id) answers 404 with no route-level refusal code. Reading every
+  // bare 404 as "unpublished" would suppress exactly the routes this tier exists to stop
+  // suppressing, the same failure the bare-5xx rule already guards against.
+  assert.equal(classifyLiveObservation({ status: 404, bodyCode: null }), 'unknown');
+  assert.equal(classifyLiveObservation({ status: 404 }), 'unknown');
 });
 
 test('every other answer is PUBLISHED — something recognised the path enough to answer', () => {
