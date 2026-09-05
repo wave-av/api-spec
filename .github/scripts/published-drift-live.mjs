@@ -65,8 +65,12 @@ export async function readBoundedText(res, maxBytes = MAX_BODY_BYTES) {
     while (received < maxBytes) {
       const { done, value } = await reader.read();
       if (done) break;
-      received += value.length;
-      out += decoder.decode(value, { stream: true });
+      // A single chunk can itself exceed the remaining budget — truncate it so `out` never grows
+      // past `maxBytes`, which is the bound this function exists to enforce.
+      const remaining = maxBytes - received;
+      const chunk = value.length > remaining ? value.subarray(0, remaining) : value;
+      received += chunk.length;
+      out += decoder.decode(chunk, { stream: true });
     }
   } finally {
     // Stop pulling bytes we will never read — a probed endpoint does not get to keep this socket

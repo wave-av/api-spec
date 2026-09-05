@@ -81,6 +81,36 @@ export function templateToProbePath(path) {
 }
 
 /**
+ * Build the map from a placeholder-substituted probe path back to every declared-but-unpublished
+ * spec path it stands in for (two templated paths can collapse to the same probe path, e.g.
+ * `/x/{a}` and `/x/{b}`). `compare()` looks observations up by the ORIGINAL spec path — never the
+ * substituted one — so this index is what lets a probe result find its way back to the key
+ * `compare()` actually reads.
+ */
+export function indexSpecPathsByProbePath(repoDoc, livePublished) {
+  const specPathsByProbePath = new Map();
+  for (const { path, method } of indexOperations(repoDoc).values()) {
+    if (livePublished.has(`${method.toUpperCase()} ${path}`)) continue;
+    const probePath = templateToProbePath(path);
+    const specPaths = specPathsByProbePath.get(probePath) ?? [];
+    if (!specPaths.includes(path)) specPaths.push(path);
+    specPathsByProbePath.set(probePath, specPaths);
+  }
+  return specPathsByProbePath;
+}
+
+/** Re-key a probe's `{ probePath -> observation }` map onto every spec path it stands in for. */
+export function reindexObservationsBySpecPath(observations, specPathsByProbePath) {
+  const out = new Map();
+  for (const [probePath, observation] of observations) {
+    for (const specPath of specPathsByProbePath.get(probePath) ?? [probePath]) {
+      out.set(specPath, observation);
+    }
+  }
+  return out;
+}
+
+/**
  * Fetch the published contract. Returns a result, never throws, never defaults to "no drift".
  *
  * REDIRECTS ARE NOT FOLLOWED. `redirect: 'follow'` would let whatever answers the published URL
@@ -265,9 +295,22 @@ export async function main(argv = process.argv.slice(2)) {
   let liveObservations = null;
   if (args.liveProbe && !args.live) {
     const livePublished = indexOperations(liveDoc);
-    const repoOnly = [...indexOperations(repoDoc).values()]
-      .filter(({ path, method }) => !livePublished.has(`${method.toUpperCase()} ${path}`))
-      .map(({ path }) => templateToProbePath(path));
+    // Probe the placeholder-substituted path, but `compare()` looks observations up by the ORIGINAL
+    // spec path (see published-drift-compare.mjs, the `unpublished-repo` loop) — so the substituted
+    // string must never become the key an observation is stored or looked up under. Re-key the
+    // returned observations back onto the spec path before they reach compare(); see
+    // indexSpecPathsByProbePath / reindexObservationsBySpecPath.
+    const specPathsByProbePath = indexSpecPathsByProbePath(repoDoc, livePublished);
+    const repoOnly = [...specPathsByProbePath.keys()];
+    // `repoDoc` is THIS PR's openapi.yaml, and the drift job now runs on pull requests, so a fork PR
+    // controls how many draft-and-unpublished operations it declares. Probing an unbounded set would
+    // send one unauthenticated request per operation to the production gateway and could run for a
+    // very long time; refuse rather than silently degrade into a slow, traffic-generating job.
+    const MAX_PROBED_OPERATIONS = 400;
+    if (repoOnly.length > MAX_PROBED_OPERATIONS) {
+      console.error(`published-drift: refusing to probe ${repoOnly.length} operations (limit ${MAX_PROBED_OPERATIONS})`);
+      return EXIT_UNKNOWN;
+    }
     // `repoDoc` is THIS PR's openapi.yaml, and the drift job now runs on pull requests — so on a
     // fork PR `repoDoc` is attacker-controlled. Deriving the probe target from its `servers[0].url`
     // would let a malicious PR point unauthenticated CI network calls at an arbitrary HTTPS host
@@ -286,7 +329,7 @@ export async function main(argv = process.argv.slice(2)) {
       console.error(`published-drift: ${probe.reason}`);
       return EXIT_UNKNOWN;
     }
-    liveObservations = probe.observations;
+    liveObservations = reindexObservationsBySpecPath(probe.observations, specPathsByProbePath);
   }
 
   const result = compare({ repoDoc, liveDoc, allowlist, normalize: args.normalize, liveObservations });

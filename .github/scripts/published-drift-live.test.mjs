@@ -193,18 +193,26 @@ test('MUTATION PROOF: removing the live observations restores the old false-gree
 // ── The workflow actually runs it, on PRs, without an escape hatch ───────────────────────────────
 const WORKFLOW = readFileSync(join(REPO_ROOT, '.github/workflows/published-contract-drift.yml'), 'utf8');
 
+// The `drift:` job's own YAML block, bounded at the NEXT top-level job key so a check scoped to
+// "the drift job" cannot pass or fail because of text that belongs to a job declared after it.
+const DRIFT_JOB_START = WORKFLOW.indexOf('\n  drift:');
+const driftJobRest = WORKFLOW.slice(DRIFT_JOB_START + 1);
+const nextTopLevelJob = driftJobRest.slice(1).search(/^\s{2}\S[^\n]*:\s*$/m);
+const DRIFT_JOB = nextTopLevelJob > 0 ? driftJobRest.slice(0, nextTopLevelJob + 1) : driftJobRest;
+
 test('MUTATION PROOF: the drift job runs on pull_request, not on the schedule alone', () => {
   // Defect 1 of false-green #4: the drift job was `if: schedule || workflow_dispatch`, so it was
   // SKIPPED on every pull request and could never grade the diff that introduced a drift.
-  const driftJob = WORKFLOW.slice(WORKFLOW.indexOf('\n  drift:'));
-  assert.ok(!/if:\s*github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'\s*$/m.test(driftJob),
+  assert.ok(!/if:\s*github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'\s*$/m.test(DRIFT_JOB),
     'the schedule-only guard must be gone');
   assert.match(WORKFLOW, /^\s{2}pull_request:/m);
-  assert.match(driftJob, /pull_request/, 'the drift job must acknowledge the pull_request path');
+  assert.match(DRIFT_JOB, /pull_request/, 'the drift job must acknowledge the pull_request path');
 });
 
 test('MUTATION PROOF: the workflow never disables the live probe', () => {
   assert.ok(!WORKFLOW.includes('--no-live-probe'), 'the behavioural tier may not be switched off in CI');
-  assert.ok(!/published-drift\.mjs[^\n]*--live /.test(WORKFLOW), 'CI must not feed the gate an offline snapshot');
+  // A word boundary, not a literal trailing space, so `--live` at end-of-line or `--live=file` are
+  // caught too — a space-only match would let either form quietly feed the gate an offline snapshot.
+  assert.ok(!/published-drift\.mjs[^\n]*--live\b/.test(WORKFLOW), 'CI must not feed the gate an offline snapshot');
   assert.ok(!WORKFLOW.includes('continue-on-error'), 'no step may be softened');
 });

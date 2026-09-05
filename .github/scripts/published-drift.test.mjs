@@ -28,7 +28,8 @@ import {
 } from './published-drift-normalize.mjs';
 import { compare, diffOperation, indexOperations } from './published-drift-compare.mjs';
 import {
-  EXIT_DRIFT, EXIT_OK, EXIT_UNKNOWN, fetchPublished, main, parseArgs, templateToProbePath,
+  EXIT_DRIFT, EXIT_OK, EXIT_UNKNOWN, fetchPublished, indexSpecPathsByProbePath, main, parseArgs,
+  reindexObservationsBySpecPath, templateToProbePath,
 } from './published-drift.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -204,6 +205,50 @@ test('templateToProbePath substitutes every {param} segment with a real placehol
     '/videos/wave-drift-probe-placeholder/chapters/wave-drift-probe-placeholder',
   );
   assert.equal(templateToProbePath('/clips'), '/clips', 'a path with no template is unchanged');
+});
+
+test('indexSpecPathsByProbePath / reindexObservationsBySpecPath: a probe result finds its way back to the SPEC path', () => {
+  // The regression this guards: `compare()` looks observations up by the ORIGINAL spec path, never
+  // the placeholder-substituted probe path. Before this pair of functions existed, `repoOnly` was
+  // built directly from `templateToProbePath(path)` and the probe's Map stayed keyed by that
+  // substituted string — every templated draft operation's observation was then unreachable by
+  // `compare()`, which classified it `unknown` and reported it as an unverifiable finding on every
+  // run, regardless of what the gateway actually served.
+  const draftOp = { 'x-schema-status': 'draft', responses: {} };
+  const repoDoc = {
+    openapi: '3.1.0',
+    paths: {
+      '/clips/{clipId}': { get: draftOp },
+      '/published/{id}': { get: { responses: {} } }, // already live — must be excluded
+    },
+  };
+  const livePublished = new Map([['GET /published/{id}', {}]]);
+
+  const index = indexSpecPathsByProbePath(repoDoc, livePublished);
+  assert.deepEqual([...index.entries()], [['/clips/wave-drift-probe-placeholder', ['/clips/{clipId}']]]);
+
+  const observations = new Map([['/clips/wave-drift-probe-placeholder', { status: 402, bodyCode: 'X402_CHALLENGE' }]]);
+  const reindexed = reindexObservationsBySpecPath(observations, index);
+  assert.deepEqual([...reindexed.keys()], ['/clips/{clipId}'], 'the observation must be reachable by the SPEC path');
+  assert.equal(reindexed.get('/clips/{clipId}').status, 402);
+});
+
+test('indexSpecPathsByProbePath: two templated spec paths that collapse to the same probe path both receive the observation', () => {
+  const draftOp = { 'x-schema-status': 'draft', responses: {} };
+  const repoDoc = {
+    openapi: '3.1.0',
+    paths: {
+      '/x/{a}': { get: draftOp },
+      '/x/{b}': { post: draftOp },
+    },
+  };
+  const index = indexSpecPathsByProbePath(repoDoc, new Map());
+  const probePath = templateToProbePath('/x/{a}');
+  assert.deepEqual(new Set(index.get(probePath)), new Set(['/x/{a}', '/x/{b}']));
+
+  const reindexed = reindexObservationsBySpecPath(new Map([[probePath, { status: 402 }]]), index);
+  assert.equal(reindexed.get('/x/{a}').status, 402);
+  assert.equal(reindexed.get('/x/{b}').status, 402);
 });
 
 test('a usage error exits UNKNOWN and never reaches the network', async () => {
