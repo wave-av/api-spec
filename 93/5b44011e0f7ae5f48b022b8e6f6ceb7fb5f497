@@ -1,0 +1,19 @@
+openapi.yaml
+  s_bcde021dc68a78::t_3b8767d55b9de9 2653,2672
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "935b44011e0f7ae5f48b022b8e6f6ceb7fb5f497",
+  "prompts": {},
+  "sessions": {
+    "s_bcde021dc68a78": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a80d8af6134e2fdcf",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
