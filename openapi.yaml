@@ -1488,6 +1488,12 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Chapter'
+        '404':
+          description: No recording with this id in your org.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Chapters]
       summary: Create a chapter
@@ -1521,6 +1527,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Chapter'
+        '404':
+          description: No recording with this id in your org.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /videos/{videoId}/chapters/detect:
     post:
@@ -1555,6 +1567,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DetectionJob'
+        '404':
+          description: No recording with this id in your org.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /videos/{videoId}/chapters/detect/{jobId}:
     get:
@@ -11828,11 +11846,11 @@ components:
         ns: demo-braid
         sources:
           - label: mic-1
-            track: cam-1
-            url: https://wave.online/samples/input.mp4
+            track: mic-1
+            url: https://wave.online/samples/input-1.mp4
           - label: mic-2
-            track: cam-2
-            url: https://wave.online/samples/input.mp4
+            track: mic-2
+            url: https://wave.online/samples/input-2.mp4
       properties:
         ns:
           type: string
@@ -11846,6 +11864,9 @@ components:
           items:
             type: object
             required: [label, track]
+            anyOf:
+              - required: [url]
+              - required: [path]
             properties:
               label:
                 type: string
