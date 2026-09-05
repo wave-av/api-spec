@@ -1,0 +1,55 @@
+.github/scripts/live-route-probe.mjs
+  s_49793c5a9de056::t_6f3329eb02e2ab 45-52
+.github/scripts/live-route-drift-regressions.test.mjs
+  s_49793c5a9de056::t_d3425435a9b8b8 1-102,105-106,112-126
+  s_49793c5a9de056::t_dfeb5880975294 103-104,107-111
+.github/workflows/live-route-drift.yml
+  s_49793c5a9de056::t_3f224b9c1014aa 187-188
+  s_49793c5a9de056::t_d747ecce0c5fd4 78
+  s_49793c5a9de056::t_7d44b7a8f78946 158-163
+  s_49793c5a9de056::t_3aa57cdf7dd0d5 73-76,82-86,100
+  s_49793c5a9de056::t_18dd1ce9aab390 140
+  s_49793c5a9de056::t_0aa2956520ed0e 164
+  s_49793c5a9de056::t_886ed6d90b8745 189
+.github/scripts/live-route-compare.mjs
+  s_49793c5a9de056::t_254784394c04cb 179-187
+  s_49793c5a9de056::t_7b0e4cabe3a747 94-97,99-102
+  s_49793c5a9de056::t_f840815b0f790a 23-24
+  s_49793c5a9de056::t_c41a99fd32d80e 34-37,53-65
+  s_49793c5a9de056::t_89baa83e79a126 128-141
+  s_49793c5a9de056::t_4ff9b51915393b 66-67
+  s_49793c5a9de056::t_d8fc215fec96ca 188-189
+  s_74affa93dcb2a9::t_cfd9c882dcde7c 169,200,243-244
+.github/scripts/live-route-drift.mjs
+  s_49793c5a9de056::t_0a02157993f017 212-213
+  s_49793c5a9de056::t_7497d76f17b68a 265-266,270-273
+  s_49793c5a9de056::t_f6e2b4792d4b0a 141-147,152-160,163,274
+  s_49793c5a9de056::t_d38d0b316c6b31 90-94,96-98,100-102
+  s_49793c5a9de056::t_ef233333c42c98 148
+  s_49793c5a9de056::t_9b23b41973933b 208-211,214-215
+  s_49793c5a9de056::t_7609a8cc100c78 79-89,95,99,103-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "7b5f912c708ba81cbef538a2e43e0e53fa6e2028",
+  "prompts": {},
+  "sessions": {
+    "s_49793c5a9de056": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d315ea56-91aa-4d81-9939-eac4eba83179",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    },
+    "s_74affa93dcb2a9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a40521d4992a00fa4",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
