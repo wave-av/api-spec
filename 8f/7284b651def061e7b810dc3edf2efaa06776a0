@@ -1,0 +1,39 @@
+.github/scripts/published-drift-compare.mjs
+  s_49793c5a9de056::t_c11fb490b16cbd 135-142,147,149-153
+.github/scripts/published-drift.mjs
+  s_49793c5a9de056::t_1d0570dcc80fa9 270
+  s_49793c5a9de056::t_a910f2dbc4e471 271-277,279
+  s_49793c5a9de056::t_b1387eac2366ca 68-82
+.github/scripts/published-drift-allowlist.test.mjs
+  s_49793c5a9de056::t_58f1f6e2f9b0bd 136-170
+.github/scripts/published-drift-live.mjs
+  s_49793c5a9de056::t_4303d7576253e5 47-78
+  s_49793c5a9de056::t_57faf032136146 90-95
+  s_49793c5a9de056::t_f5e936c5b8531e 147
+  s_49793c5a9de056::t_20c34aabb811f5 46
+.github/scripts/published-drift.test.mjs
+  s_49793c5a9de056::t_a754d4470fb9a2 197-206
+  s_49793c5a9de056::t_2a39abc8d0821c 30-32
+  s_49793c5a9de056::t_e3f4d93a83bdb7 195-196
+.github/scripts/published-drift-live.test.mjs
+  s_49793c5a9de056::t_d31f7e84b381b2 38-47
+.github/workflows/published-contract-drift.yml
+  s_49793c5a9de056::t_9a7b1eeec83894 259-264,267
+  s_49793c5a9de056::t_b4e5f8ef35c9fd 365-366,368-372
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "8f7284b651def061e7b810dc3edf2efaa06776a0",
+  "prompts": {},
+  "sessions": {
+    "s_49793c5a9de056": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d315ea56-91aa-4d81-9939-eac4eba83179",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
