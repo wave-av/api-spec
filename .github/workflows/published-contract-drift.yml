@@ -6,13 +6,20 @@
 #   `unit` runs on PULL REQUESTS. It is offline — node --test over hand-built fixtures, no network
 #   at all — so it is a property of the diff and belongs on the PR path.
 #
-#   `drift` runs on a SCHEDULE and on demand, never on a pull request. It fetches the live
-#   published contract, and whether it has drifted is NOT a property of any given PR: it is a
-#   fact about the world that changes on the serving deployment's schedule, not this repo's. Asking it
-#   on every PR would make every author here depend on an unauthenticated network fetch, so an
-#   outage could red the whole repo for a reason no author could act on. That is the exact defect
-#   the serving repo already fixed by moving its own spec-drift check to a cron, and this file
-#   follows that precedent rather than reintroducing the defect here.
+#   `drift` runs on a SCHEDULE, on demand, AND on pull requests. It used to carry
+#   `if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'`, which made it
+#   SKIPPED on every pull request — so the one moment a drift is actually INTRODUCED, by a diff, was
+#   the one moment this gate was not looking. That guard is gone.
+#
+#   The original argument for it was real but measured the wrong blast radius: "asking it on every
+#   PR would make every author here depend on an unauthenticated network fetch." The workflow-level
+#   `pull_request` trigger is PATH-FILTERED to openapi.yaml and the drift scripts. It was never
+#   every author — it is authors changing the spec, which is exactly who should be told that the
+#   operation they are adding is already live, or that the one they are marking draft is already
+#   being billed for. A gateway outage on such a PR yields exit 1 (UNKNOWN) and goes red, which is
+#   deliberate and follows the fleet precedent (claude-workstation#4340): "could not measure" maps
+#   to conclusion `failure`, never success/neutral/skipped, because only those three satisfy a
+#   required check. UNKNOWN IS NOT A PASS, and a spec PR merged blind is worse than a spec PR held.
 #
 #   `freshness` runs EVERYWHERE, because it is offline. It asks the one question the other two do
 #   not: is the COMMITTED contract-drift.json still a receipt for the CURRENT openapi.yaml? `unit`
@@ -246,10 +253,13 @@ jobs:
             echo "Receipt is fresh and no tracking issue is open. Nothing to close."
           fi
 
-  # Networked. Scheduled and manual only.
+  # Networked. NOW RUNS ON PULL REQUESTS TOO — see the header note on the narrowed blast radius.
   drift:
     name: published contract drift
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # No `if:` guard. The workflow-level `pull_request` trigger is already PATH-FILTERED to
+    # openapi.yaml and the drift scripts, so this runs on spec-changing PRs and on nothing else.
+    # `pull_request` appears in this comment and in the trigger; published-drift-live.test.mjs
+    # asserts the schedule-only guard has not come back.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -310,8 +320,12 @@ jobs:
       # literal, the body is written to a file by the script above and passed with --body-file, and
       # the issue number comes from a --jq filter over `gh issue list` output rather than from a
       # search string. The only interpolated value is $GITHUB_REPOSITORY, which GitHub sets.
+      # The tracking issue is a claim about the state of the DEFAULT BRANCH, so the PR path must not
+      # touch it: a PR's drift is the PR author's to fix before merge, and on a fork PR the token is
+      # read-only anyway, which would fail this step for a reason unrelated to drift. The `Fail on
+      # drift` step below is NOT guarded — a PR that introduces drift still goes red.
       - name: File or update the tracking issue
-        if: steps.drift.outputs.code == '2'
+        if: github.event_name != 'pull_request' && steps.drift.outputs.code == '2'
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: 'Published contract has drifted from openapi.yaml'
@@ -354,7 +368,7 @@ jobs:
       # issue everyone had already learned to ignore. Exact-title match, and this title is distinct
       # from the freshness job's — the two lifecycles stay separate.
       - name: Close the tracking issue once the contract matches again
-        if: steps.drift.outputs.code == '0'
+        if: github.event_name != 'pull_request' && steps.drift.outputs.code == '0'
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: 'Published contract has drifted from openapi.yaml'

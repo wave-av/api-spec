@@ -43,6 +43,7 @@
  *   node .github/scripts/published-drift.mjs openapi.yaml --live fixtures/live.json   # offline
  *   node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json
  *   node .github/scripts/published-drift.mjs openapi.yaml --no-normalize              # see the 71
+ *   node .github/scripts/published-drift.mjs openapi.yaml --no-live-probe            # unit tier only
  *
  * NETWORK: one GET to the hardcoded public URL below, unauthenticated, bounded by an
  * AbortController timeout. Nothing else. `--live <file>` makes the run fully offline.
@@ -51,6 +52,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { compare, indexOperations, validateAllowlist } from './published-drift-compare.mjs';
+import { probeOperations } from './published-drift-live.mjs';
 import { DIGEST_FIELD, repoFacts } from './published-drift-freshness.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -102,7 +104,7 @@ export async function fetchPublished(url = PUBLISHED_SPEC_URL, doFetch = fetch) 
  * errors, so this returns a usage error the caller turns into EXIT_UNKNOWN.
  */
 export function parseArgs(argv) {
-  const args = { spec: null, live: null, out: null, normalize: true, json: false, error: null };
+  const args = { spec: null, live: null, out: null, normalize: true, json: false, liveProbe: true, error: null };
   const value = (name, next) => {
     if (next === undefined || next.startsWith('--')) {
       args.error ??= `${name} needs a value (got ${next === undefined ? 'nothing' : JSON.stringify(next)})`;
@@ -115,6 +117,10 @@ export function parseArgs(argv) {
     if (a === '--live') args.live = value('--live', argv[++i]);
     else if (a === '--out') args.out = value('--out', argv[++i]);
     else if (a === '--no-normalize') args.normalize = false;
+    // Offline escape hatch for the unit tier ONLY. The workflow never passes it, and
+    // published-drift-live.test.mjs asserts the workflow never passes it, so this cannot become
+    // the quiet way to turn the behavioural tier back off.
+    else if (a === '--no-live-probe') args.liveProbe = false;
     else if (a === '--json') args.json = true;
     else if (!a.startsWith('--') && args.spec === null) args.spec = a;
   }
@@ -136,7 +142,8 @@ function report(r, say = console.log) {
   );
   say(
     `published-drift: findings — undocumented-live ${h.undocumentedLive}, unpublished-repo ${h.unpublishedRepo}, ` +
-      `shared-drift ${h.sharedDrift}; suppressed — draft ${h.draftNotYetPublished}, allowlisted ${h.allowlisted}`,
+      `draft-but-live ${h.draftButLive}, shared-drift ${h.sharedDrift}; suppressed — draft ${h.draftNotYetPublished} ` +
+      `(of ${h.liveProbed ?? 'unprobed'} probed live), allowlisted ${h.allowlisted}`,
   );
   say(
     `published-drift: gateway enrichment normalized — ${r.enrichmentObservations.errorResponsesInjected} injected error ` +
@@ -231,7 +238,37 @@ export async function main(argv = process.argv.slice(2)) {
     return EXIT_UNKNOWN;
   }
 
-  const result = compare({ repoDoc, liveDoc, allowlist, normalize: args.normalize });
+  // ── LIVE-BEHAVIOUR TIER ────────────────────────────────────────────────────────────────────
+  // Probe only the operations this repo declares that the published contract does NOT carry, which
+  // is exactly the set the `draft` annotation was suppressing. See published-drift-live.mjs for
+  // the measurement that motivated it and for the safety argument (unauthenticated GET, no body,
+  // no credential, nothing paid).
+  // `--live <snapshot>` already documents itself as making the run FULLY OFFLINE, so it implies no
+  // behaviour probe either. That is honoring the flag's stated contract, not an escape hatch: the
+  // workflow passes neither `--live` nor `--no-live-probe`, and published-drift-live.test.mjs
+  // asserts that against the workflow file itself.
+  let liveObservations = null;
+  if (args.liveProbe && !args.live) {
+    const livePublished = indexOperations(liveDoc);
+    const repoOnly = [...indexOperations(repoDoc).values()]
+      .filter(({ path, method }) => !livePublished.has(`${method.toUpperCase()} ${path}`))
+      .map(({ path }) => path);
+    const baseUrl = String(repoDoc?.servers?.[0]?.url ?? '').replace(/\/$/, '');
+    if (!/^https:\/\//.test(baseUrl)) {
+      console.error(`published-drift: cannot probe live behaviour — ${args.spec} declares no https servers[0].url`);
+      return EXIT_UNKNOWN;
+    }
+    const probe = await probeOperations(baseUrl, repoOnly);
+    if (!probe.usable) {
+      // A probe whose control failed is not a probe. Reporting "no drift" on the strength of it
+      // would be the same defect in a new place.
+      console.error(`published-drift: ${probe.reason}`);
+      return EXIT_UNKNOWN;
+    }
+    liveObservations = probe.observations;
+  }
+
+  const result = compare({ repoDoc, liveDoc, allowlist, normalize: args.normalize, liveObservations });
   const artifact = {
     about:
       'Point-in-time operation-level diff between this repo\'s openapi.yaml and the contract the gateway publishes. ' +

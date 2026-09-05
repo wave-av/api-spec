@@ -25,8 +25,9 @@
  */
 import { isDeepStrictEqual } from 'node:util';
 import { NORMALIZATION_RULES, NO_OBSERVATIONS, normalizePair } from './published-drift-normalize.mjs';
+import { classifyLiveObservation, describeObservation } from './published-drift-live.mjs';
 
-export const DIRECTIONS = ['undocumented-live', 'unpublished-repo', 'shared-drift'];
+export const DIRECTIONS = ['undocumented-live', 'unpublished-repo', 'draft-but-live', 'shared-drift'];
 
 /** The HTTP verbs an OpenAPI path item may carry; anything else there is metadata, not an operation. */
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
@@ -148,7 +149,7 @@ export function validateAllowlist(allowlist) {
   return null;
 }
 
-export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) {
+export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, liveObservations = null }) {
   const repoOps = indexOperations(repoDoc);
   const liveOps = indexOperations(liveDoc);
   const allowByKey = new Map(allowlist.map((e) => [`${e.direction} ${e.method.toUpperCase()} ${e.path}`, e]));
@@ -218,7 +219,35 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
       xSkillUrl: op['x-skill-url'] ?? null,
     };
     if (op['x-schema-status'] === 'draft') {
-      draftNotYetPublished.push(entry);
+      // SUPPRESSION NOW REQUIRES TWO INDEPENDENT CONDITIONS, and an annotation can only ever
+      // satisfy one of them. `draft` is a CLAIM that the operation is not yet a promise to
+      // consumers; the live gateway is the GROUND TRUTH about whether it is one already. When
+      // `liveObservations` is present, a route that answers is published in behaviour no matter
+      // what the annotation says, and no edit to openapi.yaml can hide it again.
+      const observed = liveObservations ? classifyLiveObservation(liveObservations.get(path)) : null;
+      if (observed === null || observed === 'unpublished') {
+        draftNotYetPublished.push({ ...entry, liveEvidence: observed === null ? null : describeObservation(liveObservations.get(path)) });
+        continue;
+      }
+      record(
+        'draft-but-live',
+        path,
+        method,
+        { ...entry, liveEvidence: describeObservation(liveObservations.get(path)) },
+        observed === 'unknown'
+          ? {
+              severity: 'unverifiable',
+              // UNKNOWN IS NOT A PASS. A probe that could not run is not evidence that the route is
+              // absent, and letting it fall back into the suppressed bucket would restore exactly
+              // the false-green this tier removes — quietly, and only during an outage.
+              note: 'declared draft, and the live gateway could not be asked whether it already serves this route — an unverifiable suppression is not a suppression',
+            }
+          : {
+              severity: 'claim-contradicted-by-behaviour',
+              note: 'declared x-schema-status: draft — the claim that it is not yet a promise to consumers — while the live gateway already answers for it. On this gateway an unmapped path returns ROUTE_NOT_MAPPED, so an answer proves the route exists. Publication is a fact about behaviour, not about an annotation.',
+            },
+        null,
+      );
       continue;
     }
     record(
@@ -276,6 +305,8 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
       sharedOperations: [...repoOps.keys()].filter((k) => liveOps.has(k)).length,
       undocumentedLive: count('undocumented-live'),
       unpublishedRepo: count('unpublished-repo'),
+      draftButLive: count('draft-but-live'),
+      liveProbed: liveObservations ? liveObservations.size : null,
       sharedDrift: count('shared-drift'),
       draftNotYetPublished: draftNotYetPublished.length,
       allowlisted: allowlisted.length,
