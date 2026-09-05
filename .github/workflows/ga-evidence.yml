@@ -16,11 +16,10 @@
 # this repo carries no write credential to claude-workstation. Wiring that hand-off is a distinct,
 # future change.
 #
-# FAIL-LOUD POSTURE (mirrors registry-cleanroom.yml exactly): no `|| true`, no
-# `continue-on-error` anywhere in this file, on any trigger. Exit 1 (a criterion genuinely fails)
-# and exit 2 (a gate could not run at all) both fail the job. A `pass` in the uploaded evidence
-# means the producer actually verified the criterion's condition; neither an `unknown` nor a
-# tooling failure is ever allowed to read as green here.
+# PR CONTRACT: on `pull_request`, exit 1 (a live criterion failed) is a `::warning`, not a job
+# failure — a failing live criterion is a property of the live surface, not of the PR's diff.
+# Exit 2 (the producer could not run) always fails the job, on every trigger, including
+# `pull_request` — and on schedule/workflow_dispatch/push, exit 1 fails the job too.
 
 name: ga-evidence
 
@@ -108,12 +107,18 @@ jobs:
         # A gate that cannot fail is not a gate — see registry-cleanroom.yml in wave-av/sdks for
         # the exact failure mode this step exists to prevent (a PR merged on a green rollup while
         # its own log read "FAILED: 8 check(s)"). No `|| true`, no continue-on-error, on any
-        # trigger, including pull_request.
+        # trigger. See the PR CONTRACT note in the header: a live-criterion failure (exit 1) on
+        # `pull_request` is the one case that logs and exits 0 instead of failing the job.
         env:
           CODE: ${{ steps.ga.outputs.exit_code }}
+          EVENT: ${{ github.event_name }}
         run: |
           if [ "$CODE" = "0" ]; then
             echo "ga-evidence: every emitted criterion passed"
+            exit 0
+          fi
+          if [ "$CODE" = "1" ] && [ "$EVENT" = "pull_request" ]; then
+            echo "::warning title=ga-evidence::api-spec GA evidence producer reports a failing live criterion (exit 1); evidence is in the job summary and artifact; this does not fail the PR because the criterion is a property of the live surface, not of this change"
             exit 0
           fi
           echo "::error title=ga-evidence::producer exited $CODE (1 = a criterion failed, 2 = a gate could not run) — see the job summary and the ga-evidence-api-spec artifact"
