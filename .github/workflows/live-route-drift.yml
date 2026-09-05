@@ -1,0 +1,188 @@
+# live-route-drift.yml — the THIRD SOURCE for CONTRACT-001.
+#
+# published-contract-drift.yml, next to this file, compares repo-declared against gateway-published.
+# Both are DOCUMENTS we write, and both can be wrong in the same direction at once, so a route that
+# is live in production and absent from BOTH is invisible to it by construction. This workflow asks
+# the question that comparison cannot: does the LIVE surface agree with either document?
+#
+# TWO JOBS, TWO TRIGGERS, for the same reason published-contract-drift.yml splits its own:
+#
+#   `unit` runs on PULL REQUESTS. Offline — node --test over hand-built fixtures with an injected
+#   fetch, no network at all — so it is a property of the diff and belongs on the PR path. It is
+#   what keeps the probe semantics honest: it asserts by name that a 402 is PRESENCE, that only an
+#   explicit ROUTE_NOT_MAPPED is absence, and that the two-artifact comparison returns ZERO on the
+#   input the live probe catches. Anyone who softens the classifier fails a test that says so.
+#
+#   `drift` runs on a SCHEDULE and on demand, never on a pull request. Whether the live surface has
+#   drifted is not a property of any given PR — it is a fact about the world that changes on the
+#   serving deployment's schedule, not this repo's. Asking it on every PR would make every author
+#   here depend on an unauthenticated network fetch, so an outage could red the whole repo for a
+#   reason no author could act on.
+#
+# COST: every probe is an unauthenticated GET. No credential is sent, so no tenant, meter or balance
+# is touched, and a 402 is returned BEFORE any work is performed — the challenge IS the response.
+# These probes are free. Concurrency is fixed at 4 in the script: this is a correctness gate, not a
+# load test. Never add a paid call, a POST, an authenticated request or a retry storm.
+#
+# ON EXIT 2 (drift) the job files or updates ONE tracking issue, matched by exact title so repeated
+# runs comment instead of opening a new issue every morning, and CLOSES it on exit 0 — an open issue
+# is a claim about the current state of the default branch, and a claim nothing retracts becomes
+# false the moment it is fixed. On exit 1 (UNKNOWN — a broken read) it goes red and files NOTHING: a
+# failed read says nothing about drift.
+#
+# ON ANY OTHER EXIT CODE the job goes red. The script defines exactly three; a fourth means a crash.
+# The per-code steps are all `if: code == ...`, so an unhandled code would match none of them and
+# leave the job GREEN. A gate that fails open is worse than no gate, because it is trusted.
+#
+# THE DIFF ARTIFACT IS NOT COMMITTED. It enumerates the live route surface, which belongs in a run
+# artifact rather than in the tree of a public repository.
+
+name: live-route-drift
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/live-route-*'
+      - '.github/workflows/live-route-drift.yml'
+      - 'openapi.yaml'
+  schedule:
+    # 07:25 UTC daily — after published-contract-drift's own 07:10 run, so the two-document picture
+    # is already graded when this asks the harder question.
+    - cron: '25 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: unit tests (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+      - name: node --test
+        run: node --test .github/scripts/live-route-drift.test.mjs
+
+  drift:
+    name: live route drift
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+
+      - name: Compare openapi.yaml and the published contract against the LIVE route surface
+        id: drift
+        run: |
+          set +e
+          node .github/scripts/live-route-drift.mjs openapi.yaml --out /tmp/live-route-drift.json | tee /tmp/drift.log
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "exit code: $code"
+
+      - name: Upload the diff artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: live-route-drift
+          path: /tmp/live-route-drift.json
+          if-no-files-found: warn
+
+      # The inverse default case. See the header: without it a crash would match no step and leave a
+      # networked gate green while saying nothing at all.
+      - name: Fail on an unrecognized exit code
+        if: steps.drift.outputs.code != '0' && steps.drift.outputs.code != '1' && steps.drift.outputs.code != '2'
+        env:
+          CODE: ${{ steps.drift.outputs.code }}
+        run: |
+          echo "::error::live-route-drift exited $CODE, which is not one of its three documented codes (0 OK / 1 UNKNOWN / 2 DRIFT)."
+          echo "Treating an unrecognized exit as a failure: it is a crash, not a verdict, and must never read as a pass."
+          exit 1
+
+      - name: Fail loudly on a broken read
+        if: steps.drift.outputs.code == '1'
+        run: |
+          echo "::error::live-route-drift could not read the spec or one of its live enumerators."
+          echo "This says NOTHING about drift and no issue was filed. Fix the read, then re-run."
+          exit 1
+
+      # Nothing PR- or issue-controlled is interpolated into a shell command: the title is a fixed
+      # literal, the body is written to a file and passed with --body-file, and the issue number
+      # comes from a --jq filter over `gh issue list` output.
+      - name: File or update the tracking issue
+        if: steps.drift.outputs.code == '2'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'Live route surface disagrees with openapi.yaml and the published contract'
+        run: |
+          {
+            echo "The gateway is serving routes that neither \`openapi.yaml\` nor the published contract describes, and/or documenting non-draft operations it does not serve."
+            echo
+            echo "Run: [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) · commit \`$GITHUB_SHA\`"
+            echo
+            echo "The machine-readable diff is attached to the run as the \`live-route-drift\` artifact. It is deliberately not committed: it enumerates the live route surface."
+            echo
+            echo "Each finding is cleared by documenting the operation in \`openapi.yaml\`, withdrawing the route, or adding an allowlist entry with a real justification in \`.github/scripts/live-route-drift-allowlist.json\`."
+            echo "See \`.github/scripts/live-route-drift.mjs\` for what each direction means and why a 402 is presence rather than absence."
+          } > /tmp/issue-body.md
+
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title == \$ENV.TITLE)) | .[0].number // empty")
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+            echo "Commented on existing issue #$existing"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file /tmp/issue-body.md
+          fi
+
+      # Red on drift too, so a silenced or rate-limited issue write can never make it look green.
+      - name: Fail on drift
+        if: steps.drift.outputs.code == '2'
+        run: |
+          echo "::error::The live route surface disagrees with the declared and published contracts. A tracking issue was filed or updated."
+          exit 1
+
+      - name: Close the tracking issue once the live surface agrees again
+        if: steps.drift.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'Live route surface disagrees with openapi.yaml and the published contract'
+        run: |
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title == \$ENV.TITLE)) | .[0].number // empty")
+
+          if [ -n "$existing" ]; then
+            {
+              echo "Every live route is declared and every promised declaration is live again — this is resolved."
+              echo
+              echo "Run: [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) · commit \`$GITHUB_SHA\`"
+            } > /tmp/close-body.md
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "$(cat /tmp/close-body.md)"
+            echo "Closed issue #$existing — the live surface agrees."
+          else
+            echo "No drift and no tracking issue is open. Nothing to close."
+          fi
