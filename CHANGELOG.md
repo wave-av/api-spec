@@ -8,6 +8,22 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **Streams, productions, cameras, moderation, live pipeline, billing, and
+  analytics operations** (`openapi.yaml`) — 26 hand-documented operations
+  backing the hosted MCP tool surface, replacing the draft
+  `additionalProperties: true` placeholders for `/billing`, `/cameras`,
+  `/moderate`, `/productions`, `/streams`, and `/usage`: stream lifecycle
+  (`listStreams`, `createStream`, `getStream`, `startStream`, `stopStream`,
+  `getStreamStatus`, `getStreamAnalytics`, `listStreamHighlights`,
+  `markStreamHighlight`), content moderation (`moderateContent`), the live
+  transcription pipeline (`startLivePipeline`, `transcribeLiveAudio`),
+  multi-camera productions (`listProductions`, `createProduction`,
+  `getProduction`, `switchProductionCamera`, `setProductionOverlay`), managed
+  cameras (`listCameras`, `registerCamera`, `controlCamera`), and
+  billing/analytics (`getBilling`, `getBillingUsage`, `getUsage`,
+  `getAnalyticsOverview`, `getAnalyticsTopContent`, `getAnalyticsEngagement`).
+  Every request/response shape is read from the live or in-review route
+  handler, not guessed.
 - **`X402PaymentRequired.error_detail.payment_rejected`** (`openapi.yaml`) — documents the
   additive `{ reason, rail }` deny verdict the gateway publishes on a 402 when a submitted payment
   was rejected; absent on an ordinary unpaid challenge. Live
@@ -144,6 +160,12 @@ All notable changes to this project are documented here. The format is based on
   object is now extracted as the `ErrorBody` component schema (referenced by `Error`, so every
   other response is unchanged) and `error_detail` composes `ErrorBody` instead, matching the wire
   shape so generated types no longer expect a nonexistent `error_detail.error` member. (#76)
+- **`ClipCreate`** (`openapi.yaml`) documented `{videoId, startTime, endTime}`;
+  the live `POST /clips` route's own request validator requires `source` (a
+  recording id) plus an `in` time string and never accepted `videoId`.
+  Corrected the schema to the real contract and added `ClipCreateResponse`/
+  `ClipError` for the operation's actual 201/400 shapes (the 400 body is the
+  route's own `{ok, error, detail}` envelope, not the shared `Error` schema).
 
 ## [1.0.0] - 2026-04-05
 
