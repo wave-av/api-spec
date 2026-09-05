@@ -20,6 +20,8 @@
  * suppress the first — an undeclared live route is a finding no matter what the spec says about
  * anything else, because the spec is not what is serving traffic.
  */
+import { ABSENT, INDETERMINATE, MAPPED } from './live-route-probe.mjs';
+
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
 
 export const DIRECTIONS = ['live-undeclared', 'declared-not-live'];
@@ -29,7 +31,10 @@ export function basePath(doc) {
   const url = doc?.servers?.[0]?.url;
   if (!url) return '';
   try {
-    return new URL(url).pathname.replace(/\/$/, '');
+    // A relative server url such as `/v1` is legal in OpenAPI 3; resolve it against a dummy base
+    // instead of letting `new URL('/v1')` throw and silently fall back to '' (which would drop the
+    // base off every candidate path and every probed path).
+    return new URL(url, 'https://base.invalid').pathname.replace(/\/$/, '');
   } catch {
     return '';
   }
@@ -43,6 +48,21 @@ export function isProbeable(path) {
 /** `/v1/render/{jobId}` -> `v1/render`, the product-level key the live enumerators are keyed at. */
 export function segmentKey(path) {
   return path.split('/').filter(Boolean).slice(0, 2).join('/');
+}
+
+/**
+ * True when EVERY operation on this path item declares its own `servers` override — meaning the
+ * path is not actually served at the document's own base and must never be probed or compared
+ * against it. openapi.yaml uses this for the Realtime API: `/realtime/connect` and friends are
+ * documented under the main document (base `/v1`) but are annotated `servers: [{url:
+ * https://realtime.wave.online}]` and served there, not at `api.wave.online/v1/realtime/connect`.
+ * Without this exclusion the live prober — which only ever queries the document's own origin —
+ * would probe the wrong host, get back 403 ROUTE_NOT_MAPPED, and file a false `declared-not-live`
+ * finding against an endpoint that is live, just live somewhere else.
+ */
+export function hasOwnServerOverride(item) {
+  const ops = Object.entries(item ?? {}).filter(([m]) => HTTP_METHODS.includes(m.toLowerCase()));
+  return ops.length > 0 && ops.every(([, op]) => Array.isArray(op?.servers) && op.servers.length > 0);
 }
 
 /**
@@ -71,9 +91,15 @@ export function candidatePaths({ repoDoc, publishedDoc, scopeCatalog, capability
     if (typeof p === 'string' && p.startsWith('/') && isProbeable(p)) out.add(p);
   };
   const repoBase = basePath(repoDoc);
-  for (const p of Object.keys(repoDoc?.paths ?? {})) add(`${repoBase}${p}`);
+  for (const [p, item] of Object.entries(repoDoc?.paths ?? {})) {
+    if (hasOwnServerOverride(item)) continue; // served at a different host — see hasOwnServerOverride
+    add(`${repoBase}${p}`);
+  }
   const pubBase = basePath(publishedDoc);
-  for (const p of Object.keys(publishedDoc?.paths ?? {})) add(`${pubBase}${p}`);
+  for (const [p, item] of Object.entries(publishedDoc?.paths ?? {})) {
+    if (hasOwnServerOverride(item)) continue;
+    add(`${pubBase}${p}`);
+  }
   for (const r of scopeCatalog?.routes ?? []) add(r?.path);
   for (const p of scopeCatalog?.no_scope_required?.paths ?? []) add(p);
   for (const s of Object.values(capabilityIndex ?? {})) add(s?.path);
@@ -99,8 +125,20 @@ export function twoArtifactDriftOnly({ repoDoc, publishedDoc }) {
 export function compareAgainstLive({ repoDoc, publishedDoc, probes, allowlist = [] }) {
   const repoBase = basePath(repoDoc);
   const pubBase = basePath(publishedDoc);
-  const repoPaths = new Map(Object.entries(repoDoc?.paths ?? {}).map(([p, item]) => [`${repoBase}${p}`, item]));
-  const pubPaths = new Set(Object.keys(publishedDoc?.paths ?? {}).map((p) => `${pubBase}${p}`));
+  // Paths served at their own `servers` override (e.g. the Realtime API at realtime.wave.online) are
+  // excluded here too: they were never added as candidates against THIS host (see candidatePaths),
+  // and they must never be treated as "declared" for a probe that landed on this host by coincidence,
+  // nor compared against a probe result that could only ever come from the wrong origin.
+  const repoPaths = new Map(
+    Object.entries(repoDoc?.paths ?? {})
+      .filter(([, item]) => !hasOwnServerOverride(item))
+      .map(([p, item]) => [`${repoBase}${p}`, item]),
+  );
+  const pubPaths = new Set(
+    Object.entries(publishedDoc?.paths ?? {})
+      .filter(([, item]) => !hasOwnServerOverride(item))
+      .map(([p]) => `${pubBase}${p}`),
+  );
 
   // Segment-level coverage, because the live enumerators are product-granular: the capability index
   // lists `/v1/voice` while the spec documents `/voice/voices` and `/voice/generate`. Calling the
@@ -128,7 +166,7 @@ export function compareAgainstLive({ repoDoc, publishedDoc, probes, allowlist = 
   };
 
   for (const [path, probe] of probes) {
-    if (probe.state === 'indeterminate') {
+    if (probe.state === INDETERMINATE) {
       // Neither a pass nor a finding. Surfaced so a run that could not read half the surface can
       // never masquerade as a clean one.
       indeterminate.push({ path, reason: probe.error ?? `HTTP ${probe.status}` });
@@ -138,10 +176,17 @@ export function compareAgainstLive({ repoDoc, publishedDoc, probes, allowlist = 
       outOfScope.push({ path, reason: `outside the spec's server base ${repoBase}` });
       continue;
     }
-    const declaredRepo = repoPaths.has(path) || repoSegs.has(segmentKey(path));
-    const declaredPub = pubPaths.has(path) || pubSegs.has(segmentKey(path));
+    // The segment fallback covers ONLY the product-root case: the probed path IS its own two-segment
+    // key (e.g. `/v1/voice` probed against declarations at `/v1/voice/voices`). It must never cover a
+    // DEEPER live path that merely shares a declared prefix (`/v1/clips/export-all` sharing `v1/clips`
+    // with the declared `/v1/clips`) — that direction is exactly the undeclared-sub-route drift this
+    // gate exists to catch, and truncating it away would make it invisible again.
+    const key = segmentKey(path);
+    const isProductRoot = path === `/${key}`;
+    const declaredRepo = repoPaths.has(path) || (isProductRoot && repoSegs.has(key));
+    const declaredPub = pubPaths.has(path) || (isProductRoot && pubSegs.has(key));
 
-    if (probe.state === 'mapped' && !declaredRepo && !declaredPub) {
+    if (probe.state === MAPPED && !declaredRepo && !declaredPub) {
       record('live-undeclared', path, {
         severity: 'security-relevant',
         status: probe.status,
@@ -152,7 +197,7 @@ export function compareAgainstLive({ repoDoc, publishedDoc, probes, allowlist = 
       continue;
     }
 
-    if (probe.state === 'absent') {
+    if (probe.state === ABSENT) {
       const item = repoPaths.get(path);
       if (!item) continue; // not declared here and not live: nothing to say
       const ops = Object.entries(item).filter(([m]) => HTTP_METHODS.includes(m.toLowerCase()));
@@ -195,8 +240,8 @@ export function compareAgainstLive({ repoDoc, publishedDoc, probes, allowlist = 
   return {
     headline: {
       probed: probes.size,
-      mapped: [...probes.values()].filter((p) => p.state === 'mapped').length,
-      absent: [...probes.values()].filter((p) => p.state === 'absent').length,
+      mapped: [...probes.values()].filter((p) => p.state === MAPPED).length,
+      absent: [...probes.values()].filter((p) => p.state === ABSENT).length,
       indeterminate: indeterminate.length,
       outOfScope: outOfScope.length,
       repoDeclaredPaths: repoPaths.size,

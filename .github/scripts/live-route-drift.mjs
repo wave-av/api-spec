@@ -76,6 +76,49 @@ export const EXIT_OK = 0;
 export const EXIT_UNKNOWN = 1;
 export const EXIT_DRIFT = 2;
 
+/**
+ * A 200 with valid JSON in the WRONG shape is not a readable enumerator: `candidatePaths` reads
+ * `scopeCatalog?.routes`, `capabilityIndex` entries, etc with an optional-chaining `?? []` fallback
+ * that is silent by design for a MISSING field, but that same silence means a malformed successful
+ * response (an HTML error page's JSON wrapper, a truncated body, a shape change upstream) is read as
+ * "this enumerator has zero routes today" rather than "this enumerator could not be read" — and a
+ * gate that loses candidates silently can report no drift after losing the very routes it exists to
+ * catch. Each enumerator's minimum required shape is checked explicitly here, before it ever reaches
+ * candidatePaths.
+ */
+export function enumeratorShapeError(name, doc) {
+  // MEASURED 2026-09-05 against the live endpoints: the published contract and the scope catalog are
+  // both plain objects; the capability index is a bare JSON ARRAY (`candidatePaths` reads it with
+  // `Object.values(capabilityIndex ?? {})`, which is array-safe by design). So "is a JSON object" is
+  // not itself the bar — a bare array is a valid, readable shape for that one source.
+  if (doc === null || typeof doc !== 'object') return `${name} response is not a JSON object or array`;
+  if (name === 'published contract') {
+    if (Array.isArray(doc) || !doc.paths || typeof doc.paths !== 'object' || Array.isArray(doc.paths)) {
+      return `${name} response has no usable "paths" object`;
+    }
+  }
+  if (name === 'scope catalog') {
+    if (Array.isArray(doc)) return `${name} response must be an object with a "routes" array, not a bare array`;
+    if (doc.routes !== undefined && !Array.isArray(doc.routes)) return `${name} response has a non-array "routes" field`;
+  }
+  return null;
+}
+
+/**
+ * Turn a comparison result into an exit code. A run that could not fully READ the live surface must
+ * never look clean: method-based indeterminates (a POST-only declaration probed with a GET, which
+ * cannot establish anything) are expected and excluded, but a probe-level failure — a 5xx, a
+ * timeout, a transport error — means the surface was not actually observed and must not report
+ * EXIT_OK just because it produced zero findings. Exported so this decision is testable offline
+ * rather than living only inside `main`'s side effects.
+ */
+export function decideExit(result) {
+  if (result.findings.length) return EXIT_DRIFT;
+  const unreadable = result.indeterminate.filter((i) => !String(i.reason).includes('declares only')).length;
+  if (unreadable > 0) return EXIT_UNKNOWN;
+  return EXIT_OK;
+}
+
 /** Fetch one JSON enumerator. Returns a result, never throws, never defaults to "no drift". */
 export async function fetchJson(url, doFetch = fetch) {
   const controller = new AbortController();
@@ -95,14 +138,29 @@ export async function fetchJson(url, doFetch = fetch) {
   }
 }
 
-export async function main(argv = process.argv.slice(2)) {
-  const spec = argv.find((a) => !a.startsWith('--')) ?? 'openapi.yaml';
+/**
+ * Pull `spec` and `--out <path>` apart from argv. Skips the value CONSUMED BY `--out` when picking
+ * the spec: without this, `node live-route-drift.mjs --out live-route-drift.json` (the default spec,
+ * explicit output) reads the output filename as the spec and exits UNKNOWN before ever probing.
+ * Returns `{ error }` when `--out` is present with no value (or a value that is itself a flag).
+ */
+export function parseArgs(argv) {
+  const spec = argv.find((a, i) => !a.startsWith('--') && argv[i - 1] !== '--out') ?? 'openapi.yaml';
   const outIdx = argv.indexOf('--out');
   const out = outIdx === -1 ? null : argv[outIdx + 1];
   if (outIdx !== -1 && (!out || out.startsWith('--'))) {
-    console.error('live-route-drift: --out needs a value');
+    return { error: 'live-route-drift: --out needs a value' };
+  }
+  return { spec, out };
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  const parsed = parseArgs(argv);
+  if (parsed.error) {
+    console.error(parsed.error);
     return EXIT_UNKNOWN;
   }
+  const { spec, out } = parsed;
 
   let repoDoc;
   try {
@@ -145,6 +203,14 @@ export async function main(argv = process.argv.slice(2)) {
     if (!r.ok) {
       // FAIL LOUD. An unreachable enumerator says nothing about drift and is not "no drift".
       console.error(`live-route-drift: could not read the ${name}: ${r.error}`);
+      return EXIT_UNKNOWN;
+    }
+    const shapeError = enumeratorShapeError(name, r.doc);
+    if (shapeError) {
+      // FAIL LOUD here too: a malformed 200 is not "zero routes", it is an unread enumerator, and
+      // silently dropping its candidates would let this gate report clean after losing them.
+      // (shapeError already names the source; do not prefix it again.)
+      console.error(`live-route-drift: ${shapeError} — refusing to enumerate from it`);
       return EXIT_UNKNOWN;
     }
   }
@@ -196,9 +262,15 @@ export async function main(argv = process.argv.slice(2)) {
     );
   }
 
-  if (result.findings.length) {
+  const exit = decideExit(result);
+  if (exit === EXIT_DRIFT) {
     console.error(`live-route-drift: DRIFT — ${result.findings.length} route(s) disagree with the live surface.`);
     return EXIT_DRIFT;
+  }
+  if (exit === EXIT_UNKNOWN) {
+    const unreadable = result.indeterminate.filter((i) => !String(i.reason).includes('declares only')).length;
+    console.error(`live-route-drift: UNKNOWN — could not classify ${unreadable} probe(s); the live surface was not fully observed.`);
+    return EXIT_UNKNOWN;
   }
   console.log('live-route-drift: OK — every live route is declared, and every promised declaration is live.');
   return EXIT_OK;

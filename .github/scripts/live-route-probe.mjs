@@ -42,7 +42,14 @@ export const INDETERMINATE = 'indeterminate';
 /** Classify one probe response. See the header — 402 is MAPPED, and only ROUTE_NOT_MAPPED is ABSENT. */
 export function classifyProbe({ status, body }) {
   if (status >= 500) return INDETERMINATE;
-  if (body?.error?.code === 'ROUTE_NOT_MAPPED') return ABSENT;
+  // A redirect conveys nothing about whether a route exists: `probePath` uses `redirect: 'manual'`,
+  // so a 3xx arrives with a non-JSON body and would otherwise fall through to MAPPED, which is wrong
+  // in both directions — it can hide a genuinely withdrawn/redirected route (false green) and it can
+  // fabricate a live-undeclared finding for a redirecting undeclared path (false red).
+  if (status >= 300 && status < 400) return INDETERMINATE;
+  // Require the 403 the documented contract specifies. Checking the body code alone would let a
+  // non-403 gateway error that happens to carry the same code hide a real live-route finding.
+  if (status === 403 && body?.error?.code === 'ROUTE_NOT_MAPPED') return ABSENT;
   return MAPPED;
 }
 
