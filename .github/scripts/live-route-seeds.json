@@ -1,0 +1,7 @@
+[
+  {
+    "path": "/v1/samples/clips",
+    "observed": "2026-09-05",
+    "why": "Routes OBSERVED live that no machine-readable artifact enumerates. This one is dispatched pre-auth, and the gateway's capability index is derived from the route->scope map, so a route that never consults a scope cannot appear in a scope-derived index. It is absent from openapi.yaml, from the published openapi.json, and from that index; GET returns HTTP 200. Without this seed it could never become a probe candidate and the new gate would inherit the exact blind spot it was built to remove. Delete this entry only when the route is documented or withdrawn — not to quiet a finding."
+  }
+]
