@@ -1,0 +1,22 @@
+openapi.yaml
+  s_49793c5a9de056::t_d4f1b570b801c2 1491-1496
+  s_49793c5a9de056::t_240d125198e33a 1570-1575
+  s_49793c5a9de056::t_38cb521149fe01 11849-11850,11852-11853,11867-11869
+  s_49793c5a9de056::t_800f9f50d80187 1530-1535
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "3222713b41b33fe4599b150349b42ab40d50d870",
+  "prompts": {},
+  "sessions": {
+    "s_49793c5a9de056": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d315ea56-91aa-4d81-9939-eac4eba83179",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
