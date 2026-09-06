@@ -9,19 +9,35 @@
  *                      DIRECTION: an operation the gateway serves that the published contract does
  *                      not describe is public API nobody reviewed as public API. Always a finding
  *                      unless explicitly allowlisted with a justification AND a live predicate.
- *   unpublished-repo   Declared here, not served. Suppressed — and ONLY suppressed — when the
- *                      operation carries `x-schema-status: draft`, the spec's own statement that
- *                      the shape is a placeholder and not yet a promise to consumers. Promote an
- *                      operation out of draft and this gate immediately requires the published
- *                      contract to carry it. Draft is a lane to publication, not a parking space.
+ *   unpublished-repo   Declared here, not served BY THE PUBLISHED SPEC. Suppressed — and ONLY
+ *                      suppressed — when the operation carries `x-schema-status: draft` AND the
+ *                      gateway itself has never been observed to serve the route live. Promote an
+ *                      operation out of draft, or have it start answering anything other than 403
+ *                      ROUTE_NOT_MAPPED on the real gateway, and this gate immediately requires the
+ *                      published contract to carry it. Draft is a lane to publication, not a
+ *                      parking space — and it is not a bucket a live route can hide in either.
  *   shared-drift       In both, different once the gateway's serve-time enrichment is normalized
  *                      away (see published-drift-normalize.mjs).
  *
- * WHY `draft` SUPPRESSES RATHER THAN AN ALLOWLIST ENTRY PER OPERATION. There are 158 such
- * operations today. Enumerating them in a JSON file would mean every new draft stub carries an
- * allowlist edit, the file rots, and the exemptions decay into noise nobody reads. `draft` is a
+ * WHY `draft` SUPPRESSES RATHER THAN AN ALLOWLIST ENTRY PER OPERATION. There were 158 such
+ * operations on 2026-09-04. Enumerating them in a JSON file would mean every new draft stub carries
+ * an allowlist edit, the file rots, and the exemptions decay into noise nobody reads. `draft` is a
  * property the spec already states about itself, in the operation, next to the schema it
  * qualifies — so the gate reads it there. The allowlist is reserved for what no rule covers.
+ *
+ * THE DRAFT-LIVE CARVE-OUT (added after the 2026-09-04 GA verdict: `unpublishedRepo: 0` was zero
+ * by redefinition — 158 operations were shunted into `draft` and excluded from the count while 10
+ * of 10 sampled answered a live 402 in production, meaning the route exists and is priced. A 402
+ * is not a draft.). `draft` suppresses an operation ONLY while `draftLiveProbe` (a Map the caller
+ * builds — see published-drift-live-probe.mjs — by asking the real gateway) says that operation is
+ * NOT live. The moment the probe says `live`, the finding is NOT suppressed: it is reported under
+ * `unpublished-repo` with `severity: 'draft-but-live'`, and it counts in `headline.unpublishedRepo`
+ * and the new `headline.draftButLive`. An operation this function has NO probe result for (the
+ * default, empty `draftLiveProbe`) keeps the prior behavior — suppressed — because compare() itself
+ * makes no network calls; published-drift.mjs's main() is the one that must refuse (EXIT_UNKNOWN)
+ * before ever handing this function a probe result of 'unknown', so in practice this function only
+ * ever observes 'live', 'not-live', or "never probed" (the offline `--live <snapshot>` path, which
+ * is documented to stay fully offline and therefore never populates this map).
  */
 import { isDeepStrictEqual } from 'node:util';
 import { NORMALIZATION_RULES, NO_OBSERVATIONS, normalizePair } from './published-drift-normalize.mjs';
@@ -148,7 +164,7 @@ export function validateAllowlist(allowlist) {
   return null;
 }
 
-export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) {
+export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, draftLiveProbe = new Map() }) {
   const repoOps = indexOperations(repoDoc);
   const liveOps = indexOperations(liveDoc);
   const allowByKey = new Map(allowlist.map((e) => [`${e.direction} ${e.method.toUpperCase()} ${e.path}`, e]));
@@ -157,7 +173,13 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
   const allowlisted = [];
   const lapsedAllowlist = [];
   const draftNotYetPublished = [];
-  const enrichmentObservations = { descriptionsOverwritten: [], operationIdsSynthesized: 0, errorResponsesInjected: 0 };
+  const enrichmentObservations = {
+    descriptionsOverwritten: [],
+    operationIdsSynthesized: 0,
+    errorResponsesInjected: 0,
+    errorResponsesOverwritten: [],
+    parametersStripped: 0,
+  };
 
   // Every allowlist key `record` actually consults. What is left over at the end is an exemption
   // that matched nothing — see unmatchedAllowlist below.
@@ -218,6 +240,25 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
       xSkillUrl: op['x-skill-url'] ?? null,
     };
     if (op['x-schema-status'] === 'draft') {
+      const probe = draftLiveProbe.get(key);
+      if (probe && probe.status === 'live') {
+        record(
+          'unpublished-repo',
+          path,
+          method,
+          { ...entry, liveProbeHttpStatus: probe.httpStatus ?? null, liveProbeErrorCode: probe.code ?? null },
+          {
+            severity: 'draft-but-live',
+            note:
+              `x-schema-status: draft, but the gateway answers HTTP ${probe.httpStatus ?? '?'}` +
+              `${probe.code ? ` ${probe.code}` : ''} for this route — not the 403 ROUTE_NOT_MAPPED a ` +
+              'genuinely unshipped operation returns (control: an unmapped path). The route is live; ' +
+              '`draft` cannot suppress a shipped, priced operation. Promote it out of draft, or take the route down.',
+          },
+          null,
+        );
+        continue;
+      }
       draftNotYetPublished.push(entry);
       continue;
     }
@@ -244,6 +285,12 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
     if (observations.descriptionOverwritten) enrichmentObservations.descriptionsOverwritten.push(`${method.toUpperCase()} ${path}`);
     if (observations.strippedOperationId) enrichmentObservations.operationIdsSynthesized++;
     enrichmentObservations.errorResponsesInjected += observations.strippedErrorCodes.length;
+    if (observations.overwrittenErrorCodes.length) {
+      enrichmentObservations.errorResponsesOverwritten.push(
+        `${method.toUpperCase()} ${path} (${observations.overwrittenErrorCodes.join(', ')})`,
+      );
+    }
+    enrichmentObservations.parametersStripped += observations.strippedParameters.length;
 
     const differences = diffOperation(repo, live);
     if (differences.length === 0) continue;
@@ -265,6 +312,11 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
   draftNotYetPublished.sort((a, b) => `${a.path} ${a.method}`.localeCompare(`${b.path} ${b.method}`));
 
   const count = (d) => findings.filter((f) => f.direction === d).length;
+  // Findings the draft-live carve-out promoted OUT of draftNotYetPublished. Reported separately
+  // from the plain unpublishedRepo count (which already includes them) so a reader can see, at a
+  // glance, how many of today's findings are specifically "draft hid a live route" — the exact
+  // failure mode the 2026-09-04 GA verdict named.
+  const draftButLive = findings.filter((f) => f.direction === 'unpublished-repo' && f.severity === 'draft-but-live').length;
   return {
     headline: {
       repoVersion: repoDoc?.info?.version ?? null,
@@ -276,6 +328,7 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true }) 
       sharedOperations: [...repoOps.keys()].filter((k) => liveOps.has(k)).length,
       undocumentedLive: count('undocumented-live'),
       unpublishedRepo: count('unpublished-repo'),
+      draftButLive,
       sharedDrift: count('shared-drift'),
       draftNotYetPublished: draftNotYetPublished.length,
       allowlisted: allowlisted.length,

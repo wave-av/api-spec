@@ -133,6 +133,10 @@ test('a draft repo-only operation is suppressed; promoting it out of draft makes
   assert.equal(afterPromotion.findings[0].severity, 'contract-ahead');
 });
 
+// The draft-live carve-out (2026-09-04 GA verdict: `unpublishedRepo: 0` was zero by redefinition —
+// `draft` must not be able to hide an operation the real gateway actually serves) is its own
+// concern with its own fixtures; see published-drift-draft-live.test.mjs.
+
 // ── Index and path-item handling. ───────────────────────────────────────────────────────────────
 test('indexOperations skips path-item metadata and counts only real operations', () => {
   const ops = indexOperations(doc({ '/a': { get: {}, post: {}, parameters: [{ name: 'x' }], summary: 'shared', $ref: '#/x' } }));
@@ -299,3 +303,6 @@ test('main() exits OK when the published document carries every non-draft operat
     rmSync(snapshot, { force: true });
   }
 });
+
+// The CLI wiring for the draft-live carve-out (--draft-live-snapshot, and refusing on an unresolved
+// probe) is exercised in published-drift-draft-live.test.mjs, next to its compare()-level sibling.

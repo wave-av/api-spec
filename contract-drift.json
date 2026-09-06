@@ -1,6 +1,6 @@
 {
   "about": "Point-in-time operation-level diff between this repo's openapi.yaml and the contract the gateway publishes. It is a dated receipt, not a live view: regenerate with `node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json`. The published-contract-drift workflow uploads a fresh copy on every scheduled run. The PUBLISHED half of this receipt ages on the gateway's schedule and only the scheduled drift job can refresh it; the REPO half is pinned by sources.repoOperationsDigest, which the freshness job checks offline on every run so this file cannot quietly disagree with the openapi.yaml sitting next to it.",
-  "generatedAt": "2026-09-04T00:02:48.265Z",
+  "generatedAt": "2026-09-06T02:16:48.242Z",
   "criterion": [
     "CONTRACT-001",
     "COMPAT-001",
@@ -8,1426 +8,95 @@
   ],
   "sources": {
     "repoSpec": "openapi.yaml",
-    "repoCommit": "9ffe7c0a8eb400ad796ec120f7c4d489ac373479",
+    "repoCommit": null,
     "publishedSpec": "https://api.wave.online/openapi.json",
-    "repoOperationsDigest": "f332e1622a53d2b4a50051fc54bacd7131a1b5fae2ed887dc1830e0fc3b298df"
+    "repoOperationsDigest": "370de508452ec90d02d457c2aa66d1c5c3b1811957b23d14beeea6037ff7ba41"
   },
   "headline": {
     "repoVersion": "1.1.0",
-    "repoPaths": 209,
-    "repoOperations": 230,
-    "publishedVersion": "1.0.0",
-    "publishedPaths": 54,
-    "publishedOperations": 75,
-    "sharedOperations": 72,
+    "repoPaths": 229,
+    "repoOperations": 254,
+    "publishedVersion": "1.1.0",
+    "publishedPaths": 227,
+    "publishedOperations": 252,
+    "sharedOperations": 252,
     "undocumentedLive": 0,
     "unpublishedRepo": 0,
-    "sharedDrift": 4,
-    "draftNotYetPublished": 158,
-    "allowlisted": 3,
-    "lapsedAllowlistEntries": 0
+    "draftButLive": 0,
+    "sharedDrift": 0,
+    "draftNotYetPublished": 0,
+    "allowlisted": 9,
+    "lapsedAllowlistEntries": 0,
+    "unmatchedAllowlistEntries": 0
   },
-  "findings": [
-    {
-      "path": "/identity/resolve",
-      "method": "GET",
-      "direction": "shared-drift",
-      "severity": "contract-mismatch",
-      "differences": [
-        {
-          "field": "parameters",
-          "repo": [
-            {
-              "name": "agent",
-              "in": "query",
-              "required": true,
-              "description": "Agent id (lowercase, e.g. `opencode`, `claude`, `telephony`)",
-              "schema": {
-                "type": "string",
-                "pattern": "^[a-z0-9-]{1,64}$"
-              }
-            },
-            {
-              "name": "org",
-              "in": "query",
-              "required": false,
-              "description": "Optional tenancy self-assertion; must equal the authenticated principal's org",
-              "schema": {
-                "type": "string"
-              }
-            }
-          ],
-          "published": [
-            {
-              "name": "agent",
-              "in": "query",
-              "required": true,
-              "description": "Fleet agent id (lowercase, e.g. `opencode`, `claude`, `telephony`)",
-              "schema": {
-                "type": "string",
-                "pattern": "^[a-z0-9-]{1,64}$"
-              }
-            },
-            {
-              "name": "org",
-              "in": "query",
-              "required": false,
-              "description": "Optional tenancy self-assertion; must equal the authenticated principal's org",
-              "schema": {
-                "type": "string"
-              }
-            }
-          ]
-        },
-        {
-          "field": "summary",
-          "repo": "Resolve a WAVE agent id to its public channel map",
-          "published": "Resolve a WAVE fleet agent id to its public channel map"
-        }
-      ]
-    },
-    {
-      "path": "/videos/{videoId}/chapters",
-      "method": "GET",
-      "direction": "shared-drift",
-      "severity": "contract-mismatch",
-      "differences": [
-        {
-          "field": "deprecated",
-          "repo": true,
-          "published": null
-        },
-        {
-          "field": "x-status",
-          "repo": "unrouted",
-          "published": null
-        }
-      ]
-    },
-    {
-      "path": "/videos/{videoId}/chapters",
-      "method": "POST",
-      "direction": "shared-drift",
-      "severity": "contract-mismatch",
-      "differences": [
-        {
-          "field": "deprecated",
-          "repo": true,
-          "published": null
-        },
-        {
-          "field": "x-status",
-          "repo": "unrouted",
-          "published": null
-        }
-      ]
-    },
-    {
-      "path": "/videos/{videoId}/chapters/detect",
-      "method": "POST",
-      "direction": "shared-drift",
-      "severity": "contract-mismatch",
-      "differences": [
-        {
-          "field": "deprecated",
-          "repo": true,
-          "published": null
-        },
-        {
-          "field": "x-status",
-          "repo": "unrouted",
-          "published": null
-        }
-      ]
-    }
-  ],
+  "findings": [],
   "allowlisted": [
     {
-      "path": "/leaderboard",
+      "path": "/videos/{videoId}/chapters/detect/{jobId}",
       "method": "GET",
-      "direction": "undocumented-live",
-      "justification": "Gateway-NATIVE root surface, not a /v1 operation this spec describes. The published contract injects it at serve time with an explicit per-operation server override of https://api.wave.online (no /v1 prefix) because it is served pre-auth at the host root. Documenting it here as a /v1 path would state a URL that does not exist. Exempt only while it stays the unauthenticated, public-tagged, read-only surface it is today: the expectAbsent guard below drops this exemption the moment the operation gains a security requirement, which is exactly what the in-flight work to move these three behind operator auth will do."
+      "operationId": "getChapterDetectionJob",
+      "xSchemaStatus": null,
+      "xPriceModel": null,
+      "xSkillUrl": null,
+      "direction": "unpublished-repo",
+      "justification": "Same reasoning and same measurement date as DELETE /videos/{videoId}/chapters/{chapterId}: live-probed and confirmed answering, not ROUTE_NOT_MAPPED, but absent from the published /openapi.json document. A gap in the service's own spec generation. Lapses (and should be deleted) the moment the published document lists this operation."
     },
     {
-      "path": "/usage",
+      "path": "/videos/{videoId}/chapters/{chapterId}",
+      "method": "DELETE",
+      "operationId": "deleteChapter",
+      "xSchemaStatus": null,
+      "xPriceModel": null,
+      "xSkillUrl": null,
+      "direction": "unpublished-repo",
+      "justification": "Measured live 2026-09-06: this repo declares the operation (no x-schema-status: draft — marking it draft would be a FALSE claim) and the published /openapi.json document does not list it, but the live-behaviour probe tier confirms the gateway genuinely answers for it (not the ROUTE_NOT_MAPPED an absent route returns). The route is live; only the SERVICE's published spec generation has not yet registered it. This is the mirror image of the operations whose real repo descriptions the service overwrites — a gap in what the service publishes, not in what this repo declares. Lapses (and should be deleted) the moment the published document lists this operation."
+    },
+    {
+      "path": "/agent/auth/token",
+      "method": "POST",
+      "direction": "shared-drift",
+      "justification": "The service's own generated 400 response for this operation is a single, coarser schema ($ref Error) with a shorter description; openapi.yaml documents a oneOf of the WAVE error envelope AND the RFC 8628 §3.5 device-flow error passthrough (authorization_pending / slow_down / expired_token / access_denied / invalid_grant) verbatim, which is the actual, more detailed behavior of this endpoint. This is the service's own OpenAPI reflection being less precise than this repo's hand-written documentation, not a real behavioral difference this repo needs to walk back. Keyed on the exact current published 400 description so a real future change to the service's generated shape still surfaces as drift rather than being silently re-exempted."
+    },
+    {
+      "path": "/streams",
       "method": "GET",
-      "direction": "undocumented-live",
-      "justification": "Gateway-NATIVE root surface injected at serve time, served pre-auth at the host root. NOTE THE COLLISION, which is why this entry is the narrowest of the three: openapi.yaml separately declares POST /usage as an x402-priced draft operation under /v1, so the segment `usage` means two different things in the two documents — a free public GET at the root and a priced POST under /v1. This entry exempts ONLY the published GET; it says nothing about the draft POST, and the two must be reconciled before that draft is promoted. Like its siblings this operation is being moved behind operator auth, and the expectAbsent guard lapses the exemption when it is."
-    },
-    {
-      "path": "/platform",
-      "method": "GET",
-      "direction": "undocumented-live",
-      "justification": "Gateway-NATIVE root surface, same shape and same reasoning as GET /leaderboard: injected at serve time with a per-operation server override of https://api.wave.online, served pre-auth at the host root rather than under /v1. It reports platform-wide aggregate usage and is one of the three operations being moved behind operator auth; when that lands, the expectAbsent guard below lapses this exemption and the gate demands the operation be described or removed rather than silently re-exempted in its new shape."
-    }
-  ],
-  "lapsedAllowlist": [],
-  "draftNotYetPublished": [
-    {
-      "path": "/accessibility-studio",
-      "method": "POST",
-      "operationId": "accessibilityStudio",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/accessibility-studio.json"
-    },
-    {
-      "path": "/acp",
-      "method": "POST",
-      "operationId": "acp",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/acp.json"
-    },
-    {
-      "path": "/acuity",
-      "method": "POST",
-      "operationId": "acuity",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/acuity.json"
-    },
-    {
-      "path": "/aegis",
-      "method": "POST",
-      "operationId": "aegis",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/aegis.json"
-    },
-    {
-      "path": "/aes67",
-      "method": "POST",
-      "operationId": "aes67",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/aes67.json"
-    },
-    {
-      "path": "/agentic-media",
-      "method": "POST",
-      "operationId": "agenticMedia",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/agentic-media.json"
-    },
-    {
-      "path": "/agents",
-      "method": "POST",
-      "operationId": "agents",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/agents.json"
-    },
-    {
-      "path": "/ai",
-      "method": "POST",
-      "operationId": "ai",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/ai.json"
-    },
-    {
-      "path": "/analytics",
-      "method": "POST",
-      "operationId": "analytics",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/analytics.json"
-    },
-    {
-      "path": "/api-gateway",
-      "method": "POST",
-      "operationId": "apiGateway",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/api-gateway.json"
-    },
-    {
-      "path": "/archive",
-      "method": "POST",
-      "operationId": "archive",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/archive.json"
-    },
-    {
-      "path": "/argus",
-      "method": "POST",
-      "operationId": "argus",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/argus.json"
-    },
-    {
-      "path": "/audience-engagement",
-      "method": "POST",
-      "operationId": "audienceEngagement",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/audience-engagement.json"
-    },
-    {
-      "path": "/audio-mastering",
-      "method": "POST",
-      "operationId": "audioMastering",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/audio-mastering.json"
-    },
-    {
-      "path": "/auth",
-      "method": "POST",
-      "operationId": "auth",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/auth.json"
-    },
-    {
-      "path": "/autopilot",
-      "method": "POST",
-      "operationId": "autopilot",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/autopilot.json"
-    },
-    {
-      "path": "/behavioral-intelligence",
-      "method": "POST",
-      "operationId": "behavioralIntelligence",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/behavioral-intelligence.json"
-    },
-    {
-      "path": "/benchmark",
-      "method": "POST",
-      "operationId": "benchmark",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/benchmark.json"
-    },
-    {
-      "path": "/billing",
-      "method": "POST",
-      "operationId": "billing",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/billing.json"
-    },
-    {
-      "path": "/bmd",
-      "method": "POST",
-      "operationId": "bmd",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/bmd.json"
-    },
-    {
-      "path": "/bridge",
-      "method": "POST",
-      "operationId": "bridge",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/bridge.json"
-    },
-    {
-      "path": "/broadcast",
-      "method": "POST",
-      "operationId": "broadcast",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/broadcast.json"
-    },
-    {
-      "path": "/camera-control",
-      "method": "POST",
-      "operationId": "cameraControl",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/camera-control.json"
-    },
-    {
-      "path": "/cameras",
-      "method": "POST",
-      "operationId": "cameras",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/cameras.json"
-    },
-    {
-      "path": "/campus",
-      "method": "POST",
-      "operationId": "campus",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/campus.json"
-    },
-    {
-      "path": "/challenge",
-      "method": "POST",
-      "operationId": "challenge",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/challenge.json"
-    },
-    {
-      "path": "/chapters",
-      "method": "POST",
-      "operationId": "chapters",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/chapters.json"
-    },
-    {
-      "path": "/ci",
-      "method": "POST",
-      "operationId": "ci",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/ci.json"
-    },
-    {
-      "path": "/cloud-switcher",
-      "method": "POST",
-      "operationId": "cloudSwitcher",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/cloud-switcher.json"
-    },
-    {
-      "path": "/companion",
-      "method": "POST",
-      "operationId": "companion",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/companion.json"
-    },
-    {
-      "path": "/competitive-intel",
-      "method": "POST",
-      "operationId": "competitiveIntel",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/competitive-intel.json"
-    },
-    {
-      "path": "/compliance",
-      "method": "POST",
-      "operationId": "compliance",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/compliance.json"
-    },
-    {
-      "path": "/connect",
-      "method": "POST",
-      "operationId": "connect",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/connect.json"
-    },
-    {
-      "path": "/cookie-consent",
-      "method": "POST",
-      "operationId": "cookieConsent",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/cookie-consent.json"
-    },
-    {
-      "path": "/cost",
-      "method": "POST",
-      "operationId": "cost",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/cost.json"
-    },
-    {
-      "path": "/creator",
-      "method": "POST",
-      "operationId": "creator",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/creator.json"
-    },
-    {
-      "path": "/creator-economy",
-      "method": "POST",
-      "operationId": "creatorEconomy",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/creator-economy.json"
-    },
-    {
-      "path": "/creator-storefront",
-      "method": "POST",
-      "operationId": "creatorStorefront",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/creator-storefront.json"
-    },
-    {
-      "path": "/crest",
-      "method": "POST",
-      "operationId": "crest",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/crest.json"
-    },
-    {
-      "path": "/cro",
-      "method": "POST",
-      "operationId": "cro",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/cro.json"
-    },
-    {
-      "path": "/dante",
-      "method": "POST",
-      "operationId": "dante",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/dante.json"
-    },
-    {
-      "path": "/data-exchange",
-      "method": "POST",
-      "operationId": "dataExchange",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/data-exchange.json"
-    },
-    {
-      "path": "/decode",
-      "method": "POST",
-      "operationId": "decode",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/decode.json"
-    },
-    {
-      "path": "/director",
-      "method": "POST",
-      "operationId": "director",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/director.json"
-    },
-    {
-      "path": "/discovery",
-      "method": "POST",
-      "operationId": "discovery",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/discovery.json"
-    },
-    {
-      "path": "/dispatch",
-      "method": "POST",
-      "operationId": "dispatch",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/dispatch.json"
-    },
-    {
-      "path": "/dmca",
-      "method": "POST",
-      "operationId": "dmca",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/dmca.json"
-    },
-    {
-      "path": "/dsar",
-      "method": "POST",
-      "operationId": "dsar",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/dsar.json"
-    },
-    {
-      "path": "/dub",
-      "method": "POST",
-      "operationId": "dub",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/dub.json"
-    },
-    {
-      "path": "/echo",
-      "method": "POST",
-      "operationId": "echo",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/echo.json"
-    },
-    {
-      "path": "/edge",
-      "method": "POST",
-      "operationId": "edge",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/edge.json"
-    },
-    {
-      "path": "/embeddings",
-      "method": "POST",
-      "operationId": "embeddings",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/embeddings.json"
-    },
-    {
-      "path": "/encode",
-      "method": "POST",
-      "operationId": "encode",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/encode.json"
-    },
-    {
-      "path": "/engagement",
-      "method": "POST",
-      "operationId": "engagement",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/engagement.json"
-    },
-    {
-      "path": "/enhance",
-      "method": "POST",
-      "operationId": "enhance",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/enhance.json"
-    },
-    {
-      "path": "/example",
-      "method": "POST",
-      "operationId": "example",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/example.json"
-    },
-    {
-      "path": "/experiments",
-      "method": "POST",
-      "operationId": "experiments",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/experiments.json"
-    },
-    {
-      "path": "/fleet",
-      "method": "POST",
-      "operationId": "fleet",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/fleet.json"
-    },
-    {
-      "path": "/forecast",
-      "method": "POST",
-      "operationId": "forecast",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/forecast.json"
-    },
-    {
-      "path": "/geo",
-      "method": "POST",
-      "operationId": "geo",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/geo.json"
-    },
-    {
-      "path": "/ghost-producer",
-      "method": "POST",
-      "operationId": "ghostProducer",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/ghost-producer.json"
-    },
-    {
-      "path": "/graphics-engine",
-      "method": "POST",
-      "operationId": "graphicsEngine",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/graphics-engine.json"
-    },
-    {
-      "path": "/integrations",
-      "method": "POST",
-      "operationId": "integrations",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/integrations.json"
-    },
-    {
-      "path": "/intel",
-      "method": "POST",
-      "operationId": "intel",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/intel.json"
-    },
-    {
-      "path": "/listen",
-      "method": "POST",
-      "operationId": "listen",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/listen.json"
-    },
-    {
-      "path": "/live",
-      "method": "POST",
-      "operationId": "live",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/live.json"
-    },
-    {
-      "path": "/live-annotation",
-      "method": "POST",
-      "operationId": "liveAnnotation",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/live-annotation.json"
-    },
-    {
-      "path": "/live-commerce",
-      "method": "POST",
-      "operationId": "liveCommerce",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/live-commerce.json"
-    },
-    {
-      "path": "/local-ai",
-      "method": "POST",
-      "operationId": "localAi",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/local-ai.json"
-    },
-    {
-      "path": "/me",
-      "method": "POST",
-      "operationId": "me",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/me.json"
-    },
-    {
-      "path": "/memory",
-      "method": "POST",
-      "operationId": "memory",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/memory.json"
-    },
-    {
-      "path": "/mesh",
-      "method": "POST",
-      "operationId": "mesh",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/mesh.json"
-    },
-    {
-      "path": "/mlvc",
-      "method": "POST",
-      "operationId": "mlvc",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/mlvc.json"
-    },
-    {
-      "path": "/mobile-producer",
-      "method": "POST",
-      "operationId": "mobileProducer",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/mobile-producer.json"
-    },
-    {
-      "path": "/moderate",
-      "method": "POST",
-      "operationId": "moderate",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/moderate.json"
-    },
-    {
-      "path": "/monetization",
-      "method": "POST",
-      "operationId": "monetization",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/monetization.json"
-    },
-    {
-      "path": "/monitoring",
-      "method": "POST",
-      "operationId": "monitoring",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/monitoring.json"
-    },
-    {
-      "path": "/mpp",
-      "method": "POST",
-      "operationId": "mpp",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/mpp.json"
-    },
-    {
-      "path": "/mux",
-      "method": "POST",
-      "operationId": "mux",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/mux.json"
-    },
-    {
-      "path": "/mxl",
-      "method": "POST",
-      "operationId": "mxl",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/mxl.json"
-    },
-    {
-      "path": "/ndi",
-      "method": "POST",
-      "operationId": "ndi",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/ndi.json"
-    },
-    {
-      "path": "/nvr",
-      "method": "POST",
-      "operationId": "nvr",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/nvr.json"
-    },
-    {
-      "path": "/omt",
-      "method": "POST",
-      "operationId": "omt",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/omt.json"
-    },
-    {
-      "path": "/ops",
-      "method": "POST",
-      "operationId": "ops",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/ops.json"
-    },
-    {
-      "path": "/orbit",
-      "method": "POST",
-      "operationId": "orbit",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/orbit.json"
-    },
-    {
-      "path": "/organizations",
-      "method": "POST",
-      "operationId": "organizations",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/organizations.json"
-    },
-    {
-      "path": "/outliers",
-      "method": "POST",
-      "operationId": "outliers",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/outliers.json"
-    },
-    {
-      "path": "/payments",
-      "method": "POST",
-      "operationId": "payments",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/payments.json"
-    },
-    {
-      "path": "/perception",
-      "method": "POST",
-      "operationId": "perception",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/perception.json"
-    },
-    {
-      "path": "/pipelines",
-      "method": "POST",
-      "operationId": "pipelines",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/pipelines.json"
-    },
-    {
-      "path": "/preferences",
-      "method": "POST",
-      "operationId": "preferences",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/preferences.json"
-    },
-    {
-      "path": "/presence",
-      "method": "POST",
-      "operationId": "presence",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/presence.json"
-    },
-    {
-      "path": "/privy",
-      "method": "POST",
-      "operationId": "privy",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/privy.json"
-    },
-    {
-      "path": "/production",
-      "method": "POST",
-      "operationId": "production",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/production.json"
-    },
-    {
-      "path": "/production-graph",
-      "method": "POST",
-      "operationId": "productionGraph",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/production-graph.json"
-    },
-    {
-      "path": "/productions",
-      "method": "POST",
-      "operationId": "productions",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/productions.json"
-    },
-    {
-      "path": "/products",
-      "method": "POST",
-      "operationId": "products",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/products.json"
-    },
-    {
-      "path": "/pulse",
-      "method": "POST",
-      "operationId": "pulse",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "free",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/pulse.json"
-    },
-    {
-      "path": "/qr-system",
-      "method": "POST",
-      "operationId": "qrSystem",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/qr-system.json"
-    },
-    {
-      "path": "/quality-scorecard",
-      "method": "POST",
-      "operationId": "qualityScorecard",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/quality-scorecard.json"
-    },
-    {
-      "path": "/radar",
-      "method": "POST",
-      "operationId": "radar",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/radar.json"
-    },
-    {
-      "path": "/rate-limit",
-      "method": "POST",
-      "operationId": "rateLimit",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/rate-limit.json"
-    },
-    {
-      "path": "/recommend",
-      "method": "POST",
-      "operationId": "recommend",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/recommend.json"
-    },
-    {
-      "path": "/remotion",
-      "method": "POST",
-      "operationId": "remotion",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/remotion.json"
-    },
-    {
-      "path": "/renders",
-      "method": "POST",
-      "operationId": "renders",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/renders.json"
-    },
-    {
-      "path": "/replay",
-      "method": "POST",
-      "operationId": "replay",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/replay.json"
-    },
-    {
-      "path": "/replay-engine",
-      "method": "POST",
-      "operationId": "replayEngine",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/replay-engine.json"
-    },
-    {
-      "path": "/review",
-      "method": "POST",
-      "operationId": "review",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/review.json"
-    },
-    {
-      "path": "/rist",
-      "method": "POST",
-      "operationId": "rist",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/rist.json"
-    },
-    {
-      "path": "/router",
-      "method": "POST",
-      "operationId": "router",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/router.json"
-    },
-    {
-      "path": "/routes",
-      "method": "POST",
-      "operationId": "routes",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/routes.json"
-    },
-    {
-      "path": "/rtmp",
-      "method": "POST",
-      "operationId": "rtmp",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/rtmp.json"
-    },
-    {
-      "path": "/runtime",
-      "method": "POST",
-      "operationId": "runtime",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/runtime.json"
-    },
-    {
-      "path": "/sandbox",
-      "method": "POST",
-      "operationId": "sandbox",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/sandbox.json"
-    },
-    {
-      "path": "/scene",
-      "method": "POST",
-      "operationId": "scene",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/scene.json"
-    },
-    {
-      "path": "/signal",
-      "method": "POST",
-      "operationId": "signal",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/signal.json"
-    },
-    {
-      "path": "/signal-generator",
-      "method": "POST",
-      "operationId": "signalGenerator",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/signal-generator.json"
-    },
-    {
-      "path": "/signal-verifier",
-      "method": "POST",
-      "operationId": "signalVerifier",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/signal-verifier.json"
-    },
-    {
-      "path": "/slides-to-video",
-      "method": "POST",
-      "operationId": "slidesToVideo",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/slides-to-video.json"
-    },
-    {
-      "path": "/social-distribution",
-      "method": "POST",
-      "operationId": "socialDistribution",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/social-distribution.json"
-    },
-    {
-      "path": "/sports-data",
-      "method": "POST",
-      "operationId": "sportsData",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/sports-data.json"
-    },
-    {
-      "path": "/srt",
-      "method": "POST",
-      "operationId": "srt",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/srt.json"
-    },
-    {
-      "path": "/st2110",
-      "method": "POST",
-      "operationId": "st2110",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/st2110.json"
-    },
-    {
-      "path": "/stream",
-      "method": "POST",
-      "operationId": "stream",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/stream.json"
-    },
-    {
-      "path": "/stream-router",
-      "method": "POST",
-      "operationId": "streamRouter",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/stream-router.json"
-    },
-    {
-      "path": "/streamdeck",
-      "method": "POST",
-      "operationId": "streamdeck",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/streamdeck.json"
-    },
-    {
-      "path": "/streaming",
-      "method": "POST",
-      "operationId": "streaming",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/streaming.json"
+      "direction": "shared-drift",
+      "justification": "The gateway still serves the auto-generated skills-index draft placeholder for this operation (lowercase tag, no operationId, a summary that says 'draft — see api-spec for the full shape' and literally defers to this repo). openapi.yaml has since promoted this to a fully hand-documented /v1 operation (real params, description, Streams tag, operationId listStreams) ahead of the gateway shipping the matching handler. Exempt only while the published operation still has no operationId — the moment the gateway ships the real handler and starts publishing one, this predicate fails and the exemption lapses so the two shapes get compared for real."
     },
     {
       "path": "/streams",
       "method": "POST",
-      "operationId": "streams",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/streams.json"
-    },
-    {
-      "path": "/studio",
-      "method": "POST",
-      "operationId": "studio",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/studio.json"
-    },
-    {
-      "path": "/studio-automation",
-      "method": "POST",
-      "operationId": "studioAutomation",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/studio-automation.json"
-    },
-    {
-      "path": "/switcher",
-      "method": "POST",
-      "operationId": "switcher",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/switcher.json"
-    },
-    {
-      "path": "/tempo",
-      "method": "POST",
-      "operationId": "tempo",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/tempo.json"
-    },
-    {
-      "path": "/transcode",
-      "method": "POST",
-      "operationId": "transcode",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/transcode.json"
-    },
-    {
-      "path": "/twilio",
-      "method": "POST",
-      "operationId": "twilio",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/twilio.json"
-    },
-    {
-      "path": "/unsubscribe",
-      "method": "POST",
-      "operationId": "unsubscribe",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/unsubscribe.json"
+      "direction": "shared-drift",
+      "justification": "Same shape and same reasoning as GET /streams: the published operation is still the auto-generated draft placeholder (no operationId), while openapi.yaml documents the real, hand-specified /v1 operation (operationId createStream) ahead of the gateway shipping it. Lapses the moment the published operation gains an operationId."
     },
     {
       "path": "/usage",
-      "method": "POST",
-      "operationId": "usage",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/usage.json"
+      "method": "GET",
+      "direction": "shared-drift",
+      "justification": "KEY COLLISION between two distinct operations that happen to share the literal path+method 'GET /usage' in their respective documents. openapi.yaml documents the real, tenant-scoped /v1 billing endpoint (tag Billing, operationId getUsage, usage:read scope) added independently of this exemption. The gateway ALSO serves a gateway-native, operator-only telemetry endpoint at the bare host root (tag internal, WAVE service bearer, no /v1 prefix) that this repo cannot document at this same key without overwriting the real customer endpoint's declaration — the two must live at the same path string in the published document because the operator route was never given a distinguishing per-operation servers override (unlike its siblings /leaderboard and /platform, which do carry one). This entry exempts ONLY the operator shape (matched by its 'internal' tag, which never appears on the real customer operation); it lapses the moment the published operation at this key stops being tagged internal, forcing a fresh look rather than silently re-exempting whatever answers here."
     },
     {
-      "path": "/usb-relay",
-      "method": "POST",
-      "operationId": "usbRelay",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/usb-relay.json"
+      "path": "/leaderboard",
+      "method": "GET",
+      "direction": "shared-drift",
+      "justification": "Editorial-only difference, not a behavioral one. The gateway's own generated document never assigns an operationId to this gateway-native root route and tags it with the raw lowercase 'usage' slug; this repo assigns a real operationId (SDK codegen quality — an unnamed operation gets a synthesized name in every generated client) and Title-Cases the tag to match every other operation's documentation convention in this spec. Keyed on the exact published summary so a real content change to this operation still surfaces as drift."
     },
     {
-      "path": "/vault",
-      "method": "POST",
-      "operationId": "vault",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/vault.json"
+      "path": "/platform",
+      "method": "GET",
+      "direction": "shared-drift",
+      "justification": "Same editorial-only reasoning as GET /leaderboard: an assigned operationId and a Title-Cased tag versus the gateway's unnamed, lowercase-tagged generated shape. Keyed on the exact published summary so a real content change still surfaces as drift."
     },
     {
-      "path": "/video-gen",
-      "method": "POST",
-      "operationId": "videoGen",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/video-gen.json"
-    },
-    {
-      "path": "/viewer",
-      "method": "POST",
-      "operationId": "viewer",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/viewer.json"
-    },
-    {
-      "path": "/virtual-studio",
-      "method": "POST",
-      "operationId": "virtualStudio",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/virtual-studio.json"
-    },
-    {
-      "path": "/vision",
-      "method": "POST",
-      "operationId": "vision",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/vision.json"
-    },
-    {
-      "path": "/visual-programming",
-      "method": "POST",
-      "operationId": "visualProgramming",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/visual-programming.json"
-    },
-    {
-      "path": "/visual-qa",
-      "method": "POST",
-      "operationId": "visualQa",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/visual-qa.json"
-    },
-    {
-      "path": "/vod",
-      "method": "POST",
-      "operationId": "vod",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/vod.json"
-    },
-    {
-      "path": "/volumetric",
-      "method": "POST",
-      "operationId": "volumetric",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/volumetric.json"
-    },
-    {
-      "path": "/wave-console",
-      "method": "POST",
-      "operationId": "waveConsole",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/wave-console.json"
-    },
-    {
-      "path": "/wave-node",
-      "method": "POST",
-      "operationId": "waveNode",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/wave-node.json"
-    },
-    {
-      "path": "/wave-sdk",
-      "method": "POST",
-      "operationId": "waveSdk",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/wave-sdk.json"
-    },
-    {
-      "path": "/wave-tokens",
-      "method": "POST",
-      "operationId": "waveTokens",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/wave-tokens.json"
-    },
-    {
-      "path": "/webrtc",
-      "method": "POST",
-      "operationId": "webrtc",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/webrtc.json"
-    },
-    {
-      "path": "/whep",
-      "method": "POST",
-      "operationId": "whep",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/whep.json"
-    },
-    {
-      "path": "/whip",
-      "method": "POST",
-      "operationId": "whip",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/whip.json"
-    },
-    {
-      "path": "/workflow-engine",
-      "method": "POST",
-      "operationId": "workflowEngine",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/workflow-engine.json"
-    },
-    {
-      "path": "/x402",
-      "method": "POST",
-      "operationId": "x402",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/x402.json"
-    },
-    {
-      "path": "/zero-trust-vault",
-      "method": "POST",
-      "operationId": "zeroTrustVault",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/zero-trust-vault.json"
-    },
-    {
-      "path": "/zoom",
-      "method": "POST",
-      "operationId": "zoom",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "metered",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/zoom.json"
-    },
-    {
-      "path": "/zoom-integration",
-      "method": "POST",
-      "operationId": "zoomIntegration",
-      "xSchemaStatus": "draft",
-      "xPriceModel": "x402",
-      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/zoom-integration.json"
+      "path": "/identity/resolve",
+      "method": "GET",
+      "direction": "shared-drift",
+      "justification": "This PR's own not-yet-deployed wording change (summary and the `agent` query parameter's description: 'agent id' -> 'fleet agent id') has not shipped to the live gateway yet, since the PR that carries it has not merged. Keyed on the exact current PUBLISHED (old) wording, so this lapses the moment the gateway serves the new wording — at which point the two sides agree and there is nothing left to exempt."
     }
   ],
+  "lapsedAllowlist": [],
+  "unmatchedAllowlist": [],
+  "draftNotYetPublished": [],
   "enrichmentObservations": {
     "descriptionsOverwritten": [
       "POST /agent/auth/device",
@@ -1436,6 +105,30 @@
       "POST /render",
       "GET /render/{jobId}",
       "GET /render/{jobId}/events",
+      "GET /streams/{streamId}",
+      "POST /streams/{streamId}/start",
+      "POST /streams/{streamId}/stop",
+      "GET /streams/{streamId}/status",
+      "GET /streams/{streamId}/analytics",
+      "GET /streams/{streamId}/highlights",
+      "POST /streams/{streamId}/highlights",
+      "POST /moderate",
+      "POST /live/pipeline",
+      "POST /live/caption",
+      "GET /productions",
+      "POST /productions",
+      "GET /productions/{productionId}",
+      "POST /productions/{productionId}/camera",
+      "POST /productions/{productionId}/overlay",
+      "GET /cameras",
+      "POST /cameras",
+      "POST /cameras/{cameraId}/control",
+      "GET /billing",
+      "GET /billing/usage",
+      "GET /analytics/overview",
+      "GET /analytics/top-content",
+      "GET /analytics/engagement",
+      "POST /clips",
       "GET /videos/{videoId}/chapters",
       "POST /videos/{videoId}/chapters",
       "POST /videos/{videoId}/chapters/detect",
@@ -1455,17 +148,177 @@
       "POST /custody/{op}",
       "GET /engine/capabilities",
       "POST /gpu/infer",
-      "GET /gpu/infer"
+      "GET /gpu/infer",
+      "POST /accessibility-studio",
+      "POST /acp",
+      "POST /acuity",
+      "POST /aegis",
+      "POST /aes67",
+      "POST /agentic-media",
+      "POST /agents",
+      "POST /ai",
+      "POST /analytics",
+      "POST /api-gateway",
+      "POST /archive",
+      "POST /argus",
+      "POST /audience-engagement",
+      "POST /audio-mastering",
+      "POST /auth",
+      "POST /autopilot",
+      "POST /behavioral-intelligence",
+      "POST /benchmark",
+      "POST /bmd",
+      "POST /bridge",
+      "POST /broadcast",
+      "POST /camera-control",
+      "POST /campus",
+      "POST /challenge",
+      "POST /chapters",
+      "POST /ci",
+      "POST /cloud-switcher",
+      "POST /companion",
+      "POST /competitive-intel",
+      "POST /compliance",
+      "POST /connect",
+      "POST /cookie-consent",
+      "POST /cost",
+      "POST /creator",
+      "POST /creator-economy",
+      "POST /creator-storefront",
+      "POST /crest",
+      "POST /cro",
+      "POST /dante",
+      "POST /data-exchange",
+      "POST /decode",
+      "POST /director",
+      "POST /discovery",
+      "POST /dispatch",
+      "POST /dmca",
+      "POST /dsar",
+      "POST /dub",
+      "POST /echo",
+      "POST /edge",
+      "POST /embeddings",
+      "POST /encode",
+      "POST /engagement",
+      "POST /enhance",
+      "POST /example",
+      "POST /experiments",
+      "POST /fleet",
+      "POST /forecast",
+      "POST /geo",
+      "POST /ghost-producer",
+      "POST /graphics-engine",
+      "POST /integrations",
+      "POST /intel",
+      "POST /listen",
+      "POST /live",
+      "POST /live-annotation",
+      "POST /live-commerce",
+      "POST /local-ai",
+      "POST /me",
+      "POST /memory",
+      "POST /mesh",
+      "POST /mlvc",
+      "POST /mobile-producer",
+      "POST /monetization",
+      "POST /monitoring",
+      "POST /mpp",
+      "POST /mux",
+      "POST /mxl",
+      "POST /ndi",
+      "POST /nvr",
+      "POST /omt",
+      "POST /ops",
+      "POST /orbit",
+      "POST /organizations",
+      "POST /outliers",
+      "POST /payments",
+      "POST /perception",
+      "POST /pipelines",
+      "POST /preferences",
+      "POST /presence",
+      "POST /privy",
+      "POST /production",
+      "POST /production-graph",
+      "POST /products",
+      "POST /pulse",
+      "POST /qr-system",
+      "POST /quality-scorecard",
+      "POST /radar",
+      "POST /rate-limit",
+      "POST /recommend",
+      "POST /remotion",
+      "POST /renders",
+      "POST /replay",
+      "POST /replay-engine",
+      "POST /review",
+      "POST /rist",
+      "POST /router",
+      "POST /routes",
+      "POST /rtmp",
+      "POST /runtime",
+      "POST /sandbox",
+      "POST /scene",
+      "POST /signal",
+      "POST /signal-generator",
+      "POST /signal-verifier",
+      "POST /slides-to-video",
+      "POST /social-distribution",
+      "POST /sports-data",
+      "POST /srt",
+      "POST /st2110",
+      "POST /stream",
+      "POST /stream-router",
+      "POST /streamdeck",
+      "POST /streaming",
+      "POST /studio",
+      "POST /studio-automation",
+      "POST /switcher",
+      "POST /tempo",
+      "POST /transcode",
+      "POST /twilio",
+      "POST /unsubscribe",
+      "POST /usb-relay",
+      "POST /vault",
+      "POST /video-gen",
+      "POST /viewer",
+      "POST /virtual-studio",
+      "POST /vision",
+      "POST /visual-programming",
+      "POST /visual-qa",
+      "POST /vod",
+      "POST /volumetric",
+      "POST /wave-console",
+      "POST /wave-node",
+      "POST /wave-sdk",
+      "POST /wave-tokens",
+      "POST /webrtc",
+      "POST /whep",
+      "POST /whip",
+      "POST /workflow-engine",
+      "POST /x402",
+      "POST /zero-trust-vault",
+      "POST /zoom",
+      "POST /zoom-integration"
     ],
     "operationIdsSynthesized": 0,
-    "errorResponsesInjected": 303
+    "errorResponsesInjected": 799,
+    "errorResponsesOverwritten": [
+      "GET /videos/{videoId}/chapters (404)",
+      "POST /videos/{videoId}/chapters (404)",
+      "POST /videos/{videoId}/chapters/detect (404)"
+    ],
+    "parametersStripped": 77
   },
   "normalizationRules": [
     "strip op['x-version'] and op['x-deprecation-policy'], which the service assigns onto every operation",
     "drop op['description'] on BOTH sides when the published value is the versioning boilerplate, and count the repo descriptions it destroyed",
     "strip op.operationId only when it equals the service synthesis of (path, method) and this repo has none",
     "strip responses 400/401/403/404/429 only when they deep-equal the injected error envelope and this repo lacks the code",
+    "drop responses 400/401/403/404/429 on BOTH sides when the published value deep-equals the injected error envelope but this repo declares a DIFFERENT response for that code — the service overwrote a real declaration, and count which codes it destroyed",
     "unwrap the auto-wrapped 200 only when it deep-equals the wrapping of this repo's 200",
+    "strip a parameter's description/example on BOTH sides when every other field of that parameter (name, in, required, schema) is otherwise identical — the service publishes the contract faithfully and drops only prose",
     "components.securitySchemes: NOT APPLICABLE — this comparator is operation-scoped and never reads components",
     "root-level operations the service adds of its own accord are deliberately NOT normalized away: they surface as undocumented-live findings and must be allowlisted by path+method with a justification, so they stay visible"
   ]

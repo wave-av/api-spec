@@ -447,6 +447,11 @@ tags:
     description: >-
       WAVE omt API — priced capability surface documented from the live gateway
       skills index; the request/response shape is not yet published (draft).
+  - name: Operator
+    description: >-
+      Gateway-native, operator-authenticated root surfaces (the WAVE service bearer, not a
+      tenant API key) — platform-wide telemetry aggregated across every product, not a
+      tenant-scoped /v1 resource.
   - name: Ops
     description: >-
       WAVE ops API — priced capability surface documented from the live gateway
@@ -2162,6 +2167,55 @@ paths:
           $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
+
+  # Gateway-native root surfaces — NOT /v1 operations. Each carries its own `servers` override to
+  # https://api.wave.online (no /v1 prefix) because the gateway serves these at the host root, now
+  # operator/tenant-authenticated. Both were previously exempted in published-drift-allowlist.json
+  # as undocumented-live while unauthenticated; that exemption's own justification names this the
+  # intended remedy once each operation gained a security requirement.
+  /leaderboard:
+    get:
+      tags: [Usage]
+      summary: Your org's usage leaderboard (meters ranked by consumption) — API key + usage:read
+      description: >-
+        Tenant-scoped: rows are the calling org's own metered dimensions, ranked by billed usage
+        over the window (`from`/`to` as YYYYMMDD, default trailing 7 days). The org is taken from
+        the API key, never from the query string. Unauthenticated callers receive 401
+        LEADERBOARD_AUTH_REQUIRED. The PUBLIC model-eval leaderboard is a different surface at
+        https://leaderboard.wave.online/leaderboard (no key needed).
+      operationId: getUsageLeaderboard
+      servers:
+        - url: https://api.wave.online
+      security:
+        - bearerWithScopes: [usage:read]
+      externalDocs:
+        description: Public model-eval leaderboard (measured rows only)
+        url: https://leaderboard.wave.online/leaderboard
+      responses:
+        '200':
+          description: '{ org, window:{from,to,days}, ranking:[{rank, meter, unit, used}] } — private, no-store'
+        '401':
+          description: LEADERBOARD_AUTH_REQUIRED — no or invalid API key; body names the public board's URL
+        '403':
+          description: SCOPE_DENIED — key lacks usage:read
+
+  /platform:
+    get:
+      tags: [Operator]
+      summary: Platform-wide live usage — OPERATOR ONLY (inference + voice + codec + storage + realtime + clips + captions)
+      description: >-
+        Operator-authenticated. Requires the WAVE service bearer; unauthenticated callers receive
+        401 TELEMETRY_AUTH_REQUIRED.
+      operationId: getPlatformUsage
+      servers:
+        - url: https://api.wave.online
+      security:
+        - bearerWithScopes: []
+      responses:
+        '200':
+          description: Every product's live usage, grounded-only
+        '401':
+          description: 'Operator authentication required: {"error":{"code":"TELEMETRY_AUTH_REQUIRED"}}'
 
   # Analytics
   /analytics/overview:
@@ -3985,7 +4039,7 @@ paths:
   /identity/resolve:
     get:
       tags: [Identity]
-      summary: Resolve a WAVE agent id to its public channel map
+      summary: Resolve a WAVE fleet agent id to its public channel map
       operationId: identityResolve
       description: |
         Gateway-native read pane. Returns the agent's public directory entry:
@@ -4004,7 +4058,7 @@ paths:
         - name: agent
           in: query
           required: true
-          description: Agent id (lowercase, e.g. `opencode`, `claude`, `telephony`)
+          description: Fleet agent id (lowercase, e.g. `opencode`, `claude`, `telephony`)
           schema: { type: string, pattern: '^[a-z0-9-]{1,64}$' }
         - name: org
           in: query

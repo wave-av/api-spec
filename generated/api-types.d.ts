@@ -546,6 +546,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your org's usage leaderboard (meters ranked by consumption) — API key + usage:read
+         * @description Tenant-scoped: rows are the calling org's own metered dimensions, ranked by billed usage over the window (`from`/`to` as YYYYMMDD, default trailing 7 days). The org is taken from the API key, never from the query string. Unauthenticated callers receive 401 LEADERBOARD_AUTH_REQUIRED. The PUBLIC model-eval leaderboard is a different surface at https://leaderboard.wave.online/leaderboard (no key needed).
+         */
+        get: operations["getUsageLeaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform-wide live usage — OPERATOR ONLY (inference + voice + codec + storage + realtime + clips + captions)
+         * @description Operator-authenticated. Requires the WAVE service bearer; unauthenticated callers receive 401 TELEMETRY_AUTH_REQUIRED.
+         */
+        get: operations["getPlatformUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/analytics/overview": {
         parameters: {
             query?: never;
@@ -1395,7 +1435,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Resolve a WAVE agent id to its public channel map
+         * Resolve a WAVE fleet agent id to its public channel map
          * @description Gateway-native read pane. Returns the agent's public directory entry:
          *     email, credential key name (never a credential value), org, and channels. The data is
          *     public-directory data only.
@@ -7314,6 +7354,63 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    getUsageLeaderboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description { org, window:{from,to,days}, ranking:[{rank, meter, unit, used}] } — private, no-store */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description LEADERBOARD_AUTH_REQUIRED — no or invalid API key; body names the public board's URL */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description SCOPE_DENIED — key lacks usage:read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPlatformUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every product's live usage, grounded-only */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Operator authentication required: {"error":{"code":"TELEMETRY_AUTH_REQUIRED"}} */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getAnalyticsOverview: {
         parameters: {
             query?: {
@@ -9232,7 +9329,7 @@ export interface operations {
     identityResolve: {
         parameters: {
             query: {
-                /** @description Agent id (lowercase, e.g. `opencode`, `claude`, `telephony`) */
+                /** @description Fleet agent id (lowercase, e.g. `opencode`, `claude`, `telephony`) */
                 agent: string;
                 /** @description Optional tenancy self-assertion; must equal the authenticated principal's org */
                 org?: string;
