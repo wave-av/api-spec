@@ -86,7 +86,7 @@ jobs:
           {
             echo "## GA evidence — CONTRACT-001 / COMPAT-001"
             echo
-            echo "Exit code \`$code\` (0 = every emitted result is \`pass\`, 1 = a criterion is \`fail\`, 2 = a gate could not run — never read as a pass)."
+            echo "Exit code \`$code\` (0 = every runnable check passed — COMPAT-001 still reports \`unknown\` unless it found a breaking change, per its own honesty rule, not \`pass\`; 1 = a criterion is \`fail\`; 2 = a gate could not run — never read as a pass)."
             echo
             echo '```'
             cat "$RUNNER_TEMP/ga-evidence.log"
@@ -114,7 +114,7 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           if [ "$CODE" = "0" ]; then
-            echo "ga-evidence: every emitted criterion passed"
+            echo "ga-evidence: all runnable checks passed — COMPAT-001 remains unknown unless it found a breaking change (see the job summary; never read exit 0 as COMPAT-001 == pass)"
             exit 0
           fi
           if [ "$CODE" = "1" ] && [ "$EVENT" = "pull_request" ]; then

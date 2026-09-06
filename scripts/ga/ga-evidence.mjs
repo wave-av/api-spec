@@ -84,7 +84,7 @@ function nowIsoSeconds() {
  * `couldNotRun` -> status 'unknown' (a failed read says nothing about the criterion and must
  * never be graded as a pass); otherwise 'pass' only when every sub-check passed, else 'fail'.
  */
-function buildContractRow(raw) {
+export function buildContractRow(raw) {
   const command = 'scripts/ga/check-CONTRACT-001.sh';
   if (raw.couldNotRun) {
     const detail = raw.checks[0]?.detail ?? 'unknown failure';
@@ -94,7 +94,7 @@ function buildContractRow(raw) {
       command,
       failing_checks: [`gate could not run — ${raw.checks[0]?.name}: ${detail}`.slice(0, 500)],
       targets_observed: [],
-      fingerprintPayload: { criterion_id: 'CONTRACT-001', couldNotRun: true, checks: raw.checks.map((c) => [c.name, c.ok]) },
+      fingerprintPayload: { criterion_id: 'CONTRACT-001', couldNotRun: true, checks: raw.checks.map((c) => [c.name, c.ok, c.detail]) },
     };
   }
   const allPass = raw.checks.every((c) => c.ok === true);
@@ -109,9 +109,12 @@ function buildContractRow(raw) {
     command,
     failing_checks: allPass ? undefined : failing,
     targets_observed: targets,
+    // `detail` is included (not just `ok`) so evidence-relevant content changes that don't flip a
+    // boolean — e.g. which operations are undocumented-live — still change the fingerprint instead
+    // of being deduplicated against stale evidence (cubic P2).
     fingerprintPayload: {
       criterion_id: 'CONTRACT-001',
-      checks: raw.checks.map((c) => [c.name, c.ok]).sort(),
+      checks: raw.checks.map((c) => [c.name, c.ok, c.detail]).sort(),
       targets: [...targets].sort(),
     },
   };
@@ -123,7 +126,7 @@ function buildContractRow(raw) {
  * deprecation-notice half is unverified; a dirty run reports 'fail'; a gate that could not run
  * also reports 'unknown', distinguished in failing_checks.
  */
-function buildCompatRow(raw) {
+export function buildCompatRow(raw) {
   const command = 'scripts/ga/check-COMPAT-001.sh';
   if (raw.couldNotRun) {
     const detail = raw.checks[0]?.detail ?? 'unknown failure';
@@ -133,7 +136,7 @@ function buildCompatRow(raw) {
       command,
       failing_checks: [`gate could not run — ${raw.checks[0]?.name}: ${detail}`.slice(0, 500)],
       targets_observed: [],
-      fingerprintPayload: { criterion_id: 'COMPAT-001', couldNotRun: true, checks: raw.checks.map((c) => [c.name, c.ok]) },
+      fingerprintPayload: { criterion_id: 'COMPAT-001', couldNotRun: true, checks: raw.checks.map((c) => [c.name, c.ok, c.detail]) },
     };
   }
   const breakingCheck = raw.checks.find((c) => c.name === 'breaking-changes');
@@ -157,7 +160,7 @@ function buildCompatRow(raw) {
     targets_observed: targets,
     fingerprintPayload: {
       criterion_id: 'COMPAT-001',
-      checks: raw.checks.map((c) => [c.name, c.ok]).sort(),
+      checks: raw.checks.map((c) => [c.name, c.ok, c.detail]).sort(),
       targets: [...targets].sort(),
     },
   };
@@ -260,7 +263,15 @@ async function main() {
   process.stdout.write('\nga-evidence: ran cleanly (see per-criterion status above — unknown is not a failure but is not a pass either)\n');
 }
 
-main().catch((e) => {
-  process.stderr.write(`ga-evidence could not run: ${e?.stack || e}\n`);
-  process.exit(2);
-});
+// Guarded so importing this module for its exports (buildContractRow/buildCompatRow, tested in
+// ga-evidence.test.mjs) does not run the full producer — contract-001-check.mjs and
+// compat-001-check.mjs already follow this pattern; this file was missing it, which made `node
+// --test` actually execute the live producer (network fetch, git tag read, oasdiff invocation) as
+// an import side effect every time the test file loaded it.
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+if (isMain) {
+  main().catch((e) => {
+    process.stderr.write(`ga-evidence could not run: ${e?.stack || e}\n`);
+    process.exit(2);
+  });
+}

@@ -48,30 +48,90 @@ export const REPO_ROOT = resolve(HERE, '..', '..');
 // authored and verified against.
 export const OASDIFF_GO_MODULE = 'github.com/oasdiff/oasdiff@v1.29.1';
 
-function git(args) {
-  return spawnSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8' });
+function git(args, cwd = REPO_ROOT) {
+  return spawnSync('git', args, { cwd, encoding: 'utf8' });
 }
 
-export function resolveBaseTag(override) {
+// `cwd` defaults to this repo's root for every real caller; it exists as a parameter (rather than
+// only reading the module-level REPO_ROOT) so tests can point it at a disposable scratch git repo
+// and exercise "no v* tag" / "one tag" / "highest of several tags" without touching this repo's own
+// tags (creating a real tag here would be a destructive, shared-state side effect of a test run).
+export function resolveBaseTag(override, cwd = REPO_ROOT) {
   if (override) return override;
-  const r = git(['tag', '-l', 'v*', '--sort=-v:refname']);
+  const r = git(['tag', '-l', 'v*', '--sort=-v:refname'], cwd);
   if (r.status !== 0) return null;
   const tags = (r.stdout || '').split('\n').map((s) => s.trim()).filter(Boolean);
   return tags[0] ?? null;
 }
 
-function resolveOasdiffCmd() {
-  if (process.env.GA_OASDIFF_CMD) {
-    const parts = process.env.GA_OASDIFF_CMD.split(' ').filter(Boolean);
+/**
+ * Minimal argv tokenizer for GA_OASDIFF_CMD ("a full shell command line" per this override's own
+ * doc comment above). Handles single/double quotes and backslash escapes so a quoted path with
+ * spaces survives — naive `split(' ')` corrupted exactly that case. This is NOT a shell: no
+ * globbing, no variable expansion, no pipes/redirection, and the result is passed to `spawnSync`
+ * as an argv array (never through a shell string), so there is no command-injection surface here
+ * either way — this only fixes correctness of the split, not a security property.
+ */
+export function splitShellCommand(input) {
+  const parts = [];
+  let cur = '';
+  let hasCur = false;
+  let quote = null;
+  for (let i = 0; i < input.length; i += 1) {
+    const ch = input[i];
+    if (quote) {
+      if (ch === quote) {
+        quote = null;
+      } else if (ch === '\\' && quote === '"' && (input[i + 1] === '"' || input[i + 1] === '\\')) {
+        cur += input[i + 1];
+        i += 1;
+      } else {
+        cur += ch;
+      }
+      hasCur = true;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      hasCur = true;
+      continue;
+    }
+    if (ch === '\\' && i + 1 < input.length) {
+      cur += input[i + 1];
+      i += 1;
+      hasCur = true;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (hasCur) {
+        parts.push(cur);
+        cur = '';
+        hasCur = false;
+      }
+      continue;
+    }
+    cur += ch;
+    hasCur = true;
+  }
+  if (hasCur) parts.push(cur);
+  return parts;
+}
+
+// Exported for tests, which override PATH (via `env`) to exercise "GA_OASDIFF_CMD set", "oasdiff on
+// PATH", "no oasdiff but go on PATH", and "neither" without depending on what happens to be
+// installed on the machine actually running the suite.
+export function resolveOasdiffCmd(env = process.env) {
+  if (env.GA_OASDIFF_CMD) {
+    const parts = splitShellCommand(env.GA_OASDIFF_CMD).filter(Boolean);
     return { bin: parts[0], args: parts.slice(1) };
   }
-  const which = spawnSync('sh', ['-c', 'command -v oasdiff'], { encoding: 'utf8' });
+  const which = spawnSync('sh', ['-c', 'command -v oasdiff'], { encoding: 'utf8', env });
   if (which.status === 0 && which.stdout.trim()) {
     return { bin: which.stdout.trim(), args: [] };
   }
-  const goWhich = spawnSync('sh', ['-c', 'command -v go'], { encoding: 'utf8' });
+  const goWhich = spawnSync('sh', ['-c', 'command -v go'], { encoding: 'utf8', env });
   if (goWhich.status === 0 && goWhich.stdout.trim()) {
-    return { bin: 'go', args: ['run', process.env.GA_OASDIFF_GO_MODULE || OASDIFF_GO_MODULE] };
+    return { bin: 'go', args: ['run', env.GA_OASDIFF_GO_MODULE || OASDIFF_GO_MODULE] };
   }
   return null;
 }
@@ -81,7 +141,11 @@ function runOasdiff(basePath, candidatePath) {
   if (!cmd) {
     return { couldNotRun: true, detail: 'oasdiff is not installed and no go toolchain is available to run it via GA_OASDIFF_CMD / go run fallback' };
   }
-  const args = [...cmd.args, 'breaking', '-o', 'ERR', '-f', 'json', basePath, candidatePath];
+  // --allow-external-refs=false: oasdiff resolves external $ref values by default. This runs on
+  // pull_request against a PR-supplied openapi.yaml, so an unreviewed external $ref must never let
+  // the CI runner fetch an attacker-chosen URL (SSRF). Both basePath/candidatePath are local files
+  // this process wrote itself; disabling external refs only affects following $refs OUT of them.
+  const args = [...cmd.args, 'breaking', '--allow-external-refs=false', '-o', 'ERR', '-f', 'json', basePath, candidatePath];
   const res = spawnSync(cmd.bin, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 180_000 });
   if (res.error) {
     return { couldNotRun: true, detail: `could not execute "${cmd.bin} ${args.join(' ')}": ${res.error.message}` };

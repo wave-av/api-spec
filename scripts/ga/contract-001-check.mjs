@@ -99,6 +99,60 @@ function canonicalJson(value) {
   return JSON.stringify(sortKeysDeep(value ?? null));
 }
 
+/** RFC 6901 JSON Pointer resolution against a document already fully loaded in memory. */
+export function resolveJsonPointer(doc, ref) {
+  if (typeof ref !== 'string' || !ref.startsWith('#/')) return undefined;
+  const parts = ref
+    .slice(2)
+    .split('/')
+    .map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let cur = doc;
+  for (const part of parts) {
+    if (cur === null || typeof cur !== 'object') return undefined;
+    cur = cur[part];
+  }
+  return cur;
+}
+
+/**
+ * Walk `node` and resolve every internal `$ref` reachable from it against `doc`, recursively (a
+ * referenced schema may itself `$ref` another). Returns a Map of ref-string -> resolved value.
+ *
+ * WHY THIS EXISTS (cubic P1): the content digest below hashes only the operation object itself. An
+ * operation that still points at the same `$ref` while the REFERENCED component schema changed
+ * would report matching digests and miss real contract drift. Folding the reachable referenced
+ * content into the digest input closes that gap. Pure/offline: only reads objects already in
+ * memory, no I/O.
+ */
+export function collectReachableRefs(node, doc, out = new Map(), seen = new Set()) {
+  if (Array.isArray(node)) {
+    for (const item of node) collectReachableRefs(item, doc, out, seen);
+    return out;
+  }
+  if (!node || typeof node !== 'object') return out;
+  if (typeof node.$ref === 'string' && node.$ref.startsWith('#/')) {
+    if (!seen.has(node.$ref)) {
+      seen.add(node.$ref);
+      const resolved = resolveJsonPointer(doc, node.$ref);
+      if (resolved !== undefined) {
+        out.set(node.$ref, resolved);
+        collectReachableRefs(resolved, doc, out, seen);
+      }
+    }
+  }
+  for (const [key, value] of Object.entries(node)) {
+    if (key === '$ref') continue;
+    collectReachableRefs(value, doc, out, seen);
+  }
+  return out;
+}
+
+/** Canonical JSON of every ref this operation reaches, sorted by ref string for determinism. */
+function canonicalReachableRefs(op, doc) {
+  const refs = collectReachableRefs(op, doc);
+  return canonicalJson(Object.fromEntries([...refs.entries()].sort(([a], [b]) => a.localeCompare(b))));
+}
+
 /**
  * Run the CONTRACT-001 check. Returns `{ couldNotRun, checks, ... }`. Never throws for an
  * ordinary tooling failure — those come back as `couldNotRun: true` with a check named for what
@@ -164,22 +218,33 @@ export async function run(opts = {}) {
     const { path, method, op: repoOp } = repoOps.get(key);
     const { op: liveOp } = liveOps.get(key);
     const { repo, live } = normalizePair(repoOp, liveOp, path, method);
-    rowsRepo.push(`${key}\t${sha256(canonicalJson(repo))}`);
-    rowsLive.push(`${key}\t${sha256(canonicalJson(live))}`);
+    // Reachable $ref content is resolved from the RAW (pre-normalize) operation against its own
+    // document — normalizePair only touches operation-level enrichment fields, never $ref targets,
+    // so this sees exactly what each side's components actually publish today.
+    const repoRefs = canonicalReachableRefs(repoOp, repoDoc);
+    const liveRefs = canonicalReachableRefs(liveOp, liveDoc);
+    rowsRepo.push(`${key}\t${sha256(`${canonicalJson(repo)}\n${repoRefs}`)}`);
+    rowsLive.push(`${key}\t${sha256(`${canonicalJson(live)}\n${liveRefs}`)}`);
   }
   const localDigest = sha256([...rowsRepo].sort().join('\n'));
   const liveDigest = sha256([...rowsLive].sort().join('\n'));
 
   const findings = result.findings ?? [];
-  const findingLabels = findings.slice(0, 10).map((f) => `${f.direction} ${f.method} ${f.path}`);
+  // operation-parity is CONTRACT-001's "repo-only and live-only operations are zero" text — it must
+  // NOT also fail on `shared-drift` findings (an operation present on both sides with different
+  // content), because that condition is already reported, more precisely, by content-digest below.
+  // Counting shared-drift here too would make both sub-checks fail for the same underlying cause
+  // and mislabel which condition actually broke (cubic P2).
+  const parityFindings = findings.filter((f) => f.direction === 'undocumented-live' || f.direction === 'unpublished-repo');
+  const parityLabels = parityFindings.slice(0, 10).map((f) => `${f.direction} ${f.method} ${f.path}`);
 
   const checks = [
     {
       name: 'operation-parity',
-      ok: findings.length === 0,
-      detail: findings.length === 0
+      ok: parityFindings.length === 0,
+      detail: parityFindings.length === 0
         ? `zero unexplained repo-only/live-only operations (${repoOps.size} declared, ${liveOps.size} live, ${sharedKeys.length} shared, ${result.allowlisted?.length ?? 0} allowlisted, ${result.draftNotYetPublished?.length ?? 0} draft)`
-        : `${findings.length} unexplained operation-level finding(s): ${findingLabels.join('; ')}${findings.length > findingLabels.length ? '; …' : ''}`,
+        : `${parityFindings.length} unexplained repo-only/live-only operation finding(s): ${parityLabels.join('; ')}${parityFindings.length > parityLabels.length ? '; …' : ''}`,
     },
     {
       name: 'content-digest',
