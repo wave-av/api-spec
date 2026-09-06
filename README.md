@@ -2,7 +2,11 @@
 
 # api-spec
 
-**OpenAPI 3.1 specification for the WAVE streaming platform API — 43 documented endpoints across 17 tag groups (streaming, production, analytics, voice, captions, clips, and more), plus generators for client SDKs.**
+**WAVE is media infrastructure for the agentic internet: one call shape moves live and on-demand
+media across every transport, and both kinds of user, people and agents, discover it, call it, and
+pay for it per call.** This repository is the OpenAPI 3.1 specification for that call shape — 43
+documented endpoints across 17 tag groups (streaming, production, analytics, voice, captions, clips,
+and more), plus generators for client SDKs.
 
 ![kind](https://img.shields.io/badge/kind-openapi--spec-555?style=flat-square) ![domain](https://img.shields.io/badge/domain-api-0a7?style=flat-square) ![format](https://img.shields.io/badge/format-OpenAPI%203.1-85ea2d?style=flat-square) ![visibility](https://img.shields.io/badge/visibility-public-brightgreen?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)
 
