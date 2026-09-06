@@ -128,6 +128,14 @@ All notable changes to this project are documented here. The format is based on
 - **`capabilities.json`** — registers this repository with the organization's platform
   registry for discovery and lifecycle tracking. (#3)
 
+### Documentation
+
+- **docs: rewrite README** — restructured the top-level README (badges, quick start, repo
+  layout, related-packages table) and refreshed it against the current spec: clarified that
+  the x402-payable render operations (`renderVideo`, `renderPoll`, `renderEvents`) and the
+  device-authorization-flow responses are exceptions to the shared Bearer-token/`Error`-envelope
+  shape, and fixed the error-envelope example to match the `Error` schema's actual field types
+  (`details` is an object, `suggestions`/`did_you_mean` are arrays, not strings).
 ### Changed
 
 - **License: Apache-2.0** — the specification and repository now carry the Apache-2.0
