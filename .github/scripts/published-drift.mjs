@@ -29,11 +29,11 @@
  *
  * EXIT CODES — the fleet's standing contract for scheduled upstream watchers, the same one the pin
  * watcher uses. A FAILED READ IS NEVER REPORTED AS "NO DRIFT".
- *   0  no drift — every difference is normalized enrichment, a draft operation the gateway does
- *      NOT serve, or a live allowlist entry whose predicate still holds.
- *   1  UNKNOWN — could not read the published spec or the local spec, the allowlist is malformed,
- *      or a draft-liveness probe never resolved to live/not-live. A TOOLING failure: it says
- *      nothing about drift and must go red WITHOUT filing the routine drift issue.
+ *   0  no drift — every difference is normalized enrichment, a draft operation, or a live
+ *      allowlist entry whose predicate still holds.
+ *   1  UNKNOWN — could not read the published spec or the local spec, or the allowlist is
+ *      malformed. A TOOLING failure: it says nothing about drift and must go red WITHOUT filing
+ *      the routine drift issue.
  *   2  DRIFT — at least one unexplained operation-level difference.
  * There is deliberately no exit 3: the pin watcher reserves 3 for PROVENANCE, a question about a
  * pin this repo does not have.
@@ -43,25 +43,24 @@
  *   node .github/scripts/published-drift.mjs openapi.yaml --live fixtures/live.json   # offline
  *   node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json
  *   node .github/scripts/published-drift.mjs openapi.yaml --no-normalize              # see the 71
- *   node .github/scripts/published-drift.mjs openapi.yaml --draft-live-snapshot f.json  # offline
+ *   node .github/scripts/published-drift.mjs openapi.yaml --no-live-probe            # unit tier only
  *
  * NETWORK: one GET to the hardcoded public URL below for the published spec, unauthenticated,
- * bounded by an AbortController timeout, PLUS — only on a real (non-`--live`) run — one
- * unauthenticated request per `x-schema-status: draft` operation this repo declares that the
- * published spec does not carry. See published-drift-live-probe.mjs for why: `draft` must not be
- * able to suppress an operation the real gateway actually serves. `--live <file>` keeps this whole
- * run offline end to end, INCLUDING the draft probe (which is skipped, preserving "draft always
- * suppresses" for that run) — exactly what the offline test suite needs. To test the draft-carve-out
- * itself without touching the network, pass `--draft-live-snapshot <file>` (with or without
- * `--live`) — a JSON object of `"METHOD /path": { "status": "live"|"not-live" }` entries that
- * substitutes for the real probe.
+ * bounded by an AbortController timeout, PLUS — only on a real (non-`--live`, non-`--no-live-probe`)
+ * run — one unauthenticated request per `x-schema-status: draft` operation this repo declares that
+ * the published spec does not carry. See published-drift-live.mjs for why: `draft` must not be able
+ * to suppress an operation the real gateway actually serves. `--live <file>` keeps this whole run
+ * offline end to end, INCLUDING the draft probe (which is skipped, preserving "draft always
+ * suppresses" for that run) — exactly what the offline test suite needs. `--no-live-probe` skips
+ * only the probe tier (see the flag's own comment in parseArgs for why it cannot become a quiet way
+ * to turn the behavioural tier back off in the workflow).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { compare, indexOperations, validateAllowlist } from './published-drift-compare.mjs';
+import { probeOperations } from './published-drift-live.mjs';
 import { DIGEST_FIELD, repoFacts } from './published-drift-freshness.mjs';
-import { PROBE_UNKNOWN, probeDraftOperations, validateDraftLiveSnapshot } from './published-drift-live-probe.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -72,6 +71,80 @@ export const FETCH_TIMEOUT_MS = 20_000;
 export const EXIT_OK = 0;
 export const EXIT_UNKNOWN = 1;
 export const EXIT_DRIFT = 2;
+
+/** The fixed placeholder segment substituted for every `{param}` template before a live probe. */
+export const PROBE_PLACEHOLDER = 'wave-drift-probe-placeholder';
+
+/**
+ * A declared-but-unpublished path can carry an OpenAPI `{param}` template (e.g. `/clips/{clipId}`).
+ * Probed literally, the gateway's router will not match it — it matches on a real path segment, not
+ * the literal string `{clipId}` — so it 404s and gets misclassified as unpublished, reintroducing
+ * the exact false-green this tier removes for any draft route that is actually live behind a path
+ * parameter. Substitute a fixed placeholder segment so the probe hits the route the same way a real
+ * request would.
+ */
+export function templateToProbePath(path) {
+  return path.replace(/\{[^}]+\}/g, PROBE_PLACEHOLDER);
+}
+
+/**
+ * An operation's own `servers[0].url` overrides the document-level one — a handful of operations in
+ * this spec do exactly that (e.g. a root-level surface served with no `/v1` prefix). Probing such an
+ * operation against the document-level base would hit the wrong path and could misclassify it. But
+ * the override comes from `repoDoc` — the very document that is attacker-controlled on a fork PR —
+ * so it is honored ONLY when it resolves to the SAME ORIGIN as the trusted, liveDoc-derived base
+ * (differences in PATH are fine; a different host is never trusted, the override is silently
+ * ignored instead, falling back to the default prefix). This is the same SSRF discipline as the
+ * base-URL fix above, applied per operation instead of once.
+ */
+function resolveProbePrefix(op, trustedOrigin, defaultPrefix) {
+  const override = op?.servers?.[0]?.url;
+  if (!override) return defaultPrefix;
+  try {
+    const parsed = new URL(override);
+    if (parsed.origin !== trustedOrigin) return defaultPrefix;
+    return parsed.pathname.replace(/\/$/, '');
+  } catch {
+    return defaultPrefix;
+  }
+}
+
+/**
+ * Build the map from a probe path (placeholder-substituted, and prefixed per-operation per
+ * `resolveProbePrefix`) back to every declared-but-unpublished-and-DRAFT spec path it stands in for
+ * (two templated paths can collapse to the same probe path, e.g. `/x/{a}` and `/x/{b}`). `compare()`
+ * looks observations up by the ORIGINAL spec path — never the probe path — so this index is what
+ * lets a probe result find its way back to the key `compare()` actually reads.
+ *
+ * Scoped to `x-schema-status: draft` only: that is the ONLY set `compare()` ever consults
+ * `liveObservations` for (see the `unpublished-repo` loop) — a non-draft unpublished operation is
+ * always a finding regardless of what the gateway answers, so probing it spends a request whose
+ * result nothing ever reads.
+ */
+export function indexSpecPathsByProbePath(repoDoc, livePublished, trustedOrigin, defaultPrefix) {
+  const specPathsByProbePath = new Map();
+  for (const { path, method, op } of indexOperations(repoDoc).values()) {
+    if (op?.['x-schema-status'] !== 'draft') continue;
+    if (livePublished.has(`${method.toUpperCase()} ${path}`)) continue;
+    const prefix = resolveProbePrefix(op, trustedOrigin, defaultPrefix);
+    const probePath = prefix + templateToProbePath(path);
+    const specPaths = specPathsByProbePath.get(probePath) ?? [];
+    if (!specPaths.includes(path)) specPaths.push(path);
+    specPathsByProbePath.set(probePath, specPaths);
+  }
+  return specPathsByProbePath;
+}
+
+/** Re-key a probe's `{ probePath -> observation }` map onto every spec path it stands in for. */
+export function reindexObservationsBySpecPath(observations, specPathsByProbePath) {
+  const out = new Map();
+  for (const [probePath, observation] of observations) {
+    for (const specPath of specPathsByProbePath.get(probePath) ?? [probePath]) {
+      out.set(specPath, observation);
+    }
+  }
+  return out;
+}
 
 /**
  * Fetch the published contract. Returns a result, never throws, never defaults to "no drift".
@@ -112,7 +185,7 @@ export async function fetchPublished(url = PUBLISHED_SPEC_URL, doFetch = fetch) 
  * errors, so this returns a usage error the caller turns into EXIT_UNKNOWN.
  */
 export function parseArgs(argv) {
-  const args = { spec: null, live: null, out: null, normalize: true, json: false, draftLiveSnapshot: null, error: null };
+  const args = { spec: null, live: null, out: null, normalize: true, json: false, liveProbe: true, error: null };
   const value = (name, next) => {
     if (next === undefined || next.startsWith('--')) {
       args.error ??= `${name} needs a value (got ${next === undefined ? 'nothing' : JSON.stringify(next)})`;
@@ -125,8 +198,11 @@ export function parseArgs(argv) {
     if (a === '--live') args.live = value('--live', argv[++i]);
     else if (a === '--out') args.out = value('--out', argv[++i]);
     else if (a === '--no-normalize') args.normalize = false;
+    // Offline escape hatch for the unit tier ONLY. The workflow never passes it, and
+    // published-drift-live.test.mjs asserts the workflow never passes it, so this cannot become
+    // the quiet way to turn the behavioural tier back off.
+    else if (a === '--no-live-probe') args.liveProbe = false;
     else if (a === '--json') args.json = true;
-    else if (a === '--draft-live-snapshot') args.draftLiveSnapshot = value('--draft-live-snapshot', argv[++i]);
     else if (!a.startsWith('--') && args.spec === null) args.spec = a;
   }
   args.spec ??= 'openapi.yaml';
@@ -146,9 +222,9 @@ function report(r, say = console.log) {
       `${h.publishedVersion} ${h.publishedPaths} paths / ${h.publishedOperations} ops — shared ${h.sharedOperations}`,
   );
   say(
-    `published-drift: findings — undocumented-live ${h.undocumentedLive}, unpublished-repo ${h.unpublishedRepo} ` +
-      `(of which draft-but-live ${h.draftButLive}), shared-drift ${h.sharedDrift}; suppressed — draft ` +
-      `${h.draftNotYetPublished}, allowlisted ${h.allowlisted}`,
+    `published-drift: findings — undocumented-live ${h.undocumentedLive}, unpublished-repo ${h.unpublishedRepo}, ` +
+      `draft-but-live ${h.draftButLive}, shared-drift ${h.sharedDrift}; suppressed — draft ${h.draftNotYetPublished} ` +
+      `(of ${h.liveProbed ?? 'unprobed'} probed live), allowlisted ${h.allowlisted}`,
   );
   say(
     `published-drift: gateway enrichment normalized — ${r.enrichmentObservations.errorResponsesInjected} injected error ` +
@@ -252,77 +328,69 @@ export async function main(argv = process.argv.slice(2)) {
     return EXIT_UNKNOWN;
   }
 
-  // Draft-liveness probe: does the real gateway serve any of the operations this repo marks
-  // `x-schema-status: draft` and the published spec omits? See published-drift-live-probe.mjs for
-  // the full rationale. `--draft-live-snapshot` substitutes a fixture (offline, deterministic —
-  // what the test suite uses); otherwise a real `--live <file>` run stays fully offline end to end
-  // and skips the probe, preserving the old "draft always suppresses" behavior for that mode; a
-  // real network run (no `--live`) always probes.
-  let draftLiveProbe = new Map();
-  // The set THIS run expects a verdict for, computed once regardless of which branch below fills
-  // it in — both so the real-network path knows what to probe, and so a `--draft-live-snapshot`
-  // file can be checked for completeness against the SAME set, not merely well-formed.
-  const repoOpsForProbe = indexOperations(repoDoc);
-  const liveOpsForProbe = indexOperations(liveDoc);
-  const draftUnpublished = [...repoOpsForProbe.entries()]
-    .filter(([key, { op }]) => !liveOpsForProbe.has(key) && op['x-schema-status'] === 'draft')
-    .map(([key, { path, method }]) => ({ key, path, method }));
-  if (args.draftLiveSnapshot) {
-    try {
-      const raw = JSON.parse(readFileSync(args.draftLiveSnapshot, 'utf8'));
-      const snapshotError = validateDraftLiveSnapshot(raw);
-      if (snapshotError) {
-        console.error(`published-drift: draft-live snapshot ${args.draftLiveSnapshot}: ${snapshotError}`);
-        return EXIT_UNKNOWN;
-      }
-      draftLiveProbe = new Map(Object.entries(raw));
-      // A snapshot that OMITS an operation this run expects a verdict for is indistinguishable
-      // from "never probed" once it becomes a Map — and an absent key reads as suppressed, not as
-      // unresolved (see the unresolved-probe check below, which can only see entries that exist).
-      // An incomplete fixture must refuse loudly here, before that ambiguity can hide a live route.
-      const missing = draftUnpublished.filter(({ key }) => !draftLiveProbe.has(key)).map(({ key }) => key);
-      if (missing.length) {
-        console.error(
-          `published-drift: draft-live snapshot ${args.draftLiveSnapshot} is missing ${missing.length} ` +
-            `entr${missing.length === 1 ? 'y' : 'ies'} this run expects a verdict for: ${missing.join(', ')}`,
-        );
-        return EXIT_UNKNOWN;
-      }
-    } catch (err) {
-      console.error(`published-drift: could not read/parse draft-live snapshot ${args.draftLiveSnapshot}: ${err.message}`);
+  // ── LIVE-BEHAVIOUR TIER ────────────────────────────────────────────────────────────────────
+  // Probe only the operations this repo declares that the published contract does NOT carry, which
+  // is exactly the set the `draft` annotation was suppressing. See published-drift-live.mjs for
+  // the measurement that motivated it and for the safety argument (unauthenticated GET, no body,
+  // no credential, nothing paid).
+  // `--live <snapshot>` already documents itself as making the run FULLY OFFLINE, so it implies no
+  // behaviour probe either. That is honoring the flag's stated contract, not an escape hatch: the
+  // workflow passes neither `--live` nor `--no-live-probe`, and published-drift-live.test.mjs
+  // asserts that against the workflow file itself.
+  let liveObservations = null;
+  if (args.liveProbe && !args.live) {
+    // `repoDoc` is THIS PR's openapi.yaml, and the drift job now runs on pull requests — so on a
+    // fork PR `repoDoc` is attacker-controlled. Deriving the probe target from its `servers[0].url`
+    // would let a malicious PR point unauthenticated CI network calls at an arbitrary HTTPS host
+    // (an SSRF read primitive). `liveDoc` came from the trusted, hardcoded `PUBLISHED_SPEC_URL` a
+    // few lines up (never from `--live`, since that branch already returned before reaching here) —
+    // only ITS servers entry, resolved here ONCE into an origin and a default path prefix, is a
+    // legitimate probe base. A per-operation `servers` override (see indexSpecPathsByProbePath) is
+    // honored only when it resolves to this SAME origin — never a foreign host.
+    const rawBaseUrl = String(liveDoc?.servers?.[0]?.url ?? '').replace(/\/$/, '');
+    if (!/^https:\/\//.test(rawBaseUrl)) {
+      console.error(`published-drift: cannot probe live behaviour — the published contract at ${source} declares no https servers[0].url`);
       return EXIT_UNKNOWN;
     }
-  } else if (!args.live) {
+    const parsedBase = new URL(rawBaseUrl);
+    const trustedOrigin = parsedBase.origin;
+    const defaultPrefix = parsedBase.pathname.replace(/\/$/, '');
+
+    const livePublished = indexOperations(liveDoc);
+    // Probe a path that already carries its resolved prefix and placeholder substitution, but
+    // `compare()` looks observations up by the ORIGINAL spec path (see published-drift-compare.mjs,
+    // the `unpublished-repo` loop) — so the probe path must never become the key an observation is
+    // stored or looked up under. Re-key the returned observations back onto the spec path before
+    // they reach compare(); see indexSpecPathsByProbePath / reindexObservationsBySpecPath.
+    const specPathsByProbePath = indexSpecPathsByProbePath(repoDoc, livePublished, trustedOrigin, defaultPrefix);
+    const repoOnly = [...specPathsByProbePath.keys()];
     // `repoDoc` is THIS PR's openapi.yaml, so a fork PR controls how many draft-and-unpublished
-    // operations it declares. Each probe retries up to DEFAULT_RETRIES times at PROBE_TIMEOUT_MS,
-    // so an unbounded set could genuinely exceed this job's own timeout-minutes before the probe
-    // finishes — a job killed mid-run is a worse failure mode than a clean, fast refusal. Refuse
-    // rather than silently degrade into a slow, traffic-generating, possibly-truncated run.
+    // operations it declares. Probing an unbounded set would send one unauthenticated request per
+    // operation to the production gateway and could run for a very long time; refuse rather than
+    // silently degrade into a slow, traffic-generating job.
     const MAX_PROBED_OPERATIONS = 400;
-    if (draftUnpublished.length > MAX_PROBED_OPERATIONS) {
-      console.error(
-        `published-drift: refusing to probe ${draftUnpublished.length} draft operations (limit ${MAX_PROBED_OPERATIONS})`,
-      );
+    if (repoOnly.length > MAX_PROBED_OPERATIONS) {
+      console.error(`published-drift: refusing to probe ${repoOnly.length} operations (limit ${MAX_PROBED_OPERATIONS})`);
       return EXIT_UNKNOWN;
     }
-    draftLiveProbe = await probeDraftOperations(draftUnpublished);
-  }
-  // UNKNOWN IS NOT A PASS: a probe that never got a real verdict must never silently fall back to
-  // "not live" (which would just re-open the hole this file exists to close). Refuse loudly instead
-  // — same tier as an unreadable spec or an unreachable gateway — and name every route that failed.
-  const unresolvedProbes = [...draftLiveProbe.entries()].filter(([, r]) => r.status === PROBE_UNKNOWN);
-  if (unresolvedProbes.length) {
-    for (const [key, r] of unresolvedProbes) {
-      console.error(`published-drift: could not determine whether ${key} is live: ${r.error ?? 'unknown probe failure'}`);
+    // probeOperations() defaults its two control paths to no prefix at all, which matched the old
+    // call (baseUrl carried the full default prefix already). Now that baseUrl is the bare origin
+    // and each real path carries its OWN resolved prefix, the controls need the same default prefix
+    // explicitly — otherwise they test a different, unrepresentative endpoint space (the bare origin
+    // root) instead of the prefix the vast majority of probed operations actually live under.
+    const probe = await probeOperations(trustedOrigin, repoOnly, {
+      controls: [`${defaultPrefix}/wave-drift-control-no-such-route`, `${defaultPrefix}/wave-drift-control-also-absent`],
+    });
+    if (!probe.usable) {
+      // A probe whose control failed is not a probe. Reporting "no drift" on the strength of it
+      // would be the same defect in a new place.
+      console.error(`published-drift: ${probe.reason}`);
+      return EXIT_UNKNOWN;
     }
-    console.error(
-      `published-drift: ${unresolvedProbes.length} draft-liveness probe(s) never resolved. This says nothing about ` +
-        'whether those routes are live and must not be graded as "still draft" — fix the read, then re-run.',
-    );
-    return EXIT_UNKNOWN;
+    liveObservations = reindexObservationsBySpecPath(probe.observations, specPathsByProbePath);
   }
 
-  const result = compare({ repoDoc, liveDoc, allowlist, normalize: args.normalize, draftLiveProbe });
+  const result = compare({ repoDoc, liveDoc, allowlist, normalize: args.normalize, liveObservations });
   const artifact = {
     about:
       'Point-in-time operation-level diff between this repo\'s openapi.yaml and the contract the gateway publishes. ' +

@@ -28,21 +28,22 @@
  * THE DRAFT-LIVE CARVE-OUT (added after the 2026-09-04 GA verdict: `unpublishedRepo: 0` was zero
  * by redefinition — 158 operations were shunted into `draft` and excluded from the count while 10
  * of 10 sampled answered a live 402 in production, meaning the route exists and is priced. A 402
- * is not a draft.). `draft` suppresses an operation ONLY while `draftLiveProbe` (a Map the caller
- * builds — see published-drift-live-probe.mjs — by asking the real gateway) says that operation is
- * NOT live. The moment the probe says `live`, the finding is NOT suppressed: it is reported under
- * `unpublished-repo` with `severity: 'draft-but-live'`, and it counts in `headline.unpublishedRepo`
- * and the new `headline.draftButLive`. An operation this function has NO probe result for (the
- * default, empty `draftLiveProbe`) keeps the prior behavior — suppressed — because compare() itself
- * makes no network calls; published-drift.mjs's main() is the one that must refuse (EXIT_UNKNOWN)
- * before ever handing this function a probe result of 'unknown', so in practice this function only
- * ever observes 'live', 'not-live', or "never probed" (the offline `--live <snapshot>` path, which
- * is documented to stay fully offline and therefore never populates this map).
+ * is not a draft.). `draft` suppresses an operation ONLY while `liveObservations` (a Map the caller
+ * builds — see published-drift-live.mjs — by asking the real gateway) has NO observation for that
+ * path, or classifies it as `unpublished`. The moment the observation classifies as `live` or
+ * `unknown`, the finding is NOT suppressed: it is reported under its own `draft-but-live` direction
+ * (severity `claim-contradicted-by-behaviour` for a confirmed-live route, `unverifiable` for a probe
+ * that could not resolve — UNKNOWN IS NOT A PASS), and it counts in `headline.draftButLive` and
+ * `headline.liveProbed`. An operation with no `liveObservations` at all (the offline `--live
+ * <snapshot>` or `--no-live-probe` paths, which are documented to stay fully offline) keeps the
+ * prior behavior — suppressed — because compare() itself makes no network calls; the probe and its
+ * classification both live in published-drift.mjs / published-drift-live.mjs.
  */
 import { isDeepStrictEqual } from 'node:util';
 import { NORMALIZATION_RULES, NO_OBSERVATIONS, normalizePair } from './published-drift-normalize.mjs';
+import { classifyLiveObservation, describeObservation } from './published-drift-live.mjs';
 
-export const DIRECTIONS = ['undocumented-live', 'unpublished-repo', 'shared-drift'];
+export const DIRECTIONS = ['undocumented-live', 'unpublished-repo', 'draft-but-live', 'shared-drift'];
 
 /** The HTTP verbs an OpenAPI path item may carry; anything else there is metadata, not an operation. */
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
@@ -147,16 +148,25 @@ export function validateAllowlist(allowlist) {
     if (!DIRECTIONS.includes(e.direction))
       return `allowlist entry ${e.method} ${e.path} has an unknown direction ${JSON.stringify(e.direction)}`;
     const hasPredicate = Object.keys(e.expect ?? {}).length > 0 || (e.expectAbsent ?? []).length > 0;
+    // Directions `record()` never hands a live OpenAPI operation object to. `unpublished-repo` has
+    // none by construction (declared here, not served). `draft-but-live` has a live PROBE
+    // OBSERVATION ({status, bodyCode}), not an operation object — there is nothing shaped like an
+    // operation for `expect`/`expectAbsent` to walk. A predicate on either direction validates and
+    // then never gets to run: allowlistStillApplies always receives `liveOp: null` for both, so it
+    // always takes the "no live operation" branch, which is unconditionally false the moment a
+    // predicate is present.
+    const noLiveOperation = ['unpublished-repo', 'draft-but-live'].includes(e.direction);
     // The header of this file promises that a live-direction exemption carries "a justification AND
     // a live predicate". Enforce the second half: without a predicate the entry is honored on
     // path+method alone, can never lapse, and outlives the reasoning that granted it — the exact
     // failure `expectAbsent` exists to prevent.
-    if (e.direction !== 'unpublished-repo' && !hasPredicate)
+    if (!noLiveOperation && !hasPredicate)
       return `allowlist entry ${e.method} ${e.path} (${e.direction}) needs an expect or expectAbsent predicate — an exemption that cannot lapse outlives its justification`;
-    // The mirror image. `unpublished-repo` has no live operation to evaluate against, so a predicate
-    // there can never be true; the entry would validate, then silently never apply.
-    if (e.direction === 'unpublished-repo' && hasPredicate)
-      return `allowlist entry ${e.method} ${e.path} (unpublished-repo) cannot carry a predicate — the operation is not served, so there is no live operation to evaluate one against`;
+    // The mirror image. `unpublished-repo` and `draft-but-live` never receive a live operation to
+    // evaluate against, so a predicate on either can never be true; the entry would validate, then
+    // silently never apply.
+    if (noLiveOperation && hasPredicate)
+      return `allowlist entry ${e.method} ${e.path} (${e.direction}) cannot carry a predicate — there is no live operation to evaluate one against`;
     const key = `${e.direction} ${e.method.toUpperCase()} ${e.path}`;
     if (seen.has(key)) return `duplicate allowlist entry for ${key}`;
     seen.add(key);
@@ -164,7 +174,7 @@ export function validateAllowlist(allowlist) {
   return null;
 }
 
-export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, draftLiveProbe = new Map() }) {
+export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, liveObservations = null }) {
   const repoOps = indexOperations(repoDoc);
   const liveOps = indexOperations(liveDoc);
   const allowByKey = new Map(allowlist.map((e) => [`${e.direction} ${e.method.toUpperCase()} ${e.path}`, e]));
@@ -240,26 +250,35 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, dr
       xSkillUrl: op['x-skill-url'] ?? null,
     };
     if (op['x-schema-status'] === 'draft') {
-      const probe = draftLiveProbe.get(key);
-      if (probe && probe.status === 'live') {
-        record(
-          'unpublished-repo',
-          path,
-          method,
-          { ...entry, liveProbeHttpStatus: probe.httpStatus ?? null, liveProbeErrorCode: probe.code ?? null },
-          {
-            severity: 'draft-but-live',
-            note:
-              `x-schema-status: draft, but the gateway answers HTTP ${probe.httpStatus ?? '?'}` +
-              `${probe.code ? ` ${probe.code}` : ''} for this route — not the 403 ROUTE_NOT_MAPPED a ` +
-              'genuinely unshipped operation returns (control: an unmapped path). The route is live; ' +
-              '`draft` cannot suppress a shipped, priced operation. Promote it out of draft, or take the route down.',
-          },
-          null,
-        );
+      // SUPPRESSION NOW REQUIRES TWO INDEPENDENT CONDITIONS, and an annotation can only ever
+      // satisfy one of them. `draft` is a CLAIM that the operation is not yet a promise to
+      // consumers; the live gateway is the GROUND TRUTH about whether it is one already. When
+      // `liveObservations` is present, a route that answers is published in behaviour no matter
+      // what the annotation says, and no edit to openapi.yaml can hide it again.
+      const observed = liveObservations ? classifyLiveObservation(liveObservations.get(path)) : null;
+      if (observed === null || observed === 'unpublished') {
+        draftNotYetPublished.push({ ...entry, liveEvidence: observed === null ? null : describeObservation(liveObservations.get(path)) });
         continue;
       }
-      draftNotYetPublished.push(entry);
+      record(
+        'draft-but-live',
+        path,
+        method,
+        { ...entry, liveEvidence: describeObservation(liveObservations.get(path)) },
+        observed === 'unknown'
+          ? {
+              severity: 'unverifiable',
+              // UNKNOWN IS NOT A PASS. A probe that could not run is not evidence that the route is
+              // absent, and letting it fall back into the suppressed bucket would restore exactly
+              // the false-green this tier removes — quietly, and only during an outage.
+              note: 'declared draft, and the live gateway could not be asked whether it already serves this route — an unverifiable suppression is not a suppression',
+            }
+          : {
+              severity: 'claim-contradicted-by-behaviour',
+              note: 'declared x-schema-status: draft — the claim that it is not yet a promise to consumers — while the live gateway already answers for it. On this gateway an unmapped path returns ROUTE_NOT_MAPPED, so an answer proves the route exists. Publication is a fact about behaviour, not about an annotation.',
+            },
+        null,
+      );
       continue;
     }
     record(
@@ -312,11 +331,6 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, dr
   draftNotYetPublished.sort((a, b) => `${a.path} ${a.method}`.localeCompare(`${b.path} ${b.method}`));
 
   const count = (d) => findings.filter((f) => f.direction === d).length;
-  // Findings the draft-live carve-out promoted OUT of draftNotYetPublished. Reported separately
-  // from the plain unpublishedRepo count (which already includes them) so a reader can see, at a
-  // glance, how many of today's findings are specifically "draft hid a live route" — the exact
-  // failure mode the 2026-09-04 GA verdict named.
-  const draftButLive = findings.filter((f) => f.direction === 'unpublished-repo' && f.severity === 'draft-but-live').length;
   return {
     headline: {
       repoVersion: repoDoc?.info?.version ?? null,
@@ -328,7 +342,8 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, dr
       sharedOperations: [...repoOps.keys()].filter((k) => liveOps.has(k)).length,
       undocumentedLive: count('undocumented-live'),
       unpublishedRepo: count('unpublished-repo'),
-      draftButLive,
+      draftButLive: count('draft-but-live'),
+      liveProbed: liveObservations ? liveObservations.size : null,
       sharedDrift: count('shared-drift'),
       draftNotYetPublished: draftNotYetPublished.length,
       allowlisted: allowlisted.length,

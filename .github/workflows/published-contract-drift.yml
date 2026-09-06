@@ -1,43 +1,31 @@
 # published-contract-drift.yml — does the contract the gateway PUBLISHES still match the one this
 # repo declares? See .github/scripts/published-drift.mjs for the full rationale.
 #
-# THREE JOBS. `unit` and `freshness` run everywhere including pull requests; `drift` now does too —
-# see the 2026-09-04 correction below for why that changed.
+# TWO JOBS, TWO TRIGGERS, ON PURPOSE.
 #
 #   `unit` runs on PULL REQUESTS. It is offline — node --test over hand-built fixtures, no network
 #   at all — so it is a property of the diff and belongs on the PR path.
 #
-#   `drift` ALSO runs on pull requests now (plus schedule and on demand, as before). It fetches the
-#   live published contract AND live-probes every `x-schema-status: draft` operation the PR's spec
-#   declares that the published contract omits (see published-drift-live-probe.mjs). Read the
-#   correction below for why this is on the PR path at all.
+#   `drift` runs on a SCHEDULE, on demand, AND on pull requests. It used to carry
+#   `if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'`, which made it
+#   SKIPPED on every pull request — so the one moment a drift is actually INTRODUCED, by a diff, was
+#   the one moment this gate was not looking. That guard is gone.
+#
+#   The original argument for it was real but measured the wrong blast radius: "asking it on every
+#   PR would make every author here depend on an unauthenticated network fetch." The workflow-level
+#   `pull_request` trigger is PATH-FILTERED to openapi.yaml and the drift scripts. It was never
+#   every author — it is authors changing the spec, which is exactly who should be told that the
+#   operation they are adding is already live, or that the one they are marking draft is already
+#   being billed for. A gateway outage on such a PR yields exit 1 (UNKNOWN) and goes red, which is
+#   deliberate and follows the fleet precedent (claude-workstation#4340): "could not measure" maps
+#   to conclusion `failure`, never success/neutral/skipped, because only those three satisfy a
+#   required check. UNKNOWN IS NOT A PASS, and a spec PR merged blind is worse than a spec PR held.
 #
 #   `freshness` runs EVERYWHERE, because it is offline. It asks the one question the other two do
 #   not: is the COMMITTED contract-drift.json still a receipt for the CURRENT openapi.yaml? `unit`
 #   never opens that file, and `drift` writes a fresh copy to /tmp and uploads it as a build
 #   artifact without ever diffing it against the committed one — so before this job, the committed
 #   receipt could disagree with the spec sitting beside it and nothing would say a word.
-#
-# CORRECTION, 2026-09-04 (WAVE GA VERDICT, CONTRACT-001 lane). This file used to argue — at length,
-# right here — that `drift` must never run on a pull request, because an unauthenticated network
-# fetch could red an author's PR for an outage they cannot act on. That reasoning was sound on its
-# own terms and WRONG in its conclusion, because of what it actually bought: a gate that runs on
-# `schedule`/`workflow_dispatch` alone is SKIPPED on every pull request — it can never block a
-# change, no matter how badly that change drifts the published contract. That is not a safety
-# margin; it is a gate that cannot gate, one of the thirteen named instances in the 2026-09-04 GA
-# verdict of "this repo built a checker, not a gate." The other defect that verdict named in the
-# same lane compounds it: `unpublishedRepo: 0` was zero by REDEFINITION — 158 operations were
-# shunted into a `draft` bucket the headline metric excludes, while 10 of 10 sampled answered a
-# live 402 in production (a route that genuinely does not exist answers 403 ROUTE_NOT_MAPPED
-# instead — verified as the control the same day). A metric that reaches zero by moving items to
-# an uncounted bucket is the purest form of that same defect. Both are fixed together here: `drift`
-# is reachable on the pull_request paths already declared below (a spec change is exactly the
-# diff this question is a property of), and `draft` no longer suppresses an operation the gateway
-# actually serves (see published-drift-compare.mjs's draft-live carve-out). The flakiness risk the
-# old comment named is real but bounded and handled, not a reason to stay unreachable: the probe
-# retries a transient failure and REFUSES (EXIT_UNKNOWN, red, no false pass) rather than guessing
-# when a route's liveness genuinely could not be determined — see the "Fail loudly on a broken
-# read" step below, which now also covers this.
 #
 # WHY `freshness` IS ADVISORY ON A PULL REQUEST AND RED ON THE SCHEDULE. Clearing a stale verdict
 # means regenerating the receipt, and THAT needs the network. Failing a pull request for it would
@@ -52,16 +40,12 @@
 # specific to this repo's own published artifact does not belong inside the mirrored file.
 #
 # ON EXIT 2 (drift) the job files or updates ONE tracking issue, matched by exact title so repeated
-# runs comment instead of opening a new issue every morning — UNLESS the run is a pull_request, in
-# which case no issue is touched at all: the job still goes red on the PR itself (see the "Fail on
-# drift" / "Fail loudly on a broken read" steps, which are unconditional on event type), but the
-# tracking issue exists to describe the state of the DEFAULT BRANCH, and a PR that has not merged
-# has not changed that state. ON EXIT 0, off the PR path, it CLOSES that same issue: an open issue
-# is a claim about the current state of the default branch, and a claim nothing ever retracts
-# becomes false the moment it is fixed. Both jobs own the full lifecycle of their own issue, and
-# the two titles are distinct so neither touches the other's. On exit 1 (UNKNOWN — a broken read)
-# it goes red and files NOTHING: a failed read says nothing about drift, and an issue claiming
-# drift on the strength of a failed fetch would be a false report.
+# runs comment instead of opening a new issue every morning. ON EXIT 0 it CLOSES that same issue:
+# an open issue is a claim about the current state of the default branch, and a claim nothing ever
+# retracts becomes false the moment it is fixed. Both jobs own the full lifecycle of their own
+# issue, and the two titles are distinct so neither touches the other's. On exit 1 (UNKNOWN — a
+# broken read) it goes red and files NOTHING: a failed read says nothing about drift, and an issue
+# claiming drift on the strength of a failed fetch would be a false report.
 #
 # ON ANY OTHER EXIT CODE both jobs go red. The scripts define exactly three codes; a fourth means a
 # crash — an interpreter error, an OOM kill, a code added to a script without teaching this file
@@ -269,28 +253,27 @@ jobs:
             echo "Receipt is fresh and no tracking issue is open. Nothing to close."
           fi
 
-  # Networked. Runs on pull_request (see the 2026-09-04 correction at the top of this file), on the
-  # schedule, and on demand. It does NOT file or close the tracking issue on a pull_request run —
-  # see the per-step conditions below — both because a fork PR's default GITHUB_TOKEN cannot write
-  # issues regardless of what this file requests, and because a single PR's drift verdict is not the
-  # right trigger for the standing "the default branch is drifted" claim that issue makes; it goes
-  # red on the PR itself instead, which is the whole point of this fix.
+  # Networked. NOW RUNS ON PULL REQUESTS TOO — see the header note on the narrowed blast radius.
+  # Reads only. This is the job a pull request (including a fork PR) actually drives, so it never
+  # holds a scope beyond `contents: read` — see `drift-issue` below for why that split exists and
+  # what it closes.
   drift:
     name: published contract drift
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    # The workflow-level `pull_request` trigger is already PATH-FILTERED to openapi.yaml and the
+    # drift scripts, so this runs on spec-changing PRs, schedules, and manual dispatches — but the
+    # same `push.paths` filter also matches those same paths on a push to main (the freshness job's
+    # trigger), which would add this networked live-probe gate and its issue lifecycle to every
+    # post-merge push, outside the documented schedule/manual/PR scope. Excluding `push` here keeps
+    # this job on exactly the three events it documents itself as running on.
+    # `pull_request` appears in this comment and in the trigger; published-drift-live.test.mjs
+    # asserts the schedule-only guard has not come back.
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
-    # 20, not the 10 every other job in this file uses: this job's live-behaviour probe tier retries
-    # each unresolved draft operation up to DEFAULT_RETRIES times at PROBE_TIMEOUT_MS, and at the
-    # spec's current ~150 draft operations / DEFAULT_CONCURRENCY=8 workers, worst case (every probe
-    # timing out) already approaches 10 minutes on its own — a job killed mid-run by its own timeout
-    # is a worse failure mode (no verdict at all) than the clean EXIT_UNKNOWN refusal
-    # MAX_PROBED_OPERATIONS is meant to be. published-drift.mjs bounds the operation COUNT; this
-    # bounds the worst-case TIME for the count the spec has today.
-    timeout-minutes: 20
+    timeout-minutes: 10
     permissions:
       contents: read
-      # Required to file/update the tracking issue on exit 2.
-      issues: write
+    outputs:
+      code: ${{ steps.drift.outputs.code }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -311,12 +294,17 @@ jobs:
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "exit code: $code"
 
+      # Both files travel to `drift-issue` under one artifact: the machine-readable diff (an
+      # existing consumer downloads this by name) and the human log the issue body quotes. Neither
+      # crosses a trust boundary here — this job only ever reads, it never writes an issue.
       - name: Upload the diff artifact
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: contract-drift
-          path: /tmp/contract-drift.json
+          path: |
+            /tmp/contract-drift.json
+            /tmp/drift.log
           if-no-files-found: warn
 
       # Same default case as the freshness job, for the same reason: the steps below enumerate '1'
@@ -339,14 +327,66 @@ jobs:
           echo "This says NOTHING about drift and no issue was filed. Fix the read, then re-run."
           exit 1
 
+      # The job's own verdict is red on drift too, so a silenced or rate-limited issue write (in
+      # the separate `drift-issue` job) can never make a drifted contract look green — this step
+      # has no dependency on that job succeeding.
+      - name: Fail on drift
+        if: steps.drift.outputs.code == '2'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "::error::The published contract has drifted from openapi.yaml. No tracking issue is filed on a pull request — fix the drift before merge."
+          else
+            echo "::error::The published contract has drifted from openapi.yaml. A tracking issue was filed or updated."
+          fi
+          exit 1
+
+  # Writes. Split out of `drift` (2026-09-05, review of #84): that job runs pull-request-controlled
+  # workflow and package code, and a pull request from a fork can in principle reach `github.token`
+  # from within it. `pull_request` on GitHub Actions gets a read-only token by default regardless of
+  # what a workflow's `permissions:` block requests — a repository has to opt in to sending forks a
+  # write-capable token, which is not this repo's default — but least privilege does not lean on
+  # that default holding forever: the job that runs on every pull request now has no write scope to
+  # reach for even if it did. Only THIS job, which does not run on pull_request at all, ever holds
+  # `issues: write`.
+  drift-issue:
+    name: published contract drift tracking issue
+    needs: drift
+    # `always()`: `drift` FAILS its own job on exit 2 (drift found) — that is what makes the
+    # required check red — so the implicit default condition here (every needed job succeeded)
+    # would SKIP this job on exactly the run where filing an issue matters most. `always()` runs
+    # regardless of `drift`'s pass/fail conclusion; `needs.drift.result != 'skipped'` still excludes
+    # a push (where `drift` itself never runs, so there is no code to act on), and the event-name
+    # check still excludes pull_request. Every actual gh-issue step below is separately gated on
+    # `needs.drift.outputs.code`, so a genuinely absent/invalid code still does nothing.
+    if: always() && needs.drift.result != 'skipped' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Required to file/update/close the tracking issue. Never granted to the `drift` job above.
+      issues: write
+    steps:
+      - name: Download the diff artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: contract-drift
+          path: /tmp
+
       # exit 2 = DRIFT. File or update exactly one tracking issue.
       #
       # Nothing PR- or issue-controlled is interpolated into a shell command: the title is a fixed
-      # literal, the body is written to a file by the script above and passed with --body-file, and
-      # the issue number comes from a --jq filter over `gh issue list` output rather than from a
-      # search string. The only interpolated value is $GITHUB_REPOSITORY, which GitHub sets.
+      # literal, the body is built from /tmp/drift.log (produced by `drift`, never by this job) and
+      # passed with --body-file, and the issue number comes from a --jq filter over `gh issue list`
+      # output rather than from a search string. The only interpolated value is $GITHUB_REPOSITORY,
+      # which GitHub sets.
+      # The tracking issue is a claim about the state of the DEFAULT BRANCH, so the PR path must not
+      # touch it: this job's own `if:` above already excludes pull_request, so a PR's drift is the
+      # PR author's to fix before merge, and the `drift` job's own "Fail on drift" step is NOT
+      # guarded — a PR that introduces drift still goes red regardless of this job.
       - name: File or update the tracking issue
-        if: steps.drift.outputs.code == '2' && github.event_name != 'pull_request'
+        if: needs.drift.outputs.code == '2'
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: 'Published contract has drifted from openapi.yaml'
@@ -374,14 +414,6 @@ jobs:
             gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file /tmp/issue-body.md
           fi
 
-      # The job's own verdict is red on drift too, so a silenced or rate-limited issue write can
-      # never make a drifted contract look green.
-      - name: Fail on drift
-        if: steps.drift.outputs.code == '2'
-        run: |
-          echo "::error::The published contract has drifted from openapi.yaml. A tracking issue was filed or updated."
-          exit 1
-
       # exit 0 = the contract was reconciled. Close the issue that exit 2 opened, for the same
       # reason the freshness job closes its own: an open issue asserts that the published contract
       # is CURRENTLY drifted, and nothing else in this workflow ever retracts that. Left alone it
@@ -389,7 +421,7 @@ jobs:
       # issue everyone had already learned to ignore. Exact-title match, and this title is distinct
       # from the freshness job's — the two lifecycles stay separate.
       - name: Close the tracking issue once the contract matches again
-        if: steps.drift.outputs.code == '0' && github.event_name != 'pull_request'
+        if: needs.drift.outputs.code == '0'
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: 'Published contract has drifted from openapi.yaml'

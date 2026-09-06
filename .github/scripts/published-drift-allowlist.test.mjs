@@ -133,6 +133,41 @@ test('an unpublished-repo exemption is HONORED, and is not reported with a live-
   assert.doesNotMatch(lapsed.lapsedAllowlist[0].reason, /no longer matches/);
 });
 
+test('a draft-but-live exemption is rejected for CARRYING a predicate — `record` never has a live operation object to evaluate one against', () => {
+  // `record()` passes `null` as `liveOp` for this direction too: the live signal is a PROBE
+  // OBSERVATION ({status, bodyCode}), never an OpenAPI operation object, so there is nothing for
+  // `expect`/`expectAbsent` (which walk dotted operation fields) to match against.
+  const entry = { path: '/a', method: 'GET', direction: 'draft-but-live', justification: 'A justification long enough.' };
+  assert.equal(validateAllowlist([entry]), null);
+  assert.match(validateAllowlist([{ ...entry, expect: { 'tags.0': 'public' } }]), /cannot carry a predicate/);
+  assert.match(validateAllowlist([{ ...entry, expectAbsent: ['security'] }]), /cannot carry a predicate/);
+});
+
+test('a draft-but-live exemption is HONORED when predicate-free, and LAPSES (never silently applies) the moment it states a predicate', () => {
+  // Before this fix, `allowlistStillApplies(entry, null, liveDoc)` returned false for EVERY
+  // draft-but-live entry that passed validation, because validation required a predicate but the
+  // runtime never has a live operation to grade one against — a valid-looking exemption that could
+  // never actually suppress anything.
+  const draftOp = { 'x-schema-status': 'draft', 'x-price': { model: 'x402' }, responses: {} };
+  const repoDoc = doc({ '/served': { post: draftOp } });
+  const liveObservations = new Map([['/served', { status: 402, bodyCode: 'X402_CHALLENGE' }]]);
+
+  const allowlist = [
+    { path: '/served', method: 'POST', direction: 'draft-but-live', justification: 'A justification long enough to pass.' },
+  ];
+  const honored = compare({ repoDoc, liveDoc: doc({}), allowlist, liveObservations });
+  assert.equal(honored.headline.draftButLive, 0, 'a predicate-free draft-but-live exemption must be honored');
+  assert.equal(honored.headline.allowlisted, 1);
+  assert.equal(honored.headline.lapsedAllowlistEntries, 0);
+
+  // A predicate-bearing entry validates only at the schema level (validateAllowlist rejects it, see
+  // above); fed to compare() directly, it still cannot be graded and so always lapses into a finding.
+  const withPredicate = [{ ...allowlist[0], expectAbsent: ['security'] }];
+  const lapsed = compare({ repoDoc, liveDoc: doc({}), allowlist: withPredicate, liveObservations });
+  assert.equal(lapsed.headline.draftButLive, 1);
+  assert.match(lapsed.lapsedAllowlist[0].reason, /no live operation/);
+});
+
 test('document-level security counts as the operation gaining auth', () => {
   // THE LIVE CASE, measured against https://api.wave.online/openapi.json on 2026-09-04: the
   // published document carries a root `security`, and GET /leaderboard has no `security` key of
