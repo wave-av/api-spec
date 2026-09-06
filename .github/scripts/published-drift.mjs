@@ -152,12 +152,21 @@ function report(r, say = console.log) {
   );
   say(
     `published-drift: gateway enrichment normalized — ${r.enrichmentObservations.errorResponsesInjected} injected error ` +
-      `responses, ${r.enrichmentObservations.operationIdsSynthesized} synthesized operationIds`,
+      `responses, ${r.enrichmentObservations.operationIdsSynthesized} synthesized operationIds, ` +
+      `${r.enrichmentObservations.parametersStripped} parameter description/example fields dropped`,
   );
   if (r.enrichmentObservations.descriptionsOverwritten.length) {
     say(
       `::warning::${r.enrichmentObservations.descriptionsOverwritten.length} operations have a real description in ` +
         "openapi.yaml that the published contract replaced with its versioning boilerplate. " +
+        'Not drift in this spec — a defect in the publishing service, tracked separately.',
+    );
+  }
+  if (r.enrichmentObservations.errorResponsesOverwritten.length) {
+    say(
+      `::warning::${r.enrichmentObservations.errorResponsesOverwritten.length} operations have a real error response ` +
+        'in openapi.yaml that the published contract replaced with its generic injected envelope ' +
+        `(${r.enrichmentObservations.errorResponsesOverwritten.join('; ')}). ` +
         'Not drift in this spec — a defect in the publishing service, tracked separately.',
     );
   }
