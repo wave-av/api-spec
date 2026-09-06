@@ -83,7 +83,13 @@ const clone = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)
 export function normalizePair(repoOp, liveOp, path, method) {
   const repo = clone(repoOp) ?? {};
   const live = clone(liveOp) ?? {};
-  const observations = { descriptionOverwritten: false, strippedErrorCodes: [], strippedOperationId: false };
+  const observations = {
+    descriptionOverwritten: false,
+    strippedErrorCodes: [],
+    overwrittenErrorCodes: [],
+    strippedOperationId: false,
+    strippedParameters: [],
+  };
   if (!ENRICHED_METHODS.includes(method)) return { repo, live, observations };
 
   // RULE 1 — the two versioning extensions.
@@ -112,11 +118,25 @@ export function normalizePair(repoOp, liveOp, path, method) {
   }
 
   // RULE 4 — injected error responses, matched against the exact injected object.
+  //
+  // RULE 4b — the SAME injected shape also OVERWRITES a response this repo already declares for
+  // that code (measured on the 1.1.0 publish: a hand-written 404 with a real description and a
+  // real schema ref, replaced verbatim with the generic injected shape). Same class of defect as
+  // RULE 2's description overwrite — a real declaration destroyed by the service's own boilerplate,
+  // not drift in this spec — so it gets the same treatment: drop both sides and record it, rather
+  // than let a real 4xx doc get silently blamed on this repo. Still matched by EXACT shape only:
+  // repo's response merely being ABSENT is RULE 4 above; repo's response being PRESENT but DIFFERENT
+  // from the exact injected literal is this rule.
   for (const code of INJECTED_ERROR_CODES) {
     const injected = { description: `${code} error`, content: { 'application/json': { schema: ERROR_SCHEMA } } };
-    if (repo.responses?.[code] === undefined && isDeepStrictEqual(live.responses?.[code], injected)) {
+    if (!isDeepStrictEqual(live.responses?.[code], injected)) continue;
+    if (repo.responses?.[code] === undefined) {
       delete live.responses[code];
       observations.strippedErrorCodes.push(code);
+    } else if (!isDeepStrictEqual(repo.responses[code], injected)) {
+      delete live.responses[code];
+      delete repo.responses[code];
+      observations.overwrittenErrorCodes.push(code);
     }
   }
 
@@ -135,18 +155,53 @@ export function normalizePair(repoOp, liveOp, path, method) {
   // the other. Not a difference worth reporting.
   if (live.responses && Object.keys(live.responses).length === 0 && repo.responses === undefined) delete live.responses;
 
+  // RULE 6 — decorative parameter metadata (`description`, `example`, `schema.pattern`) dropped at
+  // serve time. Measured on the 1.1.0 publish across multiple operations: a hand-written
+  // path/query parameter keeps its `name`/`in`/`required`/`schema.type` (and `schema.enum`, where
+  // present) but loses `description`, `example`, and any `schema.pattern` — the service publishes
+  // the CONTRACT (name, location, required-ness, type) faithfully and drops only prose plus the one
+  // validation detail (a regex) it does not carry through its own generated schema. Matched per
+  // parameter by identity (`name`+`in`), and ONLY when every OTHER field of that parameter is
+  // unchanged — a parameter that differs in name, location, required-ness, enum, or type is never
+  // touched here and still surfaces as drift.
+  if (Array.isArray(repo.parameters) && Array.isArray(live.parameters)) {
+    const liveByKey = new Map(live.parameters.map((p) => [`${p.in}:${p.name}`, p]));
+    for (const repoParam of repo.parameters) {
+      const liveParam = liveByKey.get(`${repoParam.in}:${repoParam.name}`);
+      if (!liveParam) continue;
+      const stripped = clone(repoParam);
+      delete stripped.description;
+      delete stripped.example;
+      if (stripped.schema && typeof stripped.schema === 'object') delete stripped.schema.pattern;
+      if (isDeepStrictEqual(stripped, liveParam)) {
+        delete repoParam.description;
+        delete repoParam.example;
+        if (repoParam.schema && typeof repoParam.schema === 'object') delete repoParam.schema.pattern;
+        observations.strippedParameters.push(repoParam.name);
+      }
+    }
+  }
+
   return { repo, live, observations };
 }
 
 /** The identity observations, for `--no-normalize`. */
-export const NO_OBSERVATIONS = { descriptionOverwritten: false, strippedErrorCodes: [], strippedOperationId: false };
+export const NO_OBSERVATIONS = {
+  descriptionOverwritten: false,
+  strippedErrorCodes: [],
+  overwrittenErrorCodes: [],
+  strippedOperationId: false,
+  strippedParameters: [],
+};
 
 export const NORMALIZATION_RULES = [
   "strip op['x-version'] and op['x-deprecation-policy'], which the service assigns onto every operation",
   "drop op['description'] on BOTH sides when the published value is the versioning boilerplate, and count the repo descriptions it destroyed",
   'strip op.operationId only when it equals the service synthesis of (path, method) and this repo has none',
   `strip responses ${INJECTED_ERROR_CODES.join('/')} only when they deep-equal the injected error envelope and this repo lacks the code`,
+  `drop responses ${INJECTED_ERROR_CODES.join('/')} on BOTH sides when the published value deep-equals the injected error envelope but this repo declares a DIFFERENT response for that code — the service overwrote a real declaration, and count which codes it destroyed`,
   'unwrap the auto-wrapped 200 only when it deep-equals the wrapping of this repo\'s 200',
+  'strip a parameter\'s description/example on BOTH sides when every other field of that parameter (name, in, required, schema) is otherwise identical — the service publishes the contract faithfully and drops only prose',
   'components.securitySchemes: NOT APPLICABLE — this comparator is operation-scoped and never reads components',
   'root-level operations the service adds of its own accord are deliberately NOT normalized away: they surface as undocumented-live findings and must be allowlisted by path+method with a justification, so they stay visible',
 ];

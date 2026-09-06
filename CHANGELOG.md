@@ -166,6 +166,31 @@ All notable changes to this project are documented here. The format is based on
   Corrected the schema to the real contract and added `ClipCreateResponse`/
   `ClipError` for the operation's actual 201/400 shapes (the 400 body is the
   route's own `{ok, error, detail}` envelope, not the shared `Error` schema).
+- **`GET /leaderboard`, `GET /platform`** (`openapi.yaml`) — documented for real, following the
+  1.1.0 gateway deploy that moved both gateway-native root surfaces behind operator/tenant auth
+  (measured live 2026-09-06). Both had been exempted in the drift allowlist as
+  `undocumented-live` while unauthenticated; the exemption's own justification named real
+  documentation as the intended remedy once each operation gained a security requirement, which
+  it now has. New `Operator` tag for `/platform`'s operator-only shape.
+- `.github/scripts/published-drift-normalize.mjs`: two new normalization rules measured against
+  the 1.1.0 publish — the service overwrites a hand-written 4xx response with its generic
+  injected envelope even when this repo already declares a real one for that code (previously
+  only the "repo lacks the code" case was normalized), and it drops a parameter's
+  `description`/`example`/`schema.pattern` while publishing its `name`/`in`/`required`/type
+  faithfully. Both are matched by exact residual shape, never by key name, and both are reported
+  (not silently absorbed) via new `enrichmentObservations` fields.
+- `.github/scripts/published-drift-allowlist.json` — new `shared-drift` exemptions for
+  `GET /usage` (a key collision between this repo's real `/v1` billing endpoint and the
+  gateway's own unrelated, operator-only telemetry route that publishes at the same literal
+  path with no distinguishing `servers` override), `GET`/`POST /streams` (the gateway still
+  serves the auto-generated skills-index placeholder; this repo has promoted the real `/v1`
+  shape ahead of the gateway shipping it), and `POST /agent/auth/token` (the service's own
+  generated 400 response is a coarser single-schema shape than this repo's accurate `oneOf`
+  documentation of the RFC 8628 device-flow passthrough). New `unpublished-repo` exemptions for
+  `DELETE /videos/{videoId}/chapters/{chapterId}` and
+  `GET /videos/{videoId}/chapters/detect/{jobId}`: both are live-probed and confirmed answering
+  (not `ROUTE_NOT_MAPPED`), but the published `/openapi.json` document has not yet registered
+  them — a gap in the service's own spec generation, not in this repo's declaration.
 
 ## [1.0.0] - 2026-04-05
 

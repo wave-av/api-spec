@@ -167,7 +167,13 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, li
   const allowlisted = [];
   const lapsedAllowlist = [];
   const draftNotYetPublished = [];
-  const enrichmentObservations = { descriptionsOverwritten: [], operationIdsSynthesized: 0, errorResponsesInjected: 0 };
+  const enrichmentObservations = {
+    descriptionsOverwritten: [],
+    operationIdsSynthesized: 0,
+    errorResponsesInjected: 0,
+    errorResponsesOverwritten: [],
+    parametersStripped: 0,
+  };
 
   // Every allowlist key `record` actually consults. What is left over at the end is an exemption
   // that matched nothing — see unmatchedAllowlist below.
@@ -282,6 +288,12 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, li
     if (observations.descriptionOverwritten) enrichmentObservations.descriptionsOverwritten.push(`${method.toUpperCase()} ${path}`);
     if (observations.strippedOperationId) enrichmentObservations.operationIdsSynthesized++;
     enrichmentObservations.errorResponsesInjected += observations.strippedErrorCodes.length;
+    if (observations.overwrittenErrorCodes.length) {
+      enrichmentObservations.errorResponsesOverwritten.push(
+        `${method.toUpperCase()} ${path} (${observations.overwrittenErrorCodes.join(', ')})`,
+      );
+    }
+    enrichmentObservations.parametersStripped += observations.strippedParameters.length;
 
     const differences = diffOperation(repo, live);
     if (differences.length === 0) continue;

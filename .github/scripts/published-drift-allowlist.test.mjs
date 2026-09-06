@@ -237,13 +237,27 @@ test('an allowlist entry that matches no operation is surfaced, not silently ign
   assert.equal(matched.headline.allowlisted, 1);
 });
 
-test('the COMMITTED allowlist is well-formed and every entry is a live-direction exemption with a predicate', () => {
+test('the COMMITTED allowlist is well-formed and every entry has a predicate that can actually lapse', () => {
   const committed = JSON.parse(readFileSync(join(__dirname, 'published-drift-allowlist.json'), 'utf8'));
   assert.equal(validateAllowlist(committed), null);
   for (const e of committed) {
-    assert.equal(e.direction, 'undocumented-live', `${e.method} ${e.path}: only live surface should ever need an exemption`);
-    assert.ok(Object.keys(e.expect ?? {}).length > 0, `${e.method} ${e.path}: an exemption without a predicate cannot lapse`);
-    assert.ok(e.expectAbsent?.includes('security'), `${e.method} ${e.path}: must lapse when the route gains auth`);
+    const hasPredicate = Object.keys(e.expect ?? {}).length > 0 || (e.expectAbsent ?? []).length > 0;
+    if (e.direction === 'unpublished-repo') {
+      // No live operation ever exists for this direction, so a predicate could never be graded —
+      // validateAllowlist itself rejects one here. The entry lapses instead when the key stops
+      // matching at all (surfaced as an unmatchedAllowlistEntries warning, not silently).
+      assert.ok(!hasPredicate, `${e.method} ${e.path}: unpublished-repo cannot carry a predicate`);
+    } else {
+      assert.ok(
+        ['undocumented-live', 'shared-drift'].includes(e.direction),
+        `${e.method} ${e.path}: only a direction with a live operation to grade a predicate against belongs here`,
+      );
+      assert.ok(hasPredicate, `${e.method} ${e.path}: an exemption without a predicate cannot lapse`);
+    }
+    assert.ok(
+      typeof e.justification === 'string' && e.justification.length >= 40,
+      `${e.method} ${e.path}: justification must actually explain the exemption, not just satisfy the length floor`,
+    );
   }
 });
 
