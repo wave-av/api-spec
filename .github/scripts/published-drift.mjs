@@ -81,17 +81,46 @@ export function templateToProbePath(path) {
 }
 
 /**
- * Build the map from a placeholder-substituted probe path back to every declared-but-unpublished
- * spec path it stands in for (two templated paths can collapse to the same probe path, e.g.
- * `/x/{a}` and `/x/{b}`). `compare()` looks observations up by the ORIGINAL spec path — never the
- * substituted one — so this index is what lets a probe result find its way back to the key
- * `compare()` actually reads.
+ * An operation's own `servers[0].url` overrides the document-level one — a handful of operations in
+ * this spec do exactly that (e.g. a root-level surface served with no `/v1` prefix). Probing such an
+ * operation against the document-level base would hit the wrong path and could misclassify it. But
+ * the override comes from `repoDoc` — the very document that is attacker-controlled on a fork PR —
+ * so it is honored ONLY when it resolves to the SAME ORIGIN as the trusted, liveDoc-derived base
+ * (differences in PATH are fine; a different host is never trusted, the override is silently
+ * ignored instead, falling back to the default prefix). This is the same SSRF discipline as the
+ * base-URL fix above, applied per operation instead of once.
  */
-export function indexSpecPathsByProbePath(repoDoc, livePublished) {
+function resolveProbePrefix(op, trustedOrigin, defaultPrefix) {
+  const override = op?.servers?.[0]?.url;
+  if (!override) return defaultPrefix;
+  try {
+    const parsed = new URL(override);
+    if (parsed.origin !== trustedOrigin) return defaultPrefix;
+    return parsed.pathname.replace(/\/$/, '');
+  } catch {
+    return defaultPrefix;
+  }
+}
+
+/**
+ * Build the map from a probe path (placeholder-substituted, and prefixed per-operation per
+ * `resolveProbePrefix`) back to every declared-but-unpublished-and-DRAFT spec path it stands in for
+ * (two templated paths can collapse to the same probe path, e.g. `/x/{a}` and `/x/{b}`). `compare()`
+ * looks observations up by the ORIGINAL spec path — never the probe path — so this index is what
+ * lets a probe result find its way back to the key `compare()` actually reads.
+ *
+ * Scoped to `x-schema-status: draft` only: that is the ONLY set `compare()` ever consults
+ * `liveObservations` for (see the `unpublished-repo` loop) — a non-draft unpublished operation is
+ * always a finding regardless of what the gateway answers, so probing it spends a request whose
+ * result nothing ever reads.
+ */
+export function indexSpecPathsByProbePath(repoDoc, livePublished, trustedOrigin, defaultPrefix) {
   const specPathsByProbePath = new Map();
-  for (const { path, method } of indexOperations(repoDoc).values()) {
+  for (const { path, method, op } of indexOperations(repoDoc).values()) {
+    if (op?.['x-schema-status'] !== 'draft') continue;
     if (livePublished.has(`${method.toUpperCase()} ${path}`)) continue;
-    const probePath = templateToProbePath(path);
+    const prefix = resolveProbePrefix(op, trustedOrigin, defaultPrefix);
+    const probePath = prefix + templateToProbePath(path);
     const specPaths = specPathsByProbePath.get(probePath) ?? [];
     if (!specPaths.includes(path)) specPaths.push(path);
     specPathsByProbePath.set(probePath, specPaths);
@@ -294,35 +323,48 @@ export async function main(argv = process.argv.slice(2)) {
   // asserts that against the workflow file itself.
   let liveObservations = null;
   if (args.liveProbe && !args.live) {
-    const livePublished = indexOperations(liveDoc);
-    // Probe the placeholder-substituted path, but `compare()` looks observations up by the ORIGINAL
-    // spec path (see published-drift-compare.mjs, the `unpublished-repo` loop) — so the substituted
-    // string must never become the key an observation is stored or looked up under. Re-key the
-    // returned observations back onto the spec path before they reach compare(); see
-    // indexSpecPathsByProbePath / reindexObservationsBySpecPath.
-    const specPathsByProbePath = indexSpecPathsByProbePath(repoDoc, livePublished);
-    const repoOnly = [...specPathsByProbePath.keys()];
-    // `repoDoc` is THIS PR's openapi.yaml, and the drift job now runs on pull requests, so a fork PR
-    // controls how many draft-and-unpublished operations it declares. Probing an unbounded set would
-    // send one unauthenticated request per operation to the production gateway and could run for a
-    // very long time; refuse rather than silently degrade into a slow, traffic-generating job.
-    const MAX_PROBED_OPERATIONS = 400;
-    if (repoOnly.length > MAX_PROBED_OPERATIONS) {
-      console.error(`published-drift: refusing to probe ${repoOnly.length} operations (limit ${MAX_PROBED_OPERATIONS})`);
-      return EXIT_UNKNOWN;
-    }
     // `repoDoc` is THIS PR's openapi.yaml, and the drift job now runs on pull requests — so on a
     // fork PR `repoDoc` is attacker-controlled. Deriving the probe target from its `servers[0].url`
     // would let a malicious PR point unauthenticated CI network calls at an arbitrary HTTPS host
     // (an SSRF read primitive). `liveDoc` came from the trusted, hardcoded `PUBLISHED_SPEC_URL` a
     // few lines up (never from `--live`, since that branch already returned before reaching here) —
-    // only ITS servers entry is a legitimate probe base.
-    const baseUrl = String(liveDoc?.servers?.[0]?.url ?? '').replace(/\/$/, '');
-    if (!/^https:\/\//.test(baseUrl)) {
+    // only ITS servers entry, resolved here ONCE into an origin and a default path prefix, is a
+    // legitimate probe base. A per-operation `servers` override (see indexSpecPathsByProbePath) is
+    // honored only when it resolves to this SAME origin — never a foreign host.
+    const rawBaseUrl = String(liveDoc?.servers?.[0]?.url ?? '').replace(/\/$/, '');
+    if (!/^https:\/\//.test(rawBaseUrl)) {
       console.error(`published-drift: cannot probe live behaviour — the published contract at ${source} declares no https servers[0].url`);
       return EXIT_UNKNOWN;
     }
-    const probe = await probeOperations(baseUrl, repoOnly);
+    const parsedBase = new URL(rawBaseUrl);
+    const trustedOrigin = parsedBase.origin;
+    const defaultPrefix = parsedBase.pathname.replace(/\/$/, '');
+
+    const livePublished = indexOperations(liveDoc);
+    // Probe a path that already carries its resolved prefix and placeholder substitution, but
+    // `compare()` looks observations up by the ORIGINAL spec path (see published-drift-compare.mjs,
+    // the `unpublished-repo` loop) — so the probe path must never become the key an observation is
+    // stored or looked up under. Re-key the returned observations back onto the spec path before
+    // they reach compare(); see indexSpecPathsByProbePath / reindexObservationsBySpecPath.
+    const specPathsByProbePath = indexSpecPathsByProbePath(repoDoc, livePublished, trustedOrigin, defaultPrefix);
+    const repoOnly = [...specPathsByProbePath.keys()];
+    // `repoDoc` is THIS PR's openapi.yaml, so a fork PR controls how many draft-and-unpublished
+    // operations it declares. Probing an unbounded set would send one unauthenticated request per
+    // operation to the production gateway and could run for a very long time; refuse rather than
+    // silently degrade into a slow, traffic-generating job.
+    const MAX_PROBED_OPERATIONS = 400;
+    if (repoOnly.length > MAX_PROBED_OPERATIONS) {
+      console.error(`published-drift: refusing to probe ${repoOnly.length} operations (limit ${MAX_PROBED_OPERATIONS})`);
+      return EXIT_UNKNOWN;
+    }
+    // probeOperations() defaults its two control paths to no prefix at all, which matched the old
+    // call (baseUrl carried the full default prefix already). Now that baseUrl is the bare origin
+    // and each real path carries its OWN resolved prefix, the controls need the same default prefix
+    // explicitly — otherwise they test a different, unrepresentative endpoint space (the bare origin
+    // root) instead of the prefix the vast majority of probed operations actually live under.
+    const probe = await probeOperations(trustedOrigin, repoOnly, {
+      controls: [`${defaultPrefix}/wave-drift-control-no-such-route`, `${defaultPrefix}/wave-drift-control-also-absent`],
+    });
     if (!probe.usable) {
       // A probe whose control failed is not a probe. Reporting "no drift" on the strength of it
       // would be the same defect in a new place.

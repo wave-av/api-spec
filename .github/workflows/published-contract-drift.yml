@@ -353,7 +353,14 @@ jobs:
   drift-issue:
     name: published contract drift tracking issue
     needs: drift
-    if: github.event_name != 'pull_request'
+    # `always()`: `drift` FAILS its own job on exit 2 (drift found) — that is what makes the
+    # required check red — so the implicit default condition here (every needed job succeeded)
+    # would SKIP this job on exactly the run where filing an issue matters most. `always()` runs
+    # regardless of `drift`'s pass/fail conclusion; `needs.drift.result != 'skipped'` still excludes
+    # a push (where `drift` itself never runs, so there is no code to act on), and the event-name
+    # check still excludes pull_request. Every actual gh-issue step below is separately gated on
+    # `needs.drift.outputs.code`, so a genuinely absent/invalid code still does nothing.
+    if: always() && needs.drift.result != 'skipped' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

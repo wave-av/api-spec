@@ -207,6 +207,9 @@ test('templateToProbePath substitutes every {param} segment with a real placehol
   assert.equal(templateToProbePath('/clips'), '/clips', 'a path with no template is unchanged');
 });
 
+const TRUSTED_ORIGIN = 'https://api.wave.online';
+const DEFAULT_PREFIX = '/v1';
+
 test('indexSpecPathsByProbePath / reindexObservationsBySpecPath: a probe result finds its way back to the SPEC path', () => {
   // The regression this guards: `compare()` looks observations up by the ORIGINAL spec path, never
   // the placeholder-substituted probe path. Before this pair of functions existed, `repoOnly` was
@@ -224,10 +227,10 @@ test('indexSpecPathsByProbePath / reindexObservationsBySpecPath: a probe result 
   };
   const livePublished = new Map([['GET /published/{id}', {}]]);
 
-  const index = indexSpecPathsByProbePath(repoDoc, livePublished);
-  assert.deepEqual([...index.entries()], [['/clips/wave-drift-probe-placeholder', ['/clips/{clipId}']]]);
+  const index = indexSpecPathsByProbePath(repoDoc, livePublished, TRUSTED_ORIGIN, DEFAULT_PREFIX);
+  assert.deepEqual([...index.entries()], [['/v1/clips/wave-drift-probe-placeholder', ['/clips/{clipId}']]]);
 
-  const observations = new Map([['/clips/wave-drift-probe-placeholder', { status: 402, bodyCode: 'X402_CHALLENGE' }]]);
+  const observations = new Map([['/v1/clips/wave-drift-probe-placeholder', { status: 402, bodyCode: 'X402_CHALLENGE' }]]);
   const reindexed = reindexObservationsBySpecPath(observations, index);
   assert.deepEqual([...reindexed.keys()], ['/clips/{clipId}'], 'the observation must be reachable by the SPEC path');
   assert.equal(reindexed.get('/clips/{clipId}').status, 402);
@@ -242,13 +245,59 @@ test('indexSpecPathsByProbePath: two templated spec paths that collapse to the s
       '/x/{b}': { post: draftOp },
     },
   };
-  const index = indexSpecPathsByProbePath(repoDoc, new Map());
-  const probePath = templateToProbePath('/x/{a}');
+  const index = indexSpecPathsByProbePath(repoDoc, new Map(), TRUSTED_ORIGIN, DEFAULT_PREFIX);
+  const probePath = DEFAULT_PREFIX + templateToProbePath('/x/{a}');
   assert.deepEqual(new Set(index.get(probePath)), new Set(['/x/{a}', '/x/{b}']));
 
   const reindexed = reindexObservationsBySpecPath(new Map([[probePath, { status: 402 }]]), index);
   assert.equal(reindexed.get('/x/{a}').status, 402);
   assert.equal(reindexed.get('/x/{b}').status, 402);
+});
+
+test('indexSpecPathsByProbePath: only x-schema-status: draft operations are probed', () => {
+  // compare() only ever reads liveObservations inside the draft branch of its unpublished-repo
+  // loop — a non-draft unpublished operation is always a finding regardless of the probe result, so
+  // probing it spends a request whose result nothing reads.
+  const draftOp = { 'x-schema-status': 'draft', responses: {} };
+  const notDraftOp = { responses: {} }; // declared, unpublished, but not annotated draft
+  const repoDoc = {
+    openapi: '3.1.0',
+    paths: {
+      '/draft-only': { get: draftOp },
+      '/promoted-not-yet-served': { get: notDraftOp },
+    },
+  };
+  const index = indexSpecPathsByProbePath(repoDoc, new Map(), TRUSTED_ORIGIN, DEFAULT_PREFIX);
+  assert.deepEqual([...index.values()].flat(), ['/draft-only']);
+});
+
+test('indexSpecPathsByProbePath: a per-operation servers override on the SAME origin is honored', () => {
+  // Real shape in this repo: a handful of operations override servers[0].url to the bare origin
+  // (no /v1 prefix) because they are served pre-auth at the host root. A draft operation shaped
+  // like that must be probed at ITS prefix, not the document-level default, or it is probed at the
+  // wrong path and misclassified.
+  const draftOp = {
+    'x-schema-status': 'draft',
+    servers: [{ url: 'https://api.wave.online' }], // same origin, no /v1 prefix
+    responses: {},
+  };
+  const repoDoc = { openapi: '3.1.0', paths: { '/root-surface': { get: draftOp } } };
+  const index = indexSpecPathsByProbePath(repoDoc, new Map(), TRUSTED_ORIGIN, DEFAULT_PREFIX);
+  assert.deepEqual([...index.keys()], ['/root-surface'], 'no /v1 prefix — the override supplied an empty one');
+});
+
+test('indexSpecPathsByProbePath: a per-operation servers override on a FOREIGN origin is ignored, never trusted', () => {
+  // `op.servers` comes from repoDoc, which is attacker-controlled on a fork PR. Honoring a foreign
+  // host here would reopen exactly the SSRF this file's base-URL fix closes, just per-operation
+  // instead of once. A mismatched origin must fall back to the trusted default, never the override.
+  const draftOp = {
+    'x-schema-status': 'draft',
+    servers: [{ url: 'https://internal.example' }],
+    responses: {},
+  };
+  const repoDoc = { openapi: '3.1.0', paths: { '/looks-innocent': { get: draftOp } } };
+  const index = indexSpecPathsByProbePath(repoDoc, new Map(), TRUSTED_ORIGIN, DEFAULT_PREFIX);
+  assert.deepEqual([...index.keys()], [`${DEFAULT_PREFIX}/looks-innocent`], 'falls back to the trusted default prefix');
 });
 
 test('a usage error exits UNKNOWN and never reaches the network', async () => {
