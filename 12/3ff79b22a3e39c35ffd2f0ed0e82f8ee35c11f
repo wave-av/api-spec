@@ -1,0 +1,27 @@
+.github/scripts/published-drift.mjs
+  s_49793c5a9de056::t_b3255f81ac9e87 84-91,93-117,119-120,122-123
+  s_49793c5a9de056::t_96a64bf7a04cc3 331-335,339-357
+  s_49793c5a9de056::t_cf26070d1d00da 360-367
+  s_49793c5a9de056::t_07764ca285ff41 358-359
+.github/workflows/published-contract-drift.yml
+  s_49793c5a9de056::t_2a47fc2ad83b31 356-363
+.github/scripts/published-drift.test.mjs
+  s_49793c5a9de056::t_e040732b4f8923 210-212,230-231,233,248-249,257-301
+  s_49793c5a9de056::t_9b770a93c8fcb0 302
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "123ff79b22a3e39c35ffd2f0ed0e82f8ee35c11f",
+  "prompts": {},
+  "sessions": {
+    "s_49793c5a9de056": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d315ea56-91aa-4d81-9939-eac4eba83179",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
