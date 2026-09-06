@@ -1,0 +1,44 @@
+.github/scripts/published-drift-allowlist.json
+  s_49793c5a9de056::t_4f5aa24d312247 2,5,7,9-11,14,16,18-20,23,25,27-29,32,34,36-38,40-41,43,45-47,49-50,52,54-56,61-62,67-77,80,82,84
+  s_49793c5a9de056::t_ae31effdb4a19c 1
+  s_49793c5a9de056::t_88dc3f5fb8b7f4 3-4
+  s_49793c5a9de056::t_702bbdf1eb271e 6
+  s_49793c5a9de056::t_13366b5ddc842f 8
+  s_49793c5a9de056::t_15ae350c9ac5f2 12-13
+  s_49793c5a9de056::t_fe31e710842a02 15
+  s_49793c5a9de056::t_93b967876ac1c6 17
+  s_49793c5a9de056::t_641591ffbf870a 21-22
+  s_49793c5a9de056::t_65b59cd7f844f3 24
+  s_49793c5a9de056::t_a9a75553701150 26
+  s_49793c5a9de056::t_7b2695266d55fe 30-31
+  s_49793c5a9de056::t_b1d773ab7659be 33
+  s_49793c5a9de056::t_55ce1a84ebc549 35
+  s_49793c5a9de056::t_b9fd148e2731ee 39
+  s_49793c5a9de056::t_dbb3993de4104c 42
+  s_49793c5a9de056::t_1033d50cf6fe78 44
+  s_49793c5a9de056::t_0accf2833d2be5 48
+  s_49793c5a9de056::t_360242cabdb3e1 51
+  s_49793c5a9de056::t_820f4c439eb3d8 53
+  s_49793c5a9de056::t_b69fc329b0e144 57-60
+  s_49793c5a9de056::t_6e37bb382b5b58 63-66
+  s_49793c5a9de056::t_4e16c871582581 78-79
+  s_49793c5a9de056::t_f019c96e15940c 81
+  s_49793c5a9de056::t_18da8745bd43c3 83
+  s_49793c5a9de056::t_1baaf02d269bc7 85-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "0568b27a90a7d5251ca4f876d8e1657db8f2a3c7",
+  "prompts": {},
+  "sessions": {
+    "s_49793c5a9de056": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d315ea56-91aa-4d81-9939-eac4eba83179",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
