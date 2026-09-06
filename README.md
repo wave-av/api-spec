@@ -1,6 +1,6 @@
 # WAVE API specification
 
-OpenAPI 3.1 specification for the WAVE enterprise streaming platform APIs.
+WAVE is media infrastructure for the agentic internet: one call shape moves live and on-demand media across every transport, and both kinds of user, people and agents, discover it, call it, and pay for it per call. This repository is the OpenAPI 3.1 specification for that call shape.
 
 ## Overview
 

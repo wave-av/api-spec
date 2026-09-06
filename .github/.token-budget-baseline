@@ -1,0 +1,7 @@
+# Seeded 2026-08-31 (the token-budget census lane): openapi.yaml is the HAND-MAINTAINED spec SSOT
+# (the source the codegen consumes — NOT generated, so neither the AUTO-GENERATED marker nor the
+# lockfile exemption applies). Baselined at its origin/main size so the ratchet forbids GROWTH:
+# the spec is expected to shrink as codegen families absorb enumerated surface, and a grow-anytime
+# file would make the seed meaningless. Burndown, not parking: the long-term answer is the
+# codegen-derived spec (generated, marker-exempt); this row is the pressure until then.
+openapi.yaml	126322

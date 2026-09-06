@@ -1,0 +1,86 @@
+[
+  {
+    "path": "/leaderboard",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "Editorial-only difference, not a behavioral one. The gateway's own generated document never assigns an operationId to this gateway-native root route and tags it with the raw lowercase 'usage' slug; this repo assigns a real operationId (SDK codegen quality — an unnamed operation gets a synthesized name in every generated client) and Title-Cases the tag to match every other operation's documentation convention in this spec. Keyed on the exact published summary so a real content change to this operation still surfaces as drift.",
+    "expect": {
+      "summary": "Your org's usage leaderboard (meters ranked by consumption) — API key + usage:read"
+    }
+  },
+  {
+    "path": "/platform",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "Same editorial-only reasoning as GET /leaderboard: an assigned operationId and a Title-Cased tag versus the gateway's unnamed, lowercase-tagged generated shape. Keyed on the exact published summary so a real content change still surfaces as drift.",
+    "expect": {
+      "summary": "Platform-wide live usage — OPERATOR ONLY (inference + voice + codec + storage + realtime + clips + captions)"
+    }
+  },
+  {
+    "path": "/usage",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "KEY COLLISION between two distinct operations that happen to share the literal path+method 'GET /usage' in their respective documents. openapi.yaml documents the real, tenant-scoped /v1 billing endpoint (tag Billing, operationId getUsage, usage:read scope) added independently of this exemption. The gateway ALSO serves a gateway-native, operator-only telemetry endpoint at the bare host root (tag internal, WAVE service bearer, no /v1 prefix) that this repo cannot document at this same key without overwriting the real customer endpoint's declaration — the two must live at the same path string in the published document because the operator route was never given a distinguishing per-operation servers override (unlike its siblings /leaderboard and /platform, which do carry one). This entry exempts ONLY the operator shape (matched by its 'internal' tag, which never appears on the real customer operation); it lapses the moment the published operation at this key stops being tagged internal, forcing a fresh look rather than silently re-exempting whatever answers here.",
+    "expect": {
+      "tags.0": "internal"
+    }
+  },
+  {
+    "path": "/streams",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "The gateway still serves the auto-generated skills-index draft placeholder for this operation (lowercase tag, no operationId, a summary that says 'draft — see api-spec for the full shape' and literally defers to this repo). openapi.yaml has since promoted this to a fully hand-documented /v1 operation (real params, description, Streams tag, operationId listStreams) ahead of the gateway shipping the matching handler. Exempt only while the published operation still has no operationId — the moment the gateway ships the real handler and starts publishing one, this predicate fails and the exemption lapses so the two shapes get compared for real.",
+    "expect": {
+      "operationId": null
+    }
+  },
+  {
+    "path": "/streams",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "Same shape and same reasoning as GET /streams: the published operation is still the auto-generated draft placeholder (no operationId), while openapi.yaml documents the real, hand-specified /v1 operation (operationId createStream) ahead of the gateway shipping it. Lapses the moment the published operation gains an operationId.",
+    "expect": {
+      "operationId": null
+    }
+  },
+  {
+    "path": "/agent/auth/token",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "The service's own generated 400 response for this operation is a single, coarser schema ($ref Error) with a shorter description; openapi.yaml documents a oneOf of the WAVE error envelope AND the RFC 8628 §3.5 device-flow error passthrough (authorization_pending / slow_down / expired_token / access_denied / invalid_grant) verbatim, which is the actual, more detailed behavior of this endpoint. This is the service's own OpenAPI reflection being less precise than this repo's hand-written documentation, not a real behavioral difference this repo needs to walk back. Keyed on the exact current published 400 description so a real future change to the service's generated shape still surfaces as drift rather than being silently re-exempted.",
+    "expect": {
+      "responses.400.description": "Invalid grant_type, missing credential for the grant, or the upstream polling protocol error passed through verbatim"
+    }
+  },
+  {
+    "path": "/videos/{videoId}/chapters/{chapterId}",
+    "method": "DELETE",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-06: this repo declares the operation (no x-schema-status: draft — marking it draft would be a FALSE claim) and the published /openapi.json document does not list it, but the live-behaviour probe tier confirms the gateway genuinely answers for it (not the ROUTE_NOT_MAPPED an absent route returns). The route is live; only the SERVICE's published spec generation has not yet registered it. This is the mirror image of the operations whose real repo descriptions the service overwrites — a gap in what the service publishes, not in what this repo declares. Lapses (and should be deleted) the moment the published document lists this operation."
+  },
+  {
+    "path": "/videos/{videoId}/chapters/detect/{jobId}",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Same reasoning and same measurement date as DELETE /videos/{videoId}/chapters/{chapterId}: live-probed and confirmed answering, not ROUTE_NOT_MAPPED, but absent from the published /openapi.json document. A gap in the service's own spec generation. Lapses (and should be deleted) the moment the published document lists this operation."
+  },
+  {
+    "path": "/enhance",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index draft placeholder (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real.",
+    "expect": {
+      "x-schema-status": "draft"
+    }
+  },
+  {
+    "path": "/identity/resolve",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "This PR's own not-yet-deployed wording change (summary and the `agent` query parameter's description: 'agent id' -> 'fleet agent id') has not shipped to the live gateway yet, since the PR that carries it has not merged. Keyed on the exact current PUBLISHED (old) wording, so this lapses the moment the gateway serves the new wording — at which point the two sides agree and there is nothing left to exempt.",
+    "expect": {
+      "parameters.0.description": "Agent id (lowercase, e.g. `opencode`, `claude`, `telephony`)"
+    }
+  }
+]
