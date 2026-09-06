@@ -1,0 +1,19 @@
+.github/workflows/published-contract-drift.yml
+  s_3b46ce6d418eea::t_e18de37bc29d76 257-259,275-276,297-299,305-307,330-369,373-376,378-380,382,417
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "f5402bcbfceeb40027aff452484f78ce6144db8d",
+  "prompts": {},
+  "sessions": {
+    "s_3b46ce6d418eea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a1f227b65a585f014",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
