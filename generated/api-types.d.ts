@@ -1063,7 +1063,10 @@ export interface paths {
         /** List enhancement jobs */
         get: operations["listEnhancements"];
         put?: never;
-        /** Create an enhancement job */
+        /**
+         * Create an enhancement job
+         * @description Creates an asynchronous, credit-billed enhancement job (including `upscale` and `super_resolution`) against a library video, returning a job envelope to poll. For synchronous, pay-per-call super-resolution of ad-hoc video bytes (billed against `wave_enhance_minutes`), use `POST /enhance` instead.
+         */
         post: operations["createEnhancement"];
         delete?: never;
         options?: never;
@@ -1342,6 +1345,28 @@ export interface paths {
          * @description Explicit early stop for a live braid machine in this namespace. Requires the `moq:write` entitlement. Tears down the machine via the same path `publishBraidAudio`'s replace action uses, so usage accounting is always consistent.
          */
         delete: operations["stopBraidAudio"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enhance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Super-resolve a video with an AI model (x402-payable)
+         * @description Upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN super-resolution, a fixed exact 3x factor baked into the trained weights — not a runtime parameter). Internally every input frame is letterboxed to a fixed working canvas before inference, so the v1 output resolution is fixed regardless of input resolution; a future model may support other output shapes. Send either the raw video bytes as the request body or a `url` query parameter pointing at an `https` source (the source is fetched server-side; redirects are not followed and non-public/loopback/private hosts are rejected). Auth is either lane: a bearer API key carrying the `enhance:write` entitlement, or no key at all — an unauthenticated call receives the 402 x402 challenge and is served once paid (pay-per-call). Billed against the `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded up to the next whole minute.
+         *
+         *     Distinct from the Studio AI enhancement surface (`POST /studio-ai/enhancements`, which also offers `upscale`/`super_resolution` job types): Studio AI runs asynchronous, credit-billed jobs against library videos and returns a job envelope, whereas this endpoint synchronously super-resolves ad-hoc video bytes (or an `https` source) and streams the result back, billing `wave_enhance_minutes`. Use Studio AI for library workflows; use this endpoint for direct, pay-per-call enhancement.
+         */
+        post: operations["enhanceVideo"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2589,26 +2614,6 @@ export interface paths {
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `engagement:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
          */
         post: operations["engagement"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/enhance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * WAVE enhance API
-         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `enhance:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
-         */
-        post: operations["enhance"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9140,6 +9145,110 @@ export interface operations {
             };
         };
     };
+    enhanceVideo: {
+        parameters: {
+            query?: {
+                /** @description AI model to apply. v1 supports only `espcn`; any other value 400s. */
+                model?: "espcn";
+                /** @description Fetch the source video from this `https` URL instead of sending it as the request body. Must be publicly reachable — loopback, private, link-local, and `.local`/ `.internal` hosts are rejected before any fetch. */
+                url?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The source video, raw bytes. Omit the body (and use `?url=` instead) to have the source fetched server-side. Max 200 MiB either way. */
+        requestBody?: {
+            content: {
+                "video/*": string;
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description The enhanced video, binary, streamed back with the same content-type as the source. Per-job receipt and billing metadata are carried on response headers, not a JSON body. */
+            200: {
+                headers: {
+                    /** @description The model that ran, e.g. `espcn`. */
+                    "x-enhance-model"?: string;
+                    /** @description Upscale factor actually applied. */
+                    "x-enhance-scale-factor"?: number;
+                    /** @description Input frame dimensions as `WIDTHxHEIGHT`, e.g. `1280x720`. */
+                    "x-enhance-input-dimensions"?: string;
+                    /** @description Output frame dimensions as `WIDTHxHEIGHT`, e.g. `672x672`. */
+                    "x-enhance-output-dimensions"?: string;
+                    /** @description The meter this job billed against — `wave_enhance_minutes`. */
+                    "x-wave-meter"?: string;
+                    /** @description Output-duration minutes billed for this job (rounded up). */
+                    "x-wave-usage-minutes"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "video/*": string;
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Invalid request — unrecognized `model`, an unsafe or invalid `url`, or no video supplied (neither a request body nor `?url=`). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Authentication failed AND the x402 pay-per-call lane is not armed in this environment. When the pay lane is armed (production default), a missing or unrecognized API key yields the 402 x402 challenge instead — never this 401. A client should treat 401 as "re-authenticate with a valid bearer key" (pay-per-call is unavailable here). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description The source video (request body, or the resolved `?url=` source) exceeds the 200 MiB limit. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `INPUT_TOO_LARGE` — the source video's frame dimensions exceed the v1 input-size cap. Downscale the source and retry. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            /** @description Enhance is not yet available in this environment (the spoke is not provisioned). */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            502: components["responses"]["UpstreamError"];
+            /** @description The enhance backend is temporarily unavailable (e.g. cold-start / pool exhaustion). Retryable; honor the `Retry-After` header. */
+            503: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     avRemux: {
         parameters: {
             query?: never;
@@ -11142,37 +11251,6 @@ export interface operations {
         };
     };
     engagement: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Capability response (draft — shape not yet published). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            402: components["responses"]["PaymentRequired"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimitError"];
-        };
-    };
-    enhance: {
         parameters: {
             query?: never;
             header?: never;

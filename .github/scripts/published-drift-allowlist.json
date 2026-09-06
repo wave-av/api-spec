@@ -75,6 +75,15 @@
     "justification": "Same reasoning and same measurement date as DELETE /videos/{videoId}/chapters/{chapterId}: live-probed and confirmed answering, not ROUTE_NOT_MAPPED, but absent from the published /openapi.json document. A gap in the service's own spec generation. Lapses (and should be deleted) the moment the published document lists this operation."
   },
   {
+    "path": "/enhance",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index draft placeholder (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real.",
+    "expect": {
+      "x-schema-status": "draft"
+    }
+  },
+  {
     "path": "/identity/resolve",
     "method": "GET",
     "direction": "shared-drift",

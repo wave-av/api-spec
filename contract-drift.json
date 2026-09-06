@@ -1,6 +1,6 @@
 {
   "about": "Point-in-time operation-level diff between this repo's openapi.yaml and the contract the gateway publishes. It is a dated receipt, not a live view: regenerate with `node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json`. The published-contract-drift workflow uploads a fresh copy on every scheduled run. The PUBLISHED half of this receipt ages on the gateway's schedule and only the scheduled drift job can refresh it; the REPO half is pinned by sources.repoOperationsDigest, which the freshness job checks offline on every run so this file cannot quietly disagree with the openapi.yaml sitting next to it.",
-  "generatedAt": "2026-09-06T03:41:45.745Z",
+  "generatedAt": "2026-09-06T05:15:13.584Z",
   "criterion": [
     "CONTRACT-001",
     "COMPAT-001",
@@ -10,7 +10,7 @@
     "repoSpec": "openapi.yaml",
     "repoCommit": null,
     "publishedSpec": "https://api.wave.online/openapi.json",
-    "repoOperationsDigest": "370de508452ec90d02d457c2aa66d1c5c3b1811957b23d14beeea6037ff7ba41"
+    "repoOperationsDigest": "c444b8649ef29f806ee2a0a178ed1fca487582e7e10ddd5e7f4fa651b1c98c8a"
   },
   "headline": {
     "repoVersion": "1.1.0",
@@ -26,7 +26,7 @@
     "liveProbed": 0,
     "sharedDrift": 0,
     "draftNotYetPublished": 0,
-    "allowlisted": 10,
+    "allowlisted": 11,
     "lapsedAllowlistEntries": 0,
     "unmatchedAllowlistEntries": 0
   },
@@ -95,6 +95,12 @@
       "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/voice/generate with { text } returns raw audio/mpeg bytes directly, not the JSON envelope. openapi.yaml's 200 description was rewritten to state that audio/mpeg is the default and the application/json shapes (VoiceSynthesisInline / VoiceGeneration) are returned only when the request opts out of it; the published document still carries the older, vaguer three-shapes description. This is a documentation-precision improvement grounded in live behavior, not a behavioral change this repo needs to walk back. Keyed on the exact current published 200 description so a real future change to the service's generated shape still surfaces as drift."
     },
     {
+      "path": "/enhance",
+      "method": "POST",
+      "direction": "shared-drift",
+      "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index draft placeholder (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real."
+    },
+    {
       "path": "/identity/resolve",
       "method": "GET",
       "direction": "shared-drift",
@@ -139,12 +145,14 @@
       "GET /videos/{videoId}/chapters",
       "POST /videos/{videoId}/chapters",
       "POST /videos/{videoId}/chapters/detect",
+      "POST /studio-ai/enhancements",
       "GET /realtime/connect",
       "POST /realtime/channels/{channel}/publish",
       "GET /realtime/channels/{channel}/presence",
       "GET /realtime/channels/{channel}/history",
       "POST /braid/publish",
       "DELETE /braid/publish/{ns}",
+      "POST /enhance",
       "POST /av/remux",
       "POST /av/demux",
       "POST /moq/publish/{ns}/{track}",
@@ -208,7 +216,6 @@
       "POST /embeddings",
       "POST /encode",
       "POST /engagement",
-      "POST /enhance",
       "POST /example",
       "POST /experiments",
       "POST /fleet",
@@ -310,11 +317,12 @@
       "POST /zoom-integration"
     ],
     "operationIdsSynthesized": 0,
-    "errorResponsesInjected": 799,
+    "errorResponsesInjected": 797,
     "errorResponsesOverwritten": [
       "GET /videos/{videoId}/chapters (404)",
       "POST /videos/{videoId}/chapters (404)",
-      "POST /videos/{videoId}/chapters/detect (404)"
+      "POST /videos/{videoId}/chapters/detect (404)",
+      "POST /enhance (400, 401)"
     ],
     "parametersStripped": 77
   },
