@@ -1,0 +1,10 @@
+[
+  {
+    "name": "internal",
+    "justification": "Live skill has pricing.model=free and auth.scope=null — an operator-only utility route by the gateway's own metadata (no scope to grant, nothing to meter), not a customer-facing capability. Documenting it as a public operation would misrepresent it as purchasable.",
+    "expect": {
+      "pricing.model": "free",
+      "auth.scope": null
+    }
+  }
+]
