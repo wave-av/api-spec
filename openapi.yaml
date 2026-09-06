@@ -2571,20 +2571,22 @@ paths:
       responses:
         '200':
           description: >
-            Speech generated. The gateway returns one of three shapes depending on
-            the engine path: an inline JSON payload with base64 audio + character
-            `alignment` (single round-trip, carries word timestamps), an async job
-            to poll, or raw audio bytes when timestamps were not requested.
+            Speech generated. Returns the raw MP3 bytes (`audio/mpeg`) by default (verified
+            against the live gateway: POST `/voice/generate` with `{ text }` returns the MP3 directly).
+            The `application/json` shapes are returned only when the request opts out of the
+            default: requests that ask for character timestamps receive a `VoiceSynthesisInline`
+            payload (base64 audio + `alignment`), and engines that process asynchronously return
+            a `VoiceGeneration` job to poll.
           content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
             application/json:
               schema:
                 oneOf:
                   - $ref: '#/components/schemas/VoiceSynthesisInline'
                   - $ref: '#/components/schemas/VoiceGeneration'
-            audio/mpeg:
-              schema:
-                type: string
-                format: binary
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -12712,12 +12714,20 @@ components:
 
     VoiceGenerateRequest:
       type: object
-      required: [voiceId, text]
+      required: [text]
+      # `voiceId` and `voice_id` are wire aliases for the same setting; supplying both is invalid.
+      not:
+        required: [voiceId, voice_id]
       properties:
-        voiceId:
-          type: string
         text:
           type: string
+          description: Text to convert to speech.
+        voiceId:
+          type: string
+          description: Voice id to use. Optional; the gateway picks a default when omitted. Also accepted on the wire as the `voice_id` alias.
+        voice_id:
+          type: string
+          description: Snake_case wire alias for `voiceId` (the form the SDK sends). Provide either `voiceId` or `voice_id`, not both.
         stability:
           type: number
           minimum: 0
