@@ -45,8 +45,15 @@
  *   node .github/scripts/published-drift.mjs openapi.yaml --no-normalize              # see the 71
  *   node .github/scripts/published-drift.mjs openapi.yaml --no-live-probe            # unit tier only
  *
- * NETWORK: one GET to the hardcoded public URL below, unauthenticated, bounded by an
- * AbortController timeout. Nothing else. `--live <file>` makes the run fully offline.
+ * NETWORK: one GET to the hardcoded public URL below for the published spec, unauthenticated,
+ * bounded by an AbortController timeout, PLUS — only on a real (non-`--live`, non-`--no-live-probe`)
+ * run — one unauthenticated request per `x-schema-status: draft` operation this repo declares that
+ * the published spec does not carry. See published-drift-live.mjs for why: `draft` must not be able
+ * to suppress an operation the real gateway actually serves. `--live <file>` keeps this whole run
+ * offline end to end, INCLUDING the draft probe (which is skipped, preserving "draft always
+ * suppresses" for that run) — exactly what the offline test suite needs. `--no-live-probe` skips
+ * only the probe tier (see the flag's own comment in parseArgs for why it cannot become a quiet way
+ * to turn the behavioural tier back off in the workflow).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

@@ -64,5 +64,14 @@
     "method": "GET",
     "direction": "unpublished-repo",
     "justification": "Same reasoning and same measurement date as DELETE /videos/{videoId}/chapters/{chapterId}: live-probed and confirmed answering, not ROUTE_NOT_MAPPED, but absent from the published /openapi.json document. A gap in the service's own spec generation. Lapses (and should be deleted) the moment the published document lists this operation."
+  },
+  {
+    "path": "/identity/resolve",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "This PR's own not-yet-deployed wording change (summary and the `agent` query parameter's description: 'agent id' -> 'fleet agent id') has not shipped to the live gateway yet, since the PR that carries it has not merged. Keyed on the exact current PUBLISHED (old) wording, so this lapses the moment the gateway serves the new wording — at which point the two sides agree and there is nothing left to exempt.",
+    "expect": {
+      "parameters.0.description": "Agent id (lowercase, e.g. `opencode`, `claude`, `telephony`)"
+    }
   }
 ]

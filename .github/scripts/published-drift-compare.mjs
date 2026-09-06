@@ -9,19 +9,35 @@
  *                      DIRECTION: an operation the gateway serves that the published contract does
  *                      not describe is public API nobody reviewed as public API. Always a finding
  *                      unless explicitly allowlisted with a justification AND a live predicate.
- *   unpublished-repo   Declared here, not served. Suppressed — and ONLY suppressed — when the
- *                      operation carries `x-schema-status: draft`, the spec's own statement that
- *                      the shape is a placeholder and not yet a promise to consumers. Promote an
- *                      operation out of draft and this gate immediately requires the published
- *                      contract to carry it. Draft is a lane to publication, not a parking space.
+ *   unpublished-repo   Declared here, not served BY THE PUBLISHED SPEC. Suppressed — and ONLY
+ *                      suppressed — when the operation carries `x-schema-status: draft` AND the
+ *                      gateway itself has never been observed to serve the route live. Promote an
+ *                      operation out of draft, or have it start answering anything other than 403
+ *                      ROUTE_NOT_MAPPED on the real gateway, and this gate immediately requires the
+ *                      published contract to carry it. Draft is a lane to publication, not a
+ *                      parking space — and it is not a bucket a live route can hide in either.
  *   shared-drift       In both, different once the gateway's serve-time enrichment is normalized
  *                      away (see published-drift-normalize.mjs).
  *
- * WHY `draft` SUPPRESSES RATHER THAN AN ALLOWLIST ENTRY PER OPERATION. There are 158 such
- * operations today. Enumerating them in a JSON file would mean every new draft stub carries an
- * allowlist edit, the file rots, and the exemptions decay into noise nobody reads. `draft` is a
+ * WHY `draft` SUPPRESSES RATHER THAN AN ALLOWLIST ENTRY PER OPERATION. There were 158 such
+ * operations on 2026-09-04. Enumerating them in a JSON file would mean every new draft stub carries
+ * an allowlist edit, the file rots, and the exemptions decay into noise nobody reads. `draft` is a
  * property the spec already states about itself, in the operation, next to the schema it
  * qualifies — so the gate reads it there. The allowlist is reserved for what no rule covers.
+ *
+ * THE DRAFT-LIVE CARVE-OUT (added after the 2026-09-04 GA verdict: `unpublishedRepo: 0` was zero
+ * by redefinition — 158 operations were shunted into `draft` and excluded from the count while 10
+ * of 10 sampled answered a live 402 in production, meaning the route exists and is priced. A 402
+ * is not a draft.). `draft` suppresses an operation ONLY while `liveObservations` (a Map the caller
+ * builds — see published-drift-live.mjs — by asking the real gateway) has NO observation for that
+ * path, or classifies it as `unpublished`. The moment the observation classifies as `live` or
+ * `unknown`, the finding is NOT suppressed: it is reported under its own `draft-but-live` direction
+ * (severity `claim-contradicted-by-behaviour` for a confirmed-live route, `unverifiable` for a probe
+ * that could not resolve — UNKNOWN IS NOT A PASS), and it counts in `headline.draftButLive` and
+ * `headline.liveProbed`. An operation with no `liveObservations` at all (the offline `--live
+ * <snapshot>` or `--no-live-probe` paths, which are documented to stay fully offline) keeps the
+ * prior behavior — suppressed — because compare() itself makes no network calls; the probe and its
+ * classification both live in published-drift.mjs / published-drift-live.mjs.
  */
 import { isDeepStrictEqual } from 'node:util';
 import { NORMALIZATION_RULES, NO_OBSERVATIONS, normalizePair } from './published-drift-normalize.mjs';

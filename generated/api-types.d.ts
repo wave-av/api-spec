@@ -1435,7 +1435,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Resolve a WAVE agent id to its public channel map
+         * Resolve a WAVE fleet agent id to its public channel map
          * @description Gateway-native read pane. Returns the agent's public directory entry:
          *     email, credential key name (never a credential value), org, and channels. The data is
          *     public-directory data only.
@@ -9329,7 +9329,7 @@ export interface operations {
     identityResolve: {
         parameters: {
             query: {
-                /** @description Agent id (lowercase, e.g. `opencode`, `claude`, `telephony`) */
+                /** @description Fleet agent id (lowercase, e.g. `opencode`, `claude`, `telephony`) */
                 agent: string;
                 /** @description Optional tenancy self-assertion; must equal the authenticated principal's org */
                 org?: string;
