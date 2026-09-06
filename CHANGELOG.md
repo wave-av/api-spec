@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- **`POST /voice/generate` contract clarified against the live gateway.** The 200 response now
+  documents that the primary path returns raw `audio/mpeg` bytes directly; the `application/json`
+  shapes (`VoiceSynthesisInline`, `VoiceGeneration`) are returned only when the request opts out
+  of that default. `VoiceGenerateRequest` now requires only `text` — `voiceId` is optional (the
+  gateway picks a default when omitted) and is also accepted on the wire as the `voice_id` alias
+  the SDK sends; supplying both `voiceId` and `voice_id` on the same request is now rejected at
+  the schema level.
+
+  Note: this PR originally also proposed renaming `POST /voice/generate` to `POST /voice` and
+  replacing `ClipCreate`'s contract. Both are dropped from this revival: the live gateway's x402
+  paywall gates on the top-level product path segment (`/voice/...`) for ANY sub-path, including
+  ones that don't exist, so an unauthenticated 402 probe cannot distinguish `/voice` from
+  `/voice/generate` — the rename claim is unverifiable and `main` already documents
+  `/voice/generate`, so it stays. `ClipCreate` was independently re-verified against the live
+  gateway on `main` since this PR branched (`source` + `in`, with `out`/`duration` as alternatives,
+  `sourceType`, `visibility`, and more) and is more thorough than this PR's version; `main`'s
+  `ClipCreate` is kept as-is.
+
 ### Added
 
 - **Body content-policy gate** (`body-guard` CI job, `scripts/public-repo-guard/body-policy.sh`) —

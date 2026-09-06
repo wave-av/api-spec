@@ -54,6 +54,15 @@
     }
   },
   {
+    "path": "/voice/generate",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/voice/generate with { text } returns raw audio/mpeg bytes directly, not the JSON envelope. openapi.yaml's 200 description was rewritten to state that audio/mpeg is the default and the application/json shapes (VoiceSynthesisInline / VoiceGeneration) are returned only when the request opts out of it; the published document still carries the older, vaguer three-shapes description. This is a documentation-precision improvement grounded in live behavior, not a behavioral change this repo needs to walk back. Keyed on the exact current published 200 description so a real future change to the service's generated shape still surfaces as drift.",
+    "expect": {
+      "responses.200.description": "Speech generated. The gateway returns one of three shapes depending on the engine path: an inline JSON payload with base64 audio + character `alignment` (single round-trip, carries word timestamps), an async job to poll, or raw audio bytes when timestamps were not requested.\n"
+    }
+  },
+  {
     "path": "/videos/{videoId}/chapters/{chapterId}",
     "method": "DELETE",
     "direction": "unpublished-repo",

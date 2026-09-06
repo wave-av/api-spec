@@ -5211,8 +5211,12 @@ export interface components {
             format?: string;
         };
         VoiceGenerateRequest: {
-            voiceId: string;
+            /** @description Text to convert to speech. */
             text: string;
+            /** @description Voice id to use. Optional; the gateway picks a default when omitted. Also accepted on the wire as the `voice_id` alias. */
+            voiceId?: string;
+            /** @description Snake_case wire alias for `voiceId` (the form the SDK sends). Provide either `voiceId` or `voice_id`, not both. */
+            voice_id?: string;
             /** @default 0.5 */
             stability: number;
             /** @default 0.75 */
@@ -7749,14 +7753,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Speech generated. The gateway returns one of three shapes depending on the engine path: an inline JSON payload with base64 audio + character `alignment` (single round-trip, carries word timestamps), an async job to poll, or raw audio bytes when timestamps were not requested. */
+            /** @description Speech generated. Returns the raw MP3 bytes (`audio/mpeg`) by default (verified against the live gateway: POST `/voice/generate` with `{ text }` returns the MP3 directly). The `application/json` shapes are returned only when the request opts out of the default: requests that ask for character timestamps receive a `VoiceSynthesisInline` payload (base64 audio + `alignment`), and engines that process asynchronously return a `VoiceGeneration` job to poll. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VoiceSynthesisInline"] | components["schemas"]["VoiceGeneration"];
                     "audio/mpeg": string;
+                    "application/json": components["schemas"]["VoiceSynthesisInline"] | components["schemas"]["VoiceGeneration"];
                 };
             };
             401: components["responses"]["Unauthorized"];

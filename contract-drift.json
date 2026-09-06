@@ -1,6 +1,6 @@
 {
   "about": "Point-in-time operation-level diff between this repo's openapi.yaml and the contract the gateway publishes. It is a dated receipt, not a live view: regenerate with `node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json`. The published-contract-drift workflow uploads a fresh copy on every scheduled run. The PUBLISHED half of this receipt ages on the gateway's schedule and only the scheduled drift job can refresh it; the REPO half is pinned by sources.repoOperationsDigest, which the freshness job checks offline on every run so this file cannot quietly disagree with the openapi.yaml sitting next to it.",
-  "generatedAt": "2026-09-06T03:13:47.098Z",
+  "generatedAt": "2026-09-06T03:41:45.745Z",
   "criterion": [
     "CONTRACT-001",
     "COMPAT-001",
@@ -26,7 +26,7 @@
     "liveProbed": 0,
     "sharedDrift": 0,
     "draftNotYetPublished": 0,
-    "allowlisted": 9,
+    "allowlisted": 10,
     "lapsedAllowlistEntries": 0,
     "unmatchedAllowlistEntries": 0
   },
@@ -87,6 +87,12 @@
       "method": "GET",
       "direction": "shared-drift",
       "justification": "Same editorial-only reasoning as GET /leaderboard: an assigned operationId and a Title-Cased tag versus the gateway's unnamed, lowercase-tagged generated shape. Keyed on the exact published summary so a real content change still surfaces as drift."
+    },
+    {
+      "path": "/voice/generate",
+      "method": "POST",
+      "direction": "shared-drift",
+      "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/voice/generate with { text } returns raw audio/mpeg bytes directly, not the JSON envelope. openapi.yaml's 200 description was rewritten to state that audio/mpeg is the default and the application/json shapes (VoiceSynthesisInline / VoiceGeneration) are returned only when the request opts out of it; the published document still carries the older, vaguer three-shapes description. This is a documentation-precision improvement grounded in live behavior, not a behavioral change this repo needs to walk back. Keyed on the exact current published 200 description so a real future change to the service's generated shape still surfaces as drift."
     },
     {
       "path": "/identity/resolve",
