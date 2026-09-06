@@ -114,6 +114,18 @@ function servedWithoutDrafts(spec, { keepFirstDraft = false } = {}) {
   return { served, victimKey };
 }
 
+/** Every `x-schema-status: draft` key in the real spec, `METHOD path` — the completeness check now
+ * requires a --draft-live-snapshot to cover every one of these, not just the operation under test. */
+function allDraftKeys(spec) {
+  const keys = [];
+  for (const [p, item] of Object.entries(spec.paths)) {
+    for (const [m, op] of Object.entries(item)) {
+      if (op?.['x-schema-status'] === 'draft') keys.push(`${m.toUpperCase()} ${p}`);
+    }
+  }
+  return keys;
+}
+
 test('main(): a draft-live-snapshot naming a real draft operation as live turns EXIT_OK into EXIT_DRIFT', async () => {
   const yaml = (await import('js-yaml')).default;
   const spec = yaml.load(readFileSync(join(REPO_ROOT, 'openapi.yaml'), 'utf8'));
@@ -124,7 +136,15 @@ test('main(): a draft-live-snapshot naming a real draft operation as live turns 
   const liveSnapshot = join(process.env.RUNNER_TEMP ?? '/tmp', `published-drift-draftlive-clean-${process.pid}.json`);
   const draftLiveSnapshot = join(process.env.RUNNER_TEMP ?? '/tmp', `published-drift-draftlive-fixture-${process.pid}.json`);
   writeFileSync(liveSnapshot, JSON.stringify(doc(served)));
-  writeFileSync(draftLiveSnapshot, JSON.stringify({ [victimKey]: { status: 'live', httpStatus: 402, code: null } }));
+  // A complete snapshot: every other draft key resolves 'not-live' (the honest default —
+  // unprobed-in-this-fixture is not the point of this test), only the victim is 'live'.
+  const completeSnapshot = Object.fromEntries(
+    allDraftKeys(spec).map((key) => [
+      key,
+      key === victimKey ? { status: 'live', httpStatus: 402, code: null } : { status: 'not-live', httpStatus: 403, code: 'ROUTE_NOT_MAPPED' },
+    ]),
+  );
+  writeFileSync(draftLiveSnapshot, JSON.stringify(completeSnapshot));
   try {
     // Baseline: with no draft-live-snapshot, the draft stays suppressed and the run is clean.
     assert.equal(await main([join(REPO_ROOT, 'openapi.yaml'), '--live', liveSnapshot]), EXIT_OK);
@@ -215,12 +235,25 @@ test('main(): refuses (EXIT_UNKNOWN) rather than grade when a draft-liveness pro
   const yaml = (await import('js-yaml')).default;
   const spec = yaml.load(readFileSync(join(REPO_ROOT, 'openapi.yaml'), 'utf8'));
   const { served } = servedWithoutDrafts(spec);
+  const draftKeys = allDraftKeys(spec);
+  assert.ok(draftKeys.length, 'the real spec must have at least one draft operation for this test to mean anything');
 
   const { writeFileSync, rmSync } = await import('node:fs');
   const snapshot = join(process.env.RUNNER_TEMP ?? '/tmp', `published-drift-draftlive-unknown-${process.pid}.json`);
   const draftLiveSnapshot = join(process.env.RUNNER_TEMP ?? '/tmp', `published-drift-draftlive-unknown-fixture-${process.pid}.json`);
   writeFileSync(snapshot, JSON.stringify(doc(served)));
-  writeFileSync(draftLiveSnapshot, JSON.stringify({ 'POST /does-not-matter': { status: 'unknown', error: 'timed out after 10000ms' } }));
+  // A complete snapshot except for its VERDICT: the first key resolves 'unknown' (a genuinely
+  // unresolved probe), every other key resolves 'not-live' so completeness alone cannot be why
+  // this refuses — only the unresolved entry can be.
+  const completeSnapshot = Object.fromEntries(
+    draftKeys.map((key, i) => [
+      key,
+      i === 0
+        ? { status: 'unknown', error: 'timed out after 10000ms' }
+        : { status: 'not-live', httpStatus: 403, code: 'ROUTE_NOT_MAPPED' },
+    ]),
+  );
+  writeFileSync(draftLiveSnapshot, JSON.stringify(completeSnapshot));
   try {
     assert.equal(
       await main([join(REPO_ROOT, 'openapi.yaml'), '--live', snapshot, '--draft-live-snapshot', draftLiveSnapshot]),

@@ -279,7 +279,14 @@ jobs:
     name: published contract drift
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 20, not the 10 every other job in this file uses: this job's live-behaviour probe tier retries
+    # each unresolved draft operation up to DEFAULT_RETRIES times at PROBE_TIMEOUT_MS, and at the
+    # spec's current ~150 draft operations / DEFAULT_CONCURRENCY=8 workers, worst case (every probe
+    # timing out) already approaches 10 minutes on its own — a job killed mid-run by its own timeout
+    # is a worse failure mode (no verdict at all) than the clean EXIT_UNKNOWN refusal
+    # MAX_PROBED_OPERATIONS is meant to be. published-drift.mjs bounds the operation COUNT; this
+    # bounds the worst-case TIME for the count the spec has today.
+    timeout-minutes: 20
     permissions:
       contents: read
       # Required to file/update the tracking issue on exit 2.

@@ -259,6 +259,14 @@ export async function main(argv = process.argv.slice(2)) {
   // and skips the probe, preserving the old "draft always suppresses" behavior for that mode; a
   // real network run (no `--live`) always probes.
   let draftLiveProbe = new Map();
+  // The set THIS run expects a verdict for, computed once regardless of which branch below fills
+  // it in — both so the real-network path knows what to probe, and so a `--draft-live-snapshot`
+  // file can be checked for completeness against the SAME set, not merely well-formed.
+  const repoOpsForProbe = indexOperations(repoDoc);
+  const liveOpsForProbe = indexOperations(liveDoc);
+  const draftUnpublished = [...repoOpsForProbe.entries()]
+    .filter(([key, { op }]) => !liveOpsForProbe.has(key) && op['x-schema-status'] === 'draft')
+    .map(([key, { path, method }]) => ({ key, path, method }));
   if (args.draftLiveSnapshot) {
     try {
       const raw = JSON.parse(readFileSync(args.draftLiveSnapshot, 'utf8'));
@@ -268,16 +276,35 @@ export async function main(argv = process.argv.slice(2)) {
         return EXIT_UNKNOWN;
       }
       draftLiveProbe = new Map(Object.entries(raw));
+      // A snapshot that OMITS an operation this run expects a verdict for is indistinguishable
+      // from "never probed" once it becomes a Map — and an absent key reads as suppressed, not as
+      // unresolved (see the unresolved-probe check below, which can only see entries that exist).
+      // An incomplete fixture must refuse loudly here, before that ambiguity can hide a live route.
+      const missing = draftUnpublished.filter(({ key }) => !draftLiveProbe.has(key)).map(({ key }) => key);
+      if (missing.length) {
+        console.error(
+          `published-drift: draft-live snapshot ${args.draftLiveSnapshot} is missing ${missing.length} ` +
+            `entr${missing.length === 1 ? 'y' : 'ies'} this run expects a verdict for: ${missing.join(', ')}`,
+        );
+        return EXIT_UNKNOWN;
+      }
     } catch (err) {
       console.error(`published-drift: could not read/parse draft-live snapshot ${args.draftLiveSnapshot}: ${err.message}`);
       return EXIT_UNKNOWN;
     }
   } else if (!args.live) {
-    const repoOpsForProbe = indexOperations(repoDoc);
-    const liveOpsForProbe = indexOperations(liveDoc);
-    const draftUnpublished = [...repoOpsForProbe.entries()]
-      .filter(([key, { op }]) => !liveOpsForProbe.has(key) && op['x-schema-status'] === 'draft')
-      .map(([, { path, method }]) => ({ path, method }));
+    // `repoDoc` is THIS PR's openapi.yaml, so a fork PR controls how many draft-and-unpublished
+    // operations it declares. Each probe retries up to DEFAULT_RETRIES times at PROBE_TIMEOUT_MS,
+    // so an unbounded set could genuinely exceed this job's own timeout-minutes before the probe
+    // finishes — a job killed mid-run is a worse failure mode than a clean, fast refusal. Refuse
+    // rather than silently degrade into a slow, traffic-generating, possibly-truncated run.
+    const MAX_PROBED_OPERATIONS = 400;
+    if (draftUnpublished.length > MAX_PROBED_OPERATIONS) {
+      console.error(
+        `published-drift: refusing to probe ${draftUnpublished.length} draft operations (limit ${MAX_PROBED_OPERATIONS})`,
+      );
+      return EXIT_UNKNOWN;
+    }
     draftLiveProbe = await probeDraftOperations(draftUnpublished);
   }
   // UNKNOWN IS NOT A PASS: a probe that never got a real verdict must never silently fall back to

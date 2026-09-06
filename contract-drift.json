@@ -1,6 +1,6 @@
 {
   "about": "Point-in-time operation-level diff between this repo's openapi.yaml and the contract the gateway publishes. It is a dated receipt, not a live view: regenerate with `node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json`. The published-contract-drift workflow uploads a fresh copy on every scheduled run. The PUBLISHED half of this receipt ages on the gateway's schedule and only the scheduled drift job can refresh it; the REPO half is pinned by sources.repoOperationsDigest, which the freshness job checks offline on every run so this file cannot quietly disagree with the openapi.yaml sitting next to it.",
-  "generatedAt": "2026-09-06T02:06:05.861Z",
+  "generatedAt": "2026-09-06T02:16:48.242Z",
   "criterion": [
     "CONTRACT-001",
     "COMPAT-001",
