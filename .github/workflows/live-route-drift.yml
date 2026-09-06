@@ -69,7 +69,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: '22'
+          node-version: '24'
       # No install here: live-route-drift.test.mjs imports only live-route-probe.mjs and
       # live-route-compare.mjs, neither of which touches js-yaml — that dependency belongs to the CLI
       # (live-route-drift.mjs), not the offline unit suite. Reaching the npm registry from a PR-path
@@ -95,7 +95,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Install tooling
         run: npm install --no-save --no-audit --no-fund --ignore-scripts js-yaml@4.1.0
 
