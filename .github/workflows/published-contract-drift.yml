@@ -1,0 +1,442 @@
+# published-contract-drift.yml — does the contract the gateway PUBLISHES still match the one this
+# repo declares? See .github/scripts/published-drift.mjs for the full rationale.
+#
+# TWO JOBS, TWO TRIGGERS, ON PURPOSE.
+#
+#   `unit` runs on PULL REQUESTS. It is offline — node --test over hand-built fixtures, no network
+#   at all — so it is a property of the diff and belongs on the PR path.
+#
+#   `drift` runs on a SCHEDULE, on demand, AND on pull requests. It used to carry
+#   `if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'`, which made it
+#   SKIPPED on every pull request — so the one moment a drift is actually INTRODUCED, by a diff, was
+#   the one moment this gate was not looking. That guard is gone.
+#
+#   The original argument for it was real but measured the wrong blast radius: "asking it on every
+#   PR would make every author here depend on an unauthenticated network fetch." The workflow-level
+#   `pull_request` trigger is PATH-FILTERED to openapi.yaml and the drift scripts. It was never
+#   every author — it is authors changing the spec, which is exactly who should be told that the
+#   operation they are adding is already live, or that the one they are marking draft is already
+#   being billed for. A gateway outage on such a PR yields exit 1 (UNKNOWN) and goes red, which is
+#   deliberate and follows the fleet precedent (claude-workstation#4340): "could not measure" maps
+#   to conclusion `failure`, never success/neutral/skipped, because only those three satisfy a
+#   required check. UNKNOWN IS NOT A PASS, and a spec PR merged blind is worse than a spec PR held.
+#
+#   `freshness` runs EVERYWHERE, because it is offline. It asks the one question the other two do
+#   not: is the COMMITTED contract-drift.json still a receipt for the CURRENT openapi.yaml? `unit`
+#   never opens that file, and `drift` writes a fresh copy to /tmp and uploads it as a build
+#   artifact without ever diffing it against the committed one — so before this job, the committed
+#   receipt could disagree with the spec sitting beside it and nothing would say a word.
+#
+# WHY `freshness` IS ADVISORY ON A PULL REQUEST AND RED ON THE SCHEDULE. Clearing a stale verdict
+# means regenerating the receipt, and THAT needs the network. Failing a pull request for it would
+# reintroduce, by the back door, exactly the coupling this file rejects two paragraphs above: a
+# spec author blocked on an unauthenticated fetch. So on a PR the job posts a warning and a step
+# summary — an automated nudge, on the diff that caused it, where the author will see it. On the
+# schedule and on pushes to main there is no author to block and the receipt is simply wrong in
+# the default branch, so it goes red and files the same one-tracking-issue way `drift` does.
+#
+# WHY THIS IS A NEW FILE AND NOT A JOB IN foundation-gate.yml: foundation-gate.yml mirrors
+# wave-foundation's checks.yml and is contended by several in-flight branches. A gate that is
+# specific to this repo's own published artifact does not belong inside the mirrored file.
+#
+# ON EXIT 2 (drift) the job files or updates ONE tracking issue, matched by exact title so repeated
+# runs comment instead of opening a new issue every morning. ON EXIT 0 it CLOSES that same issue:
+# an open issue is a claim about the current state of the default branch, and a claim nothing ever
+# retracts becomes false the moment it is fixed. Both jobs own the full lifecycle of their own
+# issue, and the two titles are distinct so neither touches the other's. On exit 1 (UNKNOWN — a
+# broken read) it goes red and files NOTHING: a failed read says nothing about drift, and an issue
+# claiming drift on the strength of a failed fetch would be a false report.
+#
+# ON ANY OTHER EXIT CODE both jobs go red. The scripts define exactly three codes; a fourth means a
+# crash — an interpreter error, an OOM kill, a code added to a script without teaching this file
+# about it. The per-code steps are all `if: code == ...`, so an unhandled code would match none of
+# them and leave the job GREEN. A gate that fails open is worse than no gate, because it is
+# trusted, so each job carries an explicit inverse default case.
+
+name: published-contract-drift
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/published-drift*'
+      - '.github/workflows/published-contract-drift.yml'
+      - 'openapi.yaml'
+      # The committed receipt is a subject of this workflow, not just an output of it: a PR that
+      # regenerates it alone must still be graded.
+      - 'contract-drift.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/published-drift*'
+      - '.github/workflows/published-contract-drift.yml'
+      # openapi.yaml belongs here too — a merged spec change is precisely what strands the receipt,
+      # and on main there is no PR left to carry the warning.
+      - 'openapi.yaml'
+      - 'contract-drift.json'
+  schedule:
+    # 07:10 UTC daily — deliberately after the serving repo's own pin-staleness cron (06:40 UTC),
+    # so that picture is already fresh when this asks the published-contract question.
+    - cron: '10 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Offline. Safe on every PR. This is what keeps the normalizer honest: it asserts that an
+  # enriched-but-identical operation reads as drift WITHOUT normalization and clean WITH it, so a
+  # normalizer that silently stopped working could not pass.
+  unit:
+    name: unit tests (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        # js-yaml is installed explicitly rather than leaned on transitively, for the same reason
+        # foundation-gate.yml does it: nothing this repo depends on is otherwise importable here.
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+      # The glob, not the directory: node's test-runner discovery skips dot-directories, so
+      # `node --test .github/scripts/` finds nothing and exits non-zero on the path itself.
+      - name: node --test
+        run: node --test .github/scripts/*.test.mjs
+
+  # Offline. Runs on every trigger — see the header for why its severity depends on which one.
+  freshness:
+    name: committed receipt freshness (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Required to file/update the tracking issue on the schedule/push path. On a pull_request the
+      # issue step never runs, and for a fork PR the token is read-only regardless.
+      issues: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+
+      - name: Is contract-drift.json still a receipt for openapi.yaml?
+        id: fresh
+        run: |
+          set +e
+          node .github/scripts/published-drift-freshness.mjs openapi.yaml --receipt contract-drift.json 2>&1 | tee /tmp/freshness.log
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "exit code: $code"
+
+      # The script defines exactly three exit codes. ANY OTHER CODE IS A CRASH, not a verdict: an
+      # interpreter error, an OOM kill (137), a missing binary (127), or a fourth code someone adds
+      # to the script later without teaching this file about it. The steps below enumerate '1' and
+      # '2'; with no default case a crash would match none of them and leave the job GREEN — a gate
+      # that fails open and says nothing, which is worse than no gate because it is trusted. Every
+      # other step here is `if: code == ...`, so this one is deliberately the inverse.
+      - name: Fail on an unrecognized exit code
+        if: steps.fresh.outputs.code != '0' && steps.fresh.outputs.code != '1' && steps.fresh.outputs.code != '2'
+        env:
+          CODE: ${{ steps.fresh.outputs.code }}
+        run: |
+          echo "::error::published-drift-freshness exited $CODE, which is not one of its three documented codes (0 FRESH / 1 UNKNOWN / 2 STALE)."
+          echo "Treating an unrecognized exit as a failure: it is a crash, not a verdict, and must never read as a pass."
+          exit 1
+
+      # exit 1 = UNKNOWN. A broken read is a TOOLING failure: go red everywhere, file nothing.
+      - name: Fail loudly on a broken read
+        if: steps.fresh.outputs.code == '1'
+        run: |
+          echo "::error::published-drift-freshness could not grade the committed receipt."
+          echo "This says NOTHING about whether it is stale. Fix the read, then re-run."
+          exit 1
+
+      # exit 2 on a PR = ADVISORY. The author cannot regenerate without the network; say so where
+      # they will see it and let the PR stay green.
+      - name: Warn that the committed receipt is stale
+        if: steps.fresh.outputs.code == '2' && github.event_name == 'pull_request'
+        run: |
+          echo "::warning file=contract-drift.json::This PR moves openapi.yaml past the committed contract-drift.json. Regenerate it with 'node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json' (needs network) when convenient — the daily job will chase it otherwise."
+          {
+            echo '### Committed receipt is stale'
+            echo
+            echo 'This is advisory, not a blocker — regenerating needs a network fetch of the published contract.'
+            echo
+            echo '```'
+            cat /tmp/freshness.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # exit 2 off the PR path = the default branch carries a wrong receipt. File or update exactly
+      # one tracking issue, matched by exact title so repeated runs comment instead of piling up.
+      #
+      # As in the drift job, nothing PR- or issue-controlled is interpolated into a shell command:
+      # the title is a fixed literal, the body is written to a file and passed with --body-file, and
+      # the issue number comes from a --jq filter over `gh issue list` output. The only interpolated
+      # values are $GITHUB_REPOSITORY, $GITHUB_RUN_ID and $GITHUB_SHA, which GitHub sets.
+      - name: File or update the tracking issue
+        if: steps.fresh.outputs.code == '2' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'contract-drift.json no longer matches openapi.yaml'
+        run: |
+          {
+            echo "The committed \`contract-drift.json\` records a different \`openapi.yaml\` than the one on the default branch, so it is a receipt for a spec that no longer exists."
+            echo
+            echo "Run: [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) · commit \`$GITHUB_SHA\`"
+            echo
+            echo '```'
+            cat /tmp/freshness.log
+            echo '```'
+            echo
+            echo "To clear this, regenerate the receipt and commit it:"
+            echo '```'
+            echo "node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json"
+            echo '```'
+            echo "That fetches the published contract, so it needs network access — which is why CI nudges rather than doing it for you."
+          } > /tmp/issue-body.md
+
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title == \$ENV.TITLE)) | .[0].number // empty")
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+            echo "Commented on existing issue #$existing"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file /tmp/issue-body.md
+          fi
+
+      # Red on the default branch too, so a silenced or rate-limited issue write can never make a
+      # stranded receipt look green.
+      - name: Fail on a stale receipt
+        if: steps.fresh.outputs.code == '2' && github.event_name != 'pull_request'
+        run: |
+          echo "::error::contract-drift.json no longer describes openapi.yaml. A tracking issue was filed or updated."
+          exit 1
+
+      # exit 0 off the PR path = the receipt was regenerated and the condition that opened the issue
+      # is gone. Close it. An open issue is a CLAIM about the default branch's current state, so one
+      # nothing closes decays into a false claim that outlives its cause — and the next real
+      # staleness would comment on a stale issue rather than announce itself. Matched by the same
+      # exact literal title the filing step uses, so the two halves of the lifecycle cannot drift
+      # apart; the drift job's issue has a different title and is untouched by this.
+      - name: Close the tracking issue once the receipt is fresh again
+        if: steps.fresh.outputs.code == '0' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'contract-drift.json no longer matches openapi.yaml'
+        run: |
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title == \$ENV.TITLE)) | .[0].number // empty")
+
+          if [ -n "$existing" ]; then
+            {
+              echo "\`contract-drift.json\` matches \`openapi.yaml\` again — the receipt was regenerated, so this is resolved."
+              echo
+              echo "Run: [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) · commit \`$GITHUB_SHA\`"
+            } > /tmp/close-body.md
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "$(cat /tmp/close-body.md)"
+            echo "Closed issue #$existing — the receipt is fresh."
+          else
+            echo "Receipt is fresh and no tracking issue is open. Nothing to close."
+          fi
+
+  # Networked. NOW RUNS ON PULL REQUESTS TOO — see the header note on the narrowed blast radius.
+  # Reads only. This is the job a pull request (including a fork PR) actually drives, so it never
+  # holds a scope beyond `contents: read` — see `drift-issue` below for why that split exists and
+  # what it closes.
+  drift:
+    name: published contract drift
+    # The workflow-level `pull_request` trigger is already PATH-FILTERED to openapi.yaml and the
+    # drift scripts, so this runs on spec-changing PRs, schedules, and manual dispatches — but the
+    # same `push.paths` filter also matches those same paths on a push to main (the freshness job's
+    # trigger), which would add this networked live-probe gate and its issue lifecycle to every
+    # post-merge push, outside the documented schedule/manual/PR scope. Excluding `push` here keeps
+    # this job on exactly the three events it documents itself as running on.
+    # `pull_request` appears in this comment and in the trigger; published-drift-live.test.mjs
+    # asserts the schedule-only guard has not come back.
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      code: ${{ steps.drift.outputs.code }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+
+      - name: Compare the published contract against openapi.yaml
+        id: drift
+        run: |
+          set +e
+          node .github/scripts/published-drift.mjs openapi.yaml --out /tmp/contract-drift.json | tee /tmp/drift.log
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "exit code: $code"
+
+      # Both files travel to `drift-issue` under one artifact: the machine-readable diff (an
+      # existing consumer downloads this by name) and the human log the issue body quotes. Neither
+      # crosses a trust boundary here — this job only ever reads, it never writes an issue.
+      - name: Upload the diff artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: contract-drift
+          path: |
+            /tmp/contract-drift.json
+            /tmp/drift.log
+          if-no-files-found: warn
+
+      # Same default case as the freshness job, for the same reason: the steps below enumerate '1'
+      # and '2', so without this an interpreter crash, an OOM kill or a code added later would match
+      # nothing and leave a networked gate green while saying nothing at all.
+      - name: Fail on an unrecognized exit code
+        if: steps.drift.outputs.code != '0' && steps.drift.outputs.code != '1' && steps.drift.outputs.code != '2'
+        env:
+          CODE: ${{ steps.drift.outputs.code }}
+        run: |
+          echo "::error::published-drift exited $CODE, which is not one of its three documented codes (0 OK / 1 UNKNOWN / 2 DRIFT)."
+          echo "Treating an unrecognized exit as a failure: it is a crash, not a verdict, and must never read as a pass."
+          exit 1
+
+      # exit 1 = UNKNOWN. A broken read is a TOOLING failure: go red, file nothing.
+      - name: Fail loudly on a broken read
+        if: steps.drift.outputs.code == '1'
+        run: |
+          echo "::error::published-drift could not read the published contract or the local spec."
+          echo "This says NOTHING about drift and no issue was filed. Fix the read, then re-run."
+          exit 1
+
+      # The job's own verdict is red on drift too, so a silenced or rate-limited issue write (in
+      # the separate `drift-issue` job) can never make a drifted contract look green — this step
+      # has no dependency on that job succeeding.
+      - name: Fail on drift
+        if: steps.drift.outputs.code == '2'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "::error::The published contract has drifted from openapi.yaml. No tracking issue is filed on a pull request — fix the drift before merge."
+          else
+            echo "::error::The published contract has drifted from openapi.yaml. A tracking issue was filed or updated."
+          fi
+          exit 1
+
+  # Writes. Split out of `drift` (2026-09-05, review of #84): that job runs pull-request-controlled
+  # workflow and package code, and a pull request from a fork can in principle reach `github.token`
+  # from within it. `pull_request` on GitHub Actions gets a read-only token by default regardless of
+  # what a workflow's `permissions:` block requests — a repository has to opt in to sending forks a
+  # write-capable token, which is not this repo's default — but least privilege does not lean on
+  # that default holding forever: the job that runs on every pull request now has no write scope to
+  # reach for even if it did. Only THIS job, which does not run on pull_request at all, ever holds
+  # `issues: write`.
+  drift-issue:
+    name: published contract drift tracking issue
+    needs: drift
+    # `always()`: `drift` FAILS its own job on exit 2 (drift found) — that is what makes the
+    # required check red — so the implicit default condition here (every needed job succeeded)
+    # would SKIP this job on exactly the run where filing an issue matters most. `always()` runs
+    # regardless of `drift`'s pass/fail conclusion; `needs.drift.result != 'skipped'` still excludes
+    # a push (where `drift` itself never runs, so there is no code to act on), and the event-name
+    # check still excludes pull_request. Every actual gh-issue step below is separately gated on
+    # `needs.drift.outputs.code`, so a genuinely absent/invalid code still does nothing.
+    if: always() && needs.drift.result != 'skipped' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Required to file/update/close the tracking issue. Never granted to the `drift` job above.
+      issues: write
+    steps:
+      - name: Download the diff artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: contract-drift
+          path: /tmp
+
+      # exit 2 = DRIFT. File or update exactly one tracking issue.
+      #
+      # Nothing PR- or issue-controlled is interpolated into a shell command: the title is a fixed
+      # literal, the body is built from /tmp/drift.log (produced by `drift`, never by this job) and
+      # passed with --body-file, and the issue number comes from a --jq filter over `gh issue list`
+      # output rather than from a search string. The only interpolated value is $GITHUB_REPOSITORY,
+      # which GitHub sets.
+      # The tracking issue is a claim about the state of the DEFAULT BRANCH, so the PR path must not
+      # touch it: this job's own `if:` above already excludes pull_request, so a PR's drift is the
+      # PR author's to fix before merge, and the `drift` job's own "Fail on drift" step is NOT
+      # guarded — a PR that introduces drift still goes red regardless of this job.
+      - name: File or update the tracking issue
+        if: needs.drift.outputs.code == '2'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'Published contract has drifted from openapi.yaml'
+        run: |
+          {
+            echo "The gateway's published contract no longer matches this repo's \`openapi.yaml\` at operation granularity."
+            echo
+            echo "Run: [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) · commit \`$GITHUB_SHA\`"
+            echo
+            echo '```'
+            cat /tmp/drift.log
+            echo '```'
+            echo
+            echo "The full machine-readable diff is attached to the run as the \`contract-drift\` artifact."
+            echo "See \`.github/scripts/published-drift.mjs\` for what each direction means and how to clear it."
+          } > /tmp/issue-body.md
+
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title == \$ENV.TITLE)) | .[0].number // empty")
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+            echo "Commented on existing issue #$existing"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file /tmp/issue-body.md
+          fi
+
+      # exit 0 = the contract was reconciled. Close the issue that exit 2 opened, for the same
+      # reason the freshness job closes its own: an open issue asserts that the published contract
+      # is CURRENTLY drifted, and nothing else in this workflow ever retracts that. Left alone it
+      # would sit open past the fix, and the next genuine drift would arrive as a comment on an
+      # issue everyone had already learned to ignore. Exact-title match, and this title is distinct
+      # from the freshness job's — the two lifecycles stay separate.
+      - name: Close the tracking issue once the contract matches again
+        if: needs.drift.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'Published contract has drifted from openapi.yaml'
+        run: |
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title == \$ENV.TITLE)) | .[0].number // empty")
+
+          if [ -n "$existing" ]; then
+            {
+              echo "The published contract matches \`openapi.yaml\` at operation granularity again — this is resolved."
+              echo
+              echo "Run: [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) · commit \`$GITHUB_SHA\`"
+            } > /tmp/close-body.md
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "$(cat /tmp/close-body.md)"
+            echo "Closed issue #$existing — the contract matches."
+          else
+            echo "No drift and no tracking issue is open. Nothing to close."
+          fi
