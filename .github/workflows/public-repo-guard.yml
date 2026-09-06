@@ -13,10 +13,12 @@ name: public-repo-guard
 # wave-av/.github must not be able to alter another repo's secret scanner). The
 # gitleaks binary is version-pinned AND SHA-256-verified before it runs.
 #
-# To install on a new repo, copy all three files together:
+# To install on a new repo, copy all five files together:
 #   .github/workflows/public-repo-guard.yml
 #   .gitleaks.toml
 #   scripts/public-repo-guard/content-policy.sh
+#   scripts/public-repo-guard/body-policy.sh
+#   scripts/public-repo-guard/tests/body-policy.test.sh
 #
 # Scan scope: the published working TREE (gitleaks --no-git), NOT git history. The
 # goal is "what is public right now is clean", so a shallow checkout is sufficient.
@@ -25,24 +27,58 @@ name: public-repo-guard
 # path glob to a repo-root `.guardignore`, or extend the repo-local `.gitleaks.toml`.
 
 on:
+  # `edited` matters as much as `opened`: a body can be made to leak long after the
+  # PR is first raised, and until this workflow covered it, nothing ever re-scanned.
   pull_request:
+    types: [opened, edited, reopened, synchronize]
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
   push:
     branches: [main, master]
   workflow_dispatch:
 
+# `pull_request`, deliberately NOT `pull_request_target`: a fork PR must never get
+# a write token or repo secrets just because a gate wanted to read its body.
 permissions:
   contents: read
 
-concurrency:
-  group: public-repo-guard-${{ github.ref }}
-  cancel-in-progress: true
+# Concurrency is per JOB, not per workflow: the two jobs want opposite behaviour.
+# A workflow-level group would force one policy on both, and it showed: rapid body
+# edits cancelled the tree job over and over, and every cancelled check-run stays
+# attached to the commit, so the PR reported UNSTABLE while the live runs were green.
 
 jobs:
   guard:
     name: Secrets + content policy
+    # Skips issue/comment events (the tree scan has nothing to say about a comment,
+    # and the org should not pay for a gitleaks run every time anyone posts one).
+    #
+    # Deliberately does NOT skip `edited`, even though a title/body edit cannot
+    # change the tree. This workflow subscribes to `edited` for the body gate, and
+    # a job-level skip still emits a check run under this job's name — the ONE
+    # required check — with conclusion `skipped` on the PR head SHA. A skipped
+    # required check satisfies branch protection, so skipping here would let a
+    # body edit re-report a FAILED tree scan as satisfied on the same commit,
+    # without a re-scan. The redundant scan is the price of an honest verdict.
+    # (Issue/comment skips are safe: those check runs attach to the default
+    # branch tip, never to a PR head, so no merge gate ever reads them.)
+    if: >-
+      github.event_name == 'pull_request'
+      || github.event_name == 'push'
+      || github.event_name == 'workflow_dispatch'
+    concurrency:
+      group: public-repo-guard-tree-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # Nothing here pushes, and this job executes PR-controlled code
+          # (content-policy.sh, .gitleaks.toml) by necessity — don't leave the
+          # job token sitting in .git/config for those steps to read.
+          persist-credentials: false
 
       # gitleaks' GitHub Action requires a paid license for organizations; the CLI
       # itself is MIT-licensed and free. Pin the version AND verify the release
@@ -64,10 +100,190 @@ jobs:
       - name: gitleaks (secret scan — published tree)
         run: gitleaks detect --no-git --source . --config .gitleaks.toml --redact --no-banner --exit-code 1
 
-      - name: Install ripgrep
-        run: command -v rg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep)
+      - name: Install ripgrep (PCRE2 build required)
+        env:
+          RIPGREP_VERSION: "14.1.1"
+          RIPGREP_SHA256: "4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e"
+        run: |
+          # Both policy scripts depend on `rg -P`. A ripgrep built without PCRE2
+          # (some distro packages) makes every scan exit 2 — fail closed, but a
+          # runner-image change shipping such a build would leave the gate
+          # permanently red with no remediation. Use the preinstalled rg when it
+          # has PCRE2; otherwise fall back to the upstream release binary (always
+          # PCRE2-enabled), pinned and checksum-verified like gitleaks above.
+          if ! command -v rg >/dev/null || ! rg --pcre2-version >/dev/null 2>&1; then
+            curl -fsSL --proto '=https' --tlsv1.2 -o ripgrep.tar.gz \
+              "https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+            echo "${RIPGREP_SHA256}  ripgrep.tar.gz" | sha256sum -c -
+            tar -xzf ripgrep.tar.gz --strip-components=1 "ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg"
+            sudo install -m 0755 rg /usr/local/bin/rg
+            rm -f rg ripgrep.tar.gz
+            # Drop the cached path of the preinstalled rg (hashed by the probe
+            # above), or the check below would re-run the old PCRE2-less binary
+            # and fail the step right after a successful install.
+            hash -r
+          fi
+          rg --pcre2-version
 
       - name: content policy (WAVE trade-secret / internal-leak gate)
         env:
           GUARD_PRIVATE_REPOS: ${{ vars.GUARD_PRIVATE_REPOS }}
         run: bash scripts/public-repo-guard/content-policy.sh .
+
+      # The body gate's own fixtures. Its negatives are the load-bearing half — a
+      # leak gate that blocks legitimate cross-repo references gets switched off,
+      # and then it protects nothing. Runs here so a regression is caught by CI
+      # rather than by a leak.
+      - name: body policy self-test (fixtures)
+        run: bash scripts/public-repo-guard/tests/body-policy.test.sh
+
+  # The other half of a public repo's surface. `guard` above scans the published
+  # TREE; a PR/issue/comment BODY is just as world-readable and, until this job,
+  # was scanned by nothing server-side. That gap was real, not theoretical: a PR
+  # was blocked for naming a private repo in wrangler.toml while the very same
+  # name, with more operational detail attached, sat unchallenged in its body.
+  #
+  # Honest about what it can and cannot do. On a PR this PREVENTS the merge. On an
+  # issue or comment the text is already public the moment it posts, so this is
+  # detection — it tells us to go redact, fast. Only the client-side pre-write hook
+  # can stop that class before publication.
+  body-guard:
+    name: Body content policy
+    if: github.event_name == 'pull_request' || github.event_name == 'issues' || github.event_name == 'issue_comment'
+    concurrency:
+      # Keyed on the specific PR / comment / issue rather than github.ref, because
+      # issue events all report the default branch and a ref-keyed group would let
+      # two comments cancel each other, leaving one unscanned.
+      #
+      # cancel-in-progress is deliberately FALSE. Every version of a body deserves a
+      # verdict, the job is seconds long, and a cancelled check-run lingers on the
+      # commit and makes an otherwise-green PR look broken.
+      group: public-repo-guard-body-${{ github.event.pull_request.number || github.event.comment.id || github.event.issue.number || github.ref }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # Read-only job; no later step needs git credentials, so don't leave
+          # the job token in .git/config.
+          persist-credentials: false
+          # The gate must run from TRUSTED history. The default checkout on a
+          # pull_request event is the PR merge ref, so the PR's own copy of
+          # body-policy.sh would be the one that runs — a fork PR could edit it to
+          # exit 0 and wave its own body through. Unlike the tree scan (which must
+          # look at PR content), the body gate has no reason to execute anything
+          # PR-controlled: pin to the base branch tip. On issues/issue_comment
+          # events there is no PR ref and github.ref is already the default branch.
+          #
+          # Known limit, considered and accepted: on pull_request the workflow FILE
+          # itself comes from the PR head, so this trusted-ref design holds only for
+          # PRs that do not edit this workflow. That edit is loudly visible in the
+          # PR's own diff, and the same move neuters the REQUIRED tree check too
+          # (which must run PR content, so pull_request_target cannot protect it) —
+          # the class is closed org-side, by requiring review on workflow changes,
+          # not by a per-job trigger swap. Swapping this job to pull_request_target
+          # would even WEAKEN the gate: its run would attach a skipped
+          # "Secrets + content policy" check to the head SHA, and a skipped
+          # required check satisfies branch protection — a workflow-deleting PR,
+          # unmergeable today ("Expected — waiting"), would become mergeable.
+          ref: ${{ github.event.pull_request.base.sha || github.ref }}
+          # Only the gate's own scripts are needed — no reason to pay for the whole
+          # tree on every comment. The workflow file rides along solely so the
+          # bootstrap check below can tell "the body gate is not installed on this
+          # ref yet" apart from "installed, but its script went missing" (which
+          # must fail) — by looking at whether the trusted-ref copy of this
+          # workflow references body-policy.sh at all.
+          sparse-checkout: |
+            scripts/public-repo-guard
+            .github/workflows/public-repo-guard.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Install ripgrep (PCRE2 build required)
+        env:
+          RIPGREP_VERSION: "14.1.1"
+          RIPGREP_SHA256: "4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e"
+        run: |
+          # body-policy.sh depends on `rg -P`. Same fallback as the tree job's
+          # step: a PCRE2-less preinstalled rg must not leave the body gate
+          # permanently red — install the pinned, checksum-verified upstream
+          # release binary (always PCRE2-enabled) instead.
+          if ! command -v rg >/dev/null || ! rg --pcre2-version >/dev/null 2>&1; then
+            curl -fsSL --proto '=https' --tlsv1.2 -o ripgrep.tar.gz \
+              "https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+            echo "${RIPGREP_SHA256}  ripgrep.tar.gz" | sha256sum -c -
+            tar -xzf ripgrep.tar.gz --strip-components=1 "ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg"
+            sudo install -m 0755 rg /usr/local/bin/rg
+            rm -f rg ripgrep.tar.gz
+            # Drop the cached path of the preinstalled rg (hashed by the probe
+            # above), or the check below would re-run the old PCRE2-less binary
+            # and fail the step right after a successful install.
+            hash -r
+          fi
+          rg --pcre2-version
+
+      # The body is read straight out of the event payload FILE and written to
+      # another file. It is never interpolated into a run: block and never placed
+      # in an environment variable, so shell metacharacters in a hostile PR body
+      # have nothing to act on. jq is preinstalled on the GitHub-hosted images.
+      - name: Materialize the untrusted title/body to a file
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bodyscan"
+          # An UNRECOGNIZED payload shape must fail, never quietly scan nothing and
+          # report a pass. If the event schema ever moves, this job must go red
+          # rather than become a green rubber stamp over an unscanned body.
+          if [ "$(jq -r 'has("pull_request") or has("issue") or has("comment")' "$GITHUB_EVENT_PATH")" != "true" ]; then
+            echo "::error title=public-repo-guard (body-guard)::Event payload contains no pull_request/issue/comment object — refusing to report a pass on an unscanned body."
+            exit 1
+          fi
+          # Scan ONLY the object this event is about. An issue_comment payload also
+          # carries the parent issue's title/body, but re-scanning those on every
+          # comment would let one old violation in the issue body fail every future
+          # comment on it, with line numbers into a concatenated buffer that maps
+          # to nothing. The issue body already got its own verdict on its own
+          # `issues` event; each text gets judged exactly once, when it changes.
+          jq -r 'if has("comment") then [.comment.body]
+                 elif has("pull_request") then [.pull_request.title, .pull_request.body]
+                 else [.issue.title, .issue.body] end
+                 | map(select(. != null)) | join("\n")' \
+            "$GITHUB_EVENT_PATH" > "$RUNNER_TEMP/bodyscan/body.txt"
+          echo "scanning $(wc -l < "$RUNNER_TEMP/bodyscan/body.txt") line(s) of body text"
+
+      - name: body policy (PR / issue / comment text)
+        env:
+          GUARD_PRIVATE_REPOS: ${{ vars.GUARD_PRIVATE_REPOS }}
+        run: |
+          # BOOTSTRAP: the gate runs from the TRUSTED ref (see the checkout above),
+          # so on the very PR that first installs it the base branch has no script
+          # yet. But "script missing" alone must never mean "pass" — a rename, a
+          # sparse-checkout drift, or a partial install would turn the gate into a
+          # permanent green rubber stamp. Disambiguate with the workflow file on
+          # the SAME trusted ref: if that copy never mentions body-policy.sh (the
+          # file is absent, or it is an OLDER tree-only version of this gate —
+          # exactly what a repo upgrading from the 27-repo shape has on its base
+          # branch), the body gate simply is not installed there yet (bootstrap),
+          # skip with a visible warning. If the trusted-ref workflow DOES
+          # reference the script and the script is missing → broken install;
+          # fail closed like every other error path.
+          if [ ! -f scripts/public-repo-guard/body-policy.sh ]; then
+            if ! grep -q 'scripts/public-repo-guard/body-policy\.sh' .github/workflows/public-repo-guard.yml 2>/dev/null; then
+              echo "::warning title=public-repo-guard (body-guard)::body-policy.sh is not on the trusted ref yet (bootstrap PR installing or upgrading the gate) — body scan skipped; it activates once this merges."
+              exit 0
+            fi
+            echo "::error title=public-repo-guard (body-guard)::the trusted ref's workflow references scripts/public-repo-guard/body-policy.sh but the script is NOT there — broken install (rename, sparse-checkout drift, or partial copy). Refusing to report a pass on an unscanned body."
+            exit 1
+          fi
+          # An empty GUARD_PRIVATE_REPOS silently disables the private-repo
+          # proximity rule (the script deliberately skips it, for local runs).
+          # In CI that is FAIL CLOSED, not a warning: this is the gate's
+          # highest-value rule, and a run that never received the org variable
+          # (misconfiguration, or a fork-triggered run that was not handed org
+          # variables) would otherwise report a green body gate while the rule
+          # that catches the shape that actually leaked never executed. Same
+          # principle as the unrecognized-payload check above: never report a
+          # pass on a scan that did not happen.
+          if [ -z "${GUARD_PRIVATE_REPOS:-}" ]; then
+            echo "::error title=public-repo-guard (body-guard)::GUARD_PRIVATE_REPOS is empty for this run, so the private-repo proximity rule would be silently OFF. Refusing to report a green body gate without it. Configure the org/repo variable; for fork PRs a maintainer must verify the body."
+            exit 1
+          fi
+          bash scripts/public-repo-guard/body-policy.sh "$RUNNER_TEMP/bodyscan/body.txt"

@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **Body content-policy gate** (`body-guard` CI job, `scripts/public-repo-guard/body-policy.sh`) —
+  PR titles/bodies, issue bodies, and comment bodies are now scanned server-side, the half of a
+  public repo's surface the tree gate never covered. Blocks credential formats, infrastructure
+  identifiers (internal IPs, operator home paths, hardcoded account IDs), self-identified
+  internal-only markers, and a private repo named near operational detail. A line carrying
+  `guard:allow <reason>` exempts the infra-identifier tier; credential formats block
+  unconditionally (defang the string to discuss one).
 - **Streams, productions, cameras, moderation, live pipeline, billing, and
   analytics operations** (`openapi.yaml`) — 26 hand-documented operations
   backing the hosted MCP tool surface, replacing the draft
