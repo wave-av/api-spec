@@ -130,12 +130,12 @@ All notable changes to this project are documented here. The format is based on
 
 ### Documentation
 
-- **README rewrite** — refreshed the top-level README to reflect the current spec: corrected
-  the tag count (16 → 17, now including `MoQ` and `Render`), clarified that the x402-payable
-  render operations (`renderVideo`, `renderPoll`, `renderEvents`) are exceptions to the
-  Bearer-token authentication requirement, and fixed the error-envelope example to match the
-  `Error` schema's actual field types (`details` is an object, `suggestions`/`did_you_mean` are
-  arrays, not strings).
+- **docs: rewrite README** — restructured the top-level README (badges, quick start, repo
+  layout, related-packages table) and refreshed it against the current spec: clarified that
+  the x402-payable render operations (`renderVideo`, `renderPoll`, `renderEvents`) and the
+  device-authorization-flow responses are exceptions to the shared Bearer-token/`Error`-envelope
+  shape, and fixed the error-envelope example to match the `Error` schema's actual field types
+  (`details` is an object, `suggestions`/`did_you_mean` are arrays, not strings).
 ### Changed
 
 - **License: Apache-2.0** — the specification and repository now carry the Apache-2.0
