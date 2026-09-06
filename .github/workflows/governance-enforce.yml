@@ -49,7 +49,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: "22"
+          node-version: "24"
       - name: fetch governance enforcer (isolated install)
         # FIX 1 — token scoped to THIS STEP. At job level it was also in scope for the step that
         # executes the downloaded package, and for anything else the job ever grows.
