@@ -254,6 +254,9 @@ jobs:
           fi
 
   # Networked. NOW RUNS ON PULL REQUESTS TOO — see the header note on the narrowed blast radius.
+  # Reads only. This is the job a pull request (including a fork PR) actually drives, so it never
+  # holds a scope beyond `contents: read` — see `drift-issue` below for why that split exists and
+  # what it closes.
   drift:
     name: published contract drift
     # The workflow-level `pull_request` trigger is already PATH-FILTERED to openapi.yaml and the
@@ -269,8 +272,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      # Required to file/update the tracking issue on exit 2.
-      issues: write
+    outputs:
+      code: ${{ steps.drift.outputs.code }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -291,12 +294,17 @@ jobs:
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "exit code: $code"
 
+      # Both files travel to `drift-issue` under one artifact: the machine-readable diff (an
+      # existing consumer downloads this by name) and the human log the issue body quotes. Neither
+      # crosses a trust boundary here — this job only ever reads, it never writes an issue.
       - name: Upload the diff artifact
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: contract-drift
-          path: /tmp/contract-drift.json
+          path: |
+            /tmp/contract-drift.json
+            /tmp/drift.log
           if-no-files-found: warn
 
       # Same default case as the freshness job, for the same reason: the steps below enumerate '1'
@@ -319,18 +327,59 @@ jobs:
           echo "This says NOTHING about drift and no issue was filed. Fix the read, then re-run."
           exit 1
 
+      # The job's own verdict is red on drift too, so a silenced or rate-limited issue write (in
+      # the separate `drift-issue` job) can never make a drifted contract look green — this step
+      # has no dependency on that job succeeding.
+      - name: Fail on drift
+        if: steps.drift.outputs.code == '2'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "::error::The published contract has drifted from openapi.yaml. No tracking issue is filed on a pull request — fix the drift before merge."
+          else
+            echo "::error::The published contract has drifted from openapi.yaml. A tracking issue was filed or updated."
+          fi
+          exit 1
+
+  # Writes. Split out of `drift` (2026-09-05, review of #84): that job runs pull-request-controlled
+  # workflow and package code, and a pull request from a fork can in principle reach `github.token`
+  # from within it. `pull_request` on GitHub Actions gets a read-only token by default regardless of
+  # what a workflow's `permissions:` block requests — a repository has to opt in to sending forks a
+  # write-capable token, which is not this repo's default — but least privilege does not lean on
+  # that default holding forever: the job that runs on every pull request now has no write scope to
+  # reach for even if it did. Only THIS job, which does not run on pull_request at all, ever holds
+  # `issues: write`.
+  drift-issue:
+    name: published contract drift tracking issue
+    needs: drift
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Required to file/update/close the tracking issue. Never granted to the `drift` job above.
+      issues: write
+    steps:
+      - name: Download the diff artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: contract-drift
+          path: /tmp
+
       # exit 2 = DRIFT. File or update exactly one tracking issue.
       #
       # Nothing PR- or issue-controlled is interpolated into a shell command: the title is a fixed
-      # literal, the body is written to a file by the script above and passed with --body-file, and
-      # the issue number comes from a --jq filter over `gh issue list` output rather than from a
-      # search string. The only interpolated value is $GITHUB_REPOSITORY, which GitHub sets.
+      # literal, the body is built from /tmp/drift.log (produced by `drift`, never by this job) and
+      # passed with --body-file, and the issue number comes from a --jq filter over `gh issue list`
+      # output rather than from a search string. The only interpolated value is $GITHUB_REPOSITORY,
+      # which GitHub sets.
       # The tracking issue is a claim about the state of the DEFAULT BRANCH, so the PR path must not
-      # touch it: a PR's drift is the PR author's to fix before merge, and on a fork PR the token is
-      # read-only anyway, which would fail this step for a reason unrelated to drift. The `Fail on
-      # drift` step below is NOT guarded — a PR that introduces drift still goes red.
+      # touch it: this job's own `if:` above already excludes pull_request, so a PR's drift is the
+      # PR author's to fix before merge, and the `drift` job's own "Fail on drift" step is NOT
+      # guarded — a PR that introduces drift still goes red regardless of this job.
       - name: File or update the tracking issue
-        if: github.event_name != 'pull_request' && steps.drift.outputs.code == '2'
+        if: needs.drift.outputs.code == '2'
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: 'Published contract has drifted from openapi.yaml'
@@ -358,20 +407,6 @@ jobs:
             gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file /tmp/issue-body.md
           fi
 
-      # The job's own verdict is red on drift too, so a silenced or rate-limited issue write can
-      # never make a drifted contract look green.
-      - name: Fail on drift
-        if: steps.drift.outputs.code == '2'
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            echo "::error::The published contract has drifted from openapi.yaml. No tracking issue is filed on a pull request — fix the drift before merge."
-          else
-            echo "::error::The published contract has drifted from openapi.yaml. A tracking issue was filed or updated."
-          fi
-          exit 1
-
       # exit 0 = the contract was reconciled. Close the issue that exit 2 opened, for the same
       # reason the freshness job closes its own: an open issue asserts that the published contract
       # is CURRENTLY drifted, and nothing else in this workflow ever retracts that. Left alone it
@@ -379,7 +414,7 @@ jobs:
       # issue everyone had already learned to ignore. Exact-title match, and this title is distinct
       # from the freshness job's — the two lifecycles stay separate.
       - name: Close the tracking issue once the contract matches again
-        if: github.event_name != 'pull_request' && steps.drift.outputs.code == '0'
+        if: needs.drift.outputs.code == '0'
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: 'Published contract has drifted from openapi.yaml'
