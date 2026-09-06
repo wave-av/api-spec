@@ -114,7 +114,14 @@ jobs:
             "https://github.com/oasdiff/oasdiff/releases/download/v1.28.0/checksums.txt"
           (cd /tmp/oasdiff-install && grep "oasdiff_1.28.0_linux_amd64.tar.gz" checksums.txt | sha256sum -c -)
           tar -xzf /tmp/oasdiff-install/oasdiff_1.28.0_linux_amd64.tar.gz -C /usr/local/bin
-          # v1.28.0 has no `version` subcommand; only the --version flag prints the version.
+          # `oasdiff version` is NOT a subcommand in v1.28.0 — it exits 100, and
+          # this line has failed EVERY PR since 2026-08-19 (api-spec#60). The job
+          # died here, during install, before diffing a single spec: not finding a
+          # breaking change and not clearing one either, while showing red.
+          #
+          # Verified against the real v1.28.0 binary rather than guessed:
+          #   oasdiff version    -> exit 100   (reproduces the CI failure exactly)
+          #   oasdiff --version  -> exit 0
           oasdiff --version
       - name: Fail on unacknowledged breaking changes
         # oasdiff breaking --fail-on ERR exits 1 when the PR's openapi.yaml has breaking
@@ -137,3 +144,23 @@ jobs:
               exit 1
             fi
           fi
+
+  # Docs are GENERATED from openapi.yaml, but the gateway's live capability index is the actual
+  # source of truth for what customers can call and pay for — the two drift when a capability
+  # ships at the gateway before anyone documents it here. This job fetches the live index and
+  # fails if a live, non-allowlisted capability has no matching operation/tag in the spec.
+  # See .github/scripts/skills-index-coverage.mjs and the allowlist next to it.
+  skills-index-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Install tooling
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+      - name: Check every live priced capability has an operation
+        run: node .github/scripts/skills-index-coverage.mjs openapi.yaml

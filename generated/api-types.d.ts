@@ -4,6 +4,92 @@
  */
 
 export interface paths {
+    "/agent/auth/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the OAuth Device Authorization ceremony (RFC 8628)
+         * @description The agent-auth bootstrap: an agent with no WAVE credential yet requests a device
+         *     code, then a human approves wallet access in a browser once. Proxies Privy's
+         *     device authorization endpoint; the app secret never reaches the agent, and every
+         *     later wallet operation uses short-lived tokens plus an ephemeral signing key.
+         *
+         *     The response carries `device_code` (secret, poll with it), `user_code` (short,
+         *     human-readable), `verification_uri` (the approve URL), `verification_uri_complete`
+         *     (the same URL with the user code prefilled - a page at `/agent/auth/verify` on the
+         *     api host, no /v1 prefix), `expires_in` (seconds, 600), and `interval` (poll
+         *     interval seconds, 5).
+         *
+         *     A 403 means device authorization is not enabled for the app in the Privy
+         *     dashboard - an operator action, not a caller error.
+         */
+        post: operations["agentAuthDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/auth/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Poll for / refresh the ceremony tokens
+         * @description Two grants, whitelisted exactly:
+         *     `device_code` - poll with the device_code from the device endpoint at the given
+         *     interval, with grant_type `urn:ietf:params:oauth:grant-type:device_code` (the
+         *     registered RFC 8628 URN Privy's live token endpoint requires; bare `device_code`
+         *     is also accepted at this seam). While approval is pending the upstream 400 body
+         *     passes through verbatim (`authorization_pending`, `slow_down`, `expired_token`,
+         *     `access_denied`) - these are the polling protocol, not failures to hide. On
+         *     approval the response carries `access_token` and `refresh_token`.
+         *     `refresh_token` - exchange a refresh token for a new access token; the old refresh
+         *     token is invalidated immediately and a REPLACEMENT refresh_token is returned in
+         *     the same response, so a client that stores it never loses its refresh credential.
+         *     An absent refresh_token in a refresh response means the grant was revoked
+         *     (or the token expired): restart the ceremony from the device endpoint.
+         */
+        post: operations["agentAuthToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute a batch of operations in one request
+         * @description Bulk operations through the same pipeline: each operation is a method + /v1 path + optional body,
+         *     executed with the caller's own credential (the same auth, scope, meter, and payment enforcement
+         *     as an HTTP call - no bypass). Max 25 operations; each result carries its own status and body.
+         */
+        post: operations["batchOperations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/render": {
         parameters: {
             query?: never;
@@ -64,6 +150,502 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/streams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List streams
+         * @description List the caller's streams, newest first. Requires the `streams:read` scope.
+         */
+        get: operations["listStreams"];
+        put?: never;
+        /**
+         * Create a stream
+         * @description Create a stream. Provisions a Cloudflare Stream live input and returns its ingest/playback URLs. Requires the `streams:write` scope.
+         */
+        post: operations["createStream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a stream
+         * @description Requires the `streams:read` scope.
+         */
+        get: operations["getStream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a stream
+         * @description Transition a stream to `live` and open a stream session. Requires the `streams:write` scope.
+         */
+        post: operations["startStream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a stream
+         * @description Close the active stream session and transition the stream to `ended`. Requires the `streams:write` scope.
+         */
+        post: operations["stopStream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a stream's status
+         * @description Lightweight status document (connection state, current viewer count). Requires the `streams:read` scope.
+         */
+        get: operations["getStreamStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a stream's analytics
+         * @description Aggregated viewer/quality metrics for one stream's sessions. Requires the `streams:read` scope.
+         */
+        get: operations["getStreamAnalytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streams/{streamId}/highlights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a stream's highlights
+         * @description Requires the `streams:read` scope.
+         */
+        get: operations["listStreamHighlights"];
+        put?: never;
+        /**
+         * Mark a highlight
+         * @description Mark a moment in a stream as a highlight for later clipping. Requires the `streams:write` scope.
+         */
+        post: operations["markStreamHighlight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/moderate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Moderate content
+         * @description Run AI-assisted moderation over a piece of text content (a chat message, title, description, comment, username, or bio) and get back an allow/flag/ block/review verdict. Requires the `moderate:write` scope. To moderate a chat message, set `contentType` to `chat` and, optionally, `context.streamId` to the stream the message belongs to — this endpoint moderates arbitrary text content; it does not itself track a chat message id or apply an action to a stored message.
+         */
+        post: operations["moderateContent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/live/pipeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcribe an audio clip and run a fast-LLM step over it
+         * @description Transcribes ONE provided audio chunk (multipart `file`, max 25MB) and, given `llm_model`, optionally runs a fast-LLM step (`mode`: summarize, moderate, translate, or custom) over the transcript. This does NOT attach a persistent caption feed to a live stream — call it once per audio chunk. Requires the account's live-pipeline feature to be armed; a 404 means it is not enabled for this account. Requires the `captions:write` scope.
+         */
+        post: operations["startLivePipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/live/caption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcribe an audio clip
+         * @description Transcribes ONE provided audio chunk (multipart `file`, max 25MB) via the same caption engine `/live/pipeline` uses, without the LLM step. Requires the account's live-pipeline feature to be armed; a 404 means it is not enabled for this account. Requires the `captions:write` scope.
+         */
+        post: operations["transcribeLiveAudio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/productions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List productions
+         * @description Requires the `productions:read` scope.
+         */
+        get: operations["listProductions"];
+        put?: never;
+        /**
+         * Create a production
+         * @description Requires the `productions:write` scope.
+         */
+        post: operations["createProduction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/productions/{productionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a production
+         * @description Requires the `productions:read` scope.
+         */
+        get: operations["getProduction"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/productions/{productionId}/camera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a production's camera
+         * @description Switch the program or preview bus to a camera index; persisted on the production row. Requires the `productions:write` scope.
+         */
+        post: operations["switchProductionCamera"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/productions/{productionId}/overlay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show, hide, or update a production's graphic overlay
+         * @description Persists overlay state into the production's `overlays` map, keyed by `graphic_id`. Requires the `productions:write` scope.
+         */
+        post: operations["setProductionOverlay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cameras": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List registered cameras
+         * @description Requires the `cameras:read` scope.
+         */
+        get: operations["listCameras"];
+        put?: never;
+        /**
+         * Register a camera
+         * @description Requires the `cameras:write` scope.
+         */
+        post: operations["registerCamera"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cameras/{cameraId}/control": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a control command to a camera
+         * @description Queues a control command for a registered camera (`camera_commands`, status `queued`). There is no protocol-general hardware dispatcher at this layer yet — a follow-up dispatcher marks the command `acked` or `failed`; this call never fabricates an `acked` status for a command not yet delivered. Requires the `cameras:write` scope.
+         */
+        post: operations["controlCamera"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the current billing account
+         * @description Returns the caller-org's billing status. An org with no Stripe customer yet returns `billingAccount: null` and `plan: "free"` rather than an error. Requires the `billing:read` scope.
+         */
+        get: operations["getBilling"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get billed usage for a date range
+         * @description Per-dimension billed usage, defaulting to the current billing period. Requires the `billing:read` scope.
+         */
+        get: operations["getBillingUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get raw per-dimension usage
+         * @description Raw per-dimension usage counters for a date range (defaults to today), keyed by meter dimension (e.g. `wave_braid_minutes`, `transcription_seconds`, `duration_ms:srt`) — the underlying meter ledger, not a billing-period rollup. See `GET /billing/usage` for the billed-and-priced view. Requires the `usage:read` scope.
+         */
+        get: operations["getUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your org's usage leaderboard (meters ranked by consumption) — API key + usage:read
+         * @description Tenant-scoped: rows are the calling org's own metered dimensions, ranked by billed usage over the window (`from`/`to` as YYYYMMDD, default trailing 7 days). The org is taken from the API key, never from the query string. Unauthenticated callers receive 401 LEADERBOARD_AUTH_REQUIRED. The PUBLIC model-eval leaderboard is a different surface at https://leaderboard.wave.online/leaderboard (no key needed).
+         */
+        get: operations["getUsageLeaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform-wide live usage — OPERATOR ONLY (inference + voice + codec + storage + realtime + clips + captions)
+         * @description Operator-authenticated. Requires the WAVE service bearer; unauthenticated callers receive 401 TELEMETRY_AUTH_REQUIRED.
+         */
+        get: operations["getPlatformUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an account-level analytics overview
+         * @description Aggregates the org's usage ledger over a date range: total events, total quantity, active days, and the top dimensions by quantity. Requires the `analytics:read` scope.
+         */
+        get: operations["getAnalyticsOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/top-content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get top content by usage
+         * @description Top usage dimensions for the org over a date range, ranked by quantity. Requires the `analytics:read` scope.
+         */
+        get: operations["getAnalyticsTopContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/engagement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get account-wide engagement analytics
+         * @description Engagement metrics (event volume, average events per day, peak day) over a date range. Requires the `analytics:read` scope.
+         */
+        get: operations["getAnalyticsEngagement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips": {
         parameters: {
             query?: never;
@@ -74,7 +656,10 @@ export interface paths {
         /** List clips */
         get: operations["listClips"];
         put?: never;
-        /** Create a clip */
+        /**
+         * Create a clip
+         * @description Produces clip/spritesheet/audio/frame outputs from a recording via Cloudflare Media Transformations. `source` is a recording id the gateway resolves org-scoped — a raw storage key is rejected. Requires the `clips:write` scope.
+         */
         post: operations["createClip"];
         delete?: never;
         options?: never;
@@ -229,10 +814,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List chapters for a video */
+        /**
+         * List chapters for a video
+         * @deprecated
+         * @description DEPRECATED — unrouted. The live gateway returns 403 ROUTE_NOT_MAPPED for this path; it is not part of the callable WAVE API. Use `GET /chapters` (the live-priced capability) instead.
+         */
         get: operations["listChapters"];
         put?: never;
-        /** Create a chapter */
+        /**
+         * Create a chapter
+         * @deprecated
+         * @description DEPRECATED — unrouted. The live gateway returns 403 ROUTE_NOT_MAPPED for this path; it is not part of the callable WAVE API. Use `POST /chapters` (the live-priced capability) instead.
+         */
         post: operations["createChapter"];
         delete?: never;
         options?: never;
@@ -249,9 +842,50 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start AI chapter detection */
+        /**
+         * Start AI chapter detection
+         * @deprecated
+         * @description DEPRECATED — unrouted. The live gateway returns 403 ROUTE_NOT_MAPPED for this path; it is not part of the callable WAVE API. Use `POST /chapters` (the live-priced capability) instead.
+         */
         post: operations["detectChapters"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/videos/{videoId}/chapters/detect/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Poll a chapter-detection job
+         * @description Current state of a detection job started by POST /videos/{videoId}/chapters/detect. Poll until `status` reaches a terminal state.
+         */
+        get: operations["getChapterDetectionJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/videos/{videoId}/chapters/{chapterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a chapter */
+        delete: operations["deleteChapter"];
         options?: never;
         head?: never;
         patch?: never;
@@ -534,7 +1168,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Search content */
+        /** Hybrid search (dense + sparse → RRF) over streams/clips/transcripts, tenant-isolated */
         post: operations["search"];
         delete?: never;
         options?: never;
@@ -542,41 +1176,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/search/quick": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Quick search */
-        get: operations["quickSearch"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/search/suggest": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get search suggestions */
-        get: operations["searchSuggest"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/search/semantic": {
+    "/search/index": {
         parameters: {
             query?: never;
             header?: never;
@@ -585,8 +1185,42 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Semantic search */
-        post: operations["semanticSearch"];
+        /** Index (upsert) one doc or a batch */
+        post: operations["searchIndex"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/index/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete one indexed doc (idempotent) */
+        delete: operations["searchDelete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Own-org query insights (top / zero-result / trending) */
+        get: operations["searchAnalytics"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -793,31 +1427,3209 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/identity/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resolve a WAVE fleet agent id to its public channel map
+         * @description Gateway-native read pane. Returns the agent's public directory entry:
+         *     email, credential key name (never a credential value), org, and channels. The data is
+         *     public-directory data only.
+         *
+         *     Tenancy is the authenticated principal; an optional `org` query param is a self-assertion
+         *     that must match the principal (a mismatch is a 400 ORG_MISMATCH). Requires the
+         *     `directory:read` scope (separately grantable; DISTINCT from the compliance `identity:read`
+         *     scope that gates Stripe verification sessions).
+         *
+         *     The one documented response variation is the `telephony` service entry, whose identity
+         *     carries `org`/`channels`/`numbers`/`keys` (plural credential key names + E.164 numbers)
+         *     instead of `email`/`key` — see the oneOf success schema.
+         */
+        get: operations["identityResolve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pricing/manifests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller-org's pricing tier manifests
+         * @description Gateway-native read (pricing-pages E0). Returns every pricing manifest the
+         *     authenticated org has published, newest-first. Requires `pricing:read`.
+         *     Org is the VALIDATED principal only — no cross-org reads.
+         */
+        get: operations["pricingManifestsList"];
+        put?: never;
+        /**
+         * Validate + upsert the caller-org's tier manifest
+         * @description Gateway-native write (pricing-pages E0). Validates the tier manifest against the
+         *     rail law server-side and upserts it for the caller-org. Requires `pricing:write`.
+         */
+        post: operations["pricingManifestsCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/custody/{op}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Held-fund capability operation (grant / revoke / inspect / exercise)
+         * @description The money-engine custody surface (capability-custody). `op` is one of
+         *     grant | revoke | inspect | exercise. Every operation is scoped to the
+         *     authenticated principal's org; grants persist METADATA in the CapabilityAccount DO and
+         *     the secret envelope ciphertext-only in KV (crypto-shreddable on revoke). Requires
+         *     `custody:write` — deliberately NOT in UNIFORM_CUSTOMER_SCOPES (operator-plane).
+         */
+        post: operations["custodyOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/engine/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The media-engine capability contract
+         * @description Served through the WAVE gateway (engine:read). Returns the engine's capability
+         *     JSON — the codecs/operations this deployment accepts.
+         */
+        get: operations["engineCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gpu/infer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GPU plane status
+         * @description Requires `gpu:read`.
+         */
+        get: operations["gpuStatus"];
+        put?: never;
+        /**
+         * Dispatch a GPU inference job on the WAVE-hosted GPU plane
+         * @description The WAVE-hosted GPU inference plane (RunPod-backed). Requires `gpu:write`. Metered
+         *     as wave_edge_gpu_hours, billed verbatim.
+         */
+        post: operations["gpuInfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accessibility-studio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE accessibility-studio API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `accessibility-studio:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["accessibilityStudio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/acp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE acp API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `acp:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["acp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/acuity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE acuity API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `acuity:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["acuity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/aegis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE aegis API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `aegis:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["aegis"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/aes67": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE aes67 API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `aes67:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["aes67"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agentic-media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE agentic-media API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `agentic-media:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["agenticMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE agents API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `agents:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["agents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE ai API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `ai:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["ai"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE analytics API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `analytics:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["analytics"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api-gateway": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE api-gateway API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `api-gateway:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["apiGateway"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE archive API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `archive:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/argus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE argus API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `argus:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["argus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audience-engagement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE audience-engagement API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `audience-engagement:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["audienceEngagement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audio-mastering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE audio-mastering API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `audio-mastering:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["audioMastering"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE auth API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `auth:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["auth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/autopilot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE autopilot API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `autopilot:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["autopilot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/behavioral-intelligence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE behavioral-intelligence API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `behavioral-intelligence:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["behavioralIntelligence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/benchmark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE benchmark API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `benchmark:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["benchmark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bmd": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE bmd API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `bmd:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["bmd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bridge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE bridge API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `bridge:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["bridge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/broadcast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE broadcast API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `broadcast:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["broadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/camera-control": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE camera-control API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `camera-control:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["cameraControl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE campus API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `campus:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["campus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/challenge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE challenge API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `challenge:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["challenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chapters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE chapters API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `chapters:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["chapters"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ci": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE ci API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `ci:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["ci"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cloud-switcher": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE cloud-switcher API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `cloud-switcher:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["cloudSwitcher"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/companion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE companion API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `companion:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["companion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/competitive-intel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE competitive-intel API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `competitive-intel:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["competitiveIntel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compliance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE compliance API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `compliance:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["compliance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE connect API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `connect:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cookie-consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE cookie-consent API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `cookie-consent:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["cookieConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE cost API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `cost:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["cost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creator": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE creator API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `creator:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["creator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creator-economy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE creator-economy API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `creator-economy:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["creatorEconomy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creator-storefront": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE creator-storefront API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `creator-storefront:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["creatorStorefront"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/crest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE crest API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `crest:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["crest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cro": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE cro API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `cro:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["cro"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dante": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE dante API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `dante:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["dante"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/data-exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE data-exchange API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `data-exchange:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["dataExchange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/decode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE decode API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `decode:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["decode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/director": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE director API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `director:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["director"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/discovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE discovery API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `discovery:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["discovery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE dispatch API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `dispatch:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["dispatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dmca": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE dmca API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `dmca:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["dmca"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dsar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE dsar API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `dsar:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["dsar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dub": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE dub API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `dub:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["dub"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/echo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE echo API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `echo:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["echo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/edge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE edge API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `edge:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["edge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/embeddings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE embeddings API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `embeddings:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["embeddings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE encode API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `encode:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["encode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/engagement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE engagement API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `engagement:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["engagement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enhance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE enhance API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `enhance:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["enhance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/example": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE example API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `example:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["example"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/experiments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE experiments API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `experiments:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["experiments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fleet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE fleet API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `fleet:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["fleet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE forecast API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `forecast:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["forecast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/geo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE geo API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `geo:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["geo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ghost-producer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE ghost-producer API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `ghost-producer:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["ghostProducer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/graphics-engine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE graphics-engine API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `graphics-engine:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["graphicsEngine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE integrations API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `integrations:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["integrations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/intel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE intel API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `intel:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["intel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/listen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE listen API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `listen:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["listen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE live API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `captions:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["live"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/live-annotation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE live-annotation API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `live-annotation:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["liveAnnotation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/live-commerce": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE live-commerce API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `live-commerce:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["liveCommerce"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/local-ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE local-ai API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `local-ai:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["localAi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE me API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `me:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["me"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE memory API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `memory:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["memory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mesh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE mesh API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `mesh:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["mesh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mlvc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE mlvc API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `mlvc:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["mlvc"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mobile-producer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE mobile-producer API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `mobile-producer:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["mobileProducer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/monetization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE monetization API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `monetization:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["monetization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/monitoring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE monitoring API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `monitoring:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["monitoring"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mpp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE mpp API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `mpp:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["mpp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mux": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE mux API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `mux:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["mux"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mxl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE mxl API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `mxl:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["mxl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ndi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE ndi API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `ndi:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["ndi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/nvr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE nvr API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `nvr:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["nvr"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/omt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE omt API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `omt:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["omt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE ops API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `ops:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["ops"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orbit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE orbit API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `orbit:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["orbit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE organizations API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `organizations:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["organizations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/outliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE outliers API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `outliers:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["outliers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE payments API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `payments:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["payments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/perception": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE perception API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `perception:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["perception"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pipelines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE pipelines API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `pipelines:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["pipelines"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE preferences API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `preferences:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["preferences"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE presence API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `presence:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["presence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/privy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE privy API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `privy:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["privy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/production": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE production API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `production:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["production"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/production-graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE production-graph API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `production-graph:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["productionGraph"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE products API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `products:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["products"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE pulse API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `pulse:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["pulse"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/qr-system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE qr-system API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `qr-system:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["qrSystem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quality-scorecard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE quality-scorecard API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `quality-scorecard:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["qualityScorecard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/radar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE radar API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `radar:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["radar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rate-limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE rate-limit API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `rate-limit:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["rateLimit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recommend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE recommend API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `recommend:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["recommend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remotion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE remotion API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `remotion:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["remotion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/renders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE renders API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `renders:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["renders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE replay API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `replay:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["replay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/replay-engine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE replay-engine API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `replay-engine:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["replayEngine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE review API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `review:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE rist API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `rist:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["rist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/router": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE router API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `router:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["router"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE routes API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `routes:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["routes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rtmp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE rtmp API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `rtmp:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["rtmp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runtime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE runtime API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `runtime:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["runtime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sandbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE sandbox API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `sandbox:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["sandbox"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scene": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE scene API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `scene:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["scene"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/signal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE signal API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `signal:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["signal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/signal-generator": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE signal-generator API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `signal-generator:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["signalGenerator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/signal-verifier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE signal-verifier API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `signal-verifier:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["signalVerifier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/slides-to-video": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE slides-to-video API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `slides-to-video:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["slidesToVideo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/social-distribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE social-distribution API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `social-distribution:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["socialDistribution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sports-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE sports-data API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `sports-data:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["sportsData"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/srt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE srt API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `srt:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["srt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/st2110": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE st2110 API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `st2110:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["st2110"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE stream API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `stream:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["stream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stream-router": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE stream-router API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `streams:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["streamRouter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streamdeck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE streamdeck API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `streamdeck:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["streamdeck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/streaming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE streaming API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `streaming:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["streaming"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE studio API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `studio:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["studio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio-automation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE studio-automation API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `studio-automation:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["studioAutomation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/switcher": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE switcher API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `switcher:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["switcher"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tempo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE tempo API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `tempo:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["tempo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transcode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE transcode API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `transcode:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["transcode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/twilio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE twilio API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `twilio:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["twilio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE unsubscribe API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `unsubscribe:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["unsubscribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usb-relay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE usb-relay API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `usb-relay:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["usbRelay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vault": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE vault API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `vault:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["vault"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-gen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE video-gen API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `video-gen:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["videoGen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/viewer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE viewer API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `viewer:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["viewer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/virtual-studio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE virtual-studio API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `virtual-studio:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["virtualStudio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE vision API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `vision:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["vision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/visual-programming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE visual-programming API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `visual-programming:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["visualProgramming"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/visual-qa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE visual-qa API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `visual-qa:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["visualQa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vod": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE vod API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `vod:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["vod"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/volumetric": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE volumetric API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `volumetric:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["volumetric"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wave-console": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE wave-console API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `wave-console:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["waveConsole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wave-node": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE wave-node API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `wave-node:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["waveNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wave-sdk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE wave-sdk API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `wave-sdk:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["waveSdk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wave-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE wave-tokens API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `wave-tokens:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["waveTokens"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webrtc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE webrtc API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `webrtc:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["webrtc"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/whep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE whep API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `whep:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["whep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/whip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE whip API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `whip:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["whip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow-engine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE workflow-engine API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `workflow-engine:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["workflowEngine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/x402": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE x402 API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `x402:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["x402"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/zero-trust-vault": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE zero-trust-vault API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `zero-trust-vault:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["zeroTrustVault"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/zoom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE zoom API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `zoom:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["zoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/zoom-integration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE zoom-integration API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `zoom-integration:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         */
+        post: operations["zoomIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @description WAVE-normalized error envelope returned by the api.wave.online gateway. Upstream provider, auth, and quota failures are *interpreted* into this single shape — raw upstream errors (stack traces, vendor SDK objects) are never leaked to the caller. `error.code` is a stable machine-readable code (e.g. AUTH_REQUIRED, SCOPE_OVERREACH, RATE_LIMIT_EXCEEDED, UPSTREAM_ERROR); `error.message` is human-readable. */
         Error: {
-            error: {
-                /** @description Stable machine-readable error code. */
-                code: string;
-                /** @description Human-readable explanation, safe to surface to end users. */
-                message: string;
-                /** @description Optional structured context (e.g. failing field, retry limit, requested scopes) — never raw upstream payloads. */
-                details?: {
-                    [key: string]: unknown;
-                };
-                /** @description Actionable next steps, ordered most→least likely to resolve the error. Written to be acted on by a human OR an agent. */
-                suggestions?: string[];
-                /** @description Closest valid alternatives when the caller likely made a typo or wrong choice (e.g. an unknown scope, product, or route). */
-                did_you_mean?: string[];
-                /**
-                 * Format: uri
-                 * @description Documentation link for this error.
-                 */
-                doc_url?: string;
+            error: components["schemas"]["ErrorBody"];
+        };
+        /** @description The normalized WAVE error object itself — the value of the `Error` envelope's `error` member. Referenced directly by bodies that carry the error object under a different key (the 402 x402 challenge nests it under `error_detail` without the envelope wrapper). */
+        ErrorBody: {
+            /** @description Stable machine-readable error code. */
+            code: string;
+            /** @description Human-readable explanation, safe to surface to end users. */
+            message: string;
+            /** @description Optional structured context (e.g. failing field, retry limit, requested scopes) — never raw upstream payloads. */
+            details?: {
+                [key: string]: unknown;
             };
+            /** @description Actionable next steps, ordered most→least likely to resolve the error. Written to be acted on by a human OR an agent. */
+            suggestions?: string[];
+            /** @description Closest valid alternatives when the caller likely made a typo or wrong choice (e.g. an unknown scope, product, or route). */
+            did_you_mean?: string[];
+            /**
+             * Format: uri
+             * @description Documentation link for this error.
+             */
+            doc_url?: string;
+        };
+        /** @description RFC 8628 §3.5 device-flow error passthrough from POST /agent/auth/token — a flat `{error}` string, not the WAVE error envelope, because it is the polling protocol, not a failure. */
+        DeviceFlowError: {
+            /**
+             * @description `authorization_pending`: not yet approved, keep polling at the named interval. `slow_down`: poll less often. `expired_token`: the device_code expired, restart at /agent/auth/device. `access_denied`: the human declined. `invalid_grant`: the grant is no longer valid.
+             * @enum {string}
+             */
+            error: "authorization_pending" | "slow_down" | "expired_token" | "access_denied" | "invalid_grant";
         };
         Pagination: {
             page?: number;
@@ -952,13 +4764,48 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        /** @description The real live-route request contract. `videoId` is NOT accepted — the live route requires `source` (a recording id) instead. */
         ClipCreate: {
-            videoId: string;
-            startTime: number;
-            endTime: number;
-            title?: string;
-            description?: string;
-            category?: string;
+            /** @description A recording id the gateway resolves to an org-scoped source URL. */
+            source: string;
+            /**
+             * @description Only `recording_id` is accepted — a raw storage key (`r2_key`) is rejected outright (cross-tenant read protection).
+             * @default recording_id
+             * @enum {string}
+             */
+            sourceType: "recording_id";
+            /**
+             * @default private
+             * @enum {string}
+             */
+            visibility: "public" | "private";
+            /** @description Clip start offset, a time string like "5s" or "2m" (0-10m). */
+            in: string;
+            /** @description Clip end offset, a time string. Provide `out` or `duration`, not both. */
+            out?: string;
+            /** @description Output clip length, a time string (1s-60s). Provide `out` or `duration`, not both. */
+            duration?: string;
+            width?: number;
+            height?: number;
+            /**
+             * @default contain
+             * @enum {string}
+             */
+            fit: "contain" | "cover" | "scale-down";
+            /**
+             * @description `frame` produces a single JPEG still at `in` and needs neither `out` nor `duration`.
+             * @default [
+             *       "mp4"
+             *     ]
+             */
+            formats: ("mp4" | "spritesheet" | "m4a" | "frame")[];
+            /**
+             * @default 720p
+             * @enum {string}
+             */
+            quality: "720p" | "1080p" | "4k";
+            /** @default 30 */
+            spritesheetFrames: number;
         };
         ClipUpdate: {
             title?: string;
@@ -983,6 +4830,341 @@ export interface components {
             progress?: number;
             /** Format: date-time */
             createdAt?: string;
+        };
+        /** @description The real POST /clips 201 response. */
+        ClipCreateResponse: {
+            /** @constant */
+            ok?: true;
+            clipId?: string;
+            /** @description The gateway-resolved owning organization. */
+            org?: string;
+            /** @enum {string} */
+            visibility?: "public" | "private";
+            source?: string;
+            in?: string;
+            /** @description Output clip duration, a time string like "12s". */
+            duration?: string;
+            /** @enum {string} */
+            quality?: "720p" | "1080p" | "4k";
+            assets?: {
+                /** @enum {string} */
+                kind?: "clip" | "spritesheet" | "audio" | "frame";
+                /** @description Org-prefixed storage key: ‹org›/{clips|public}/‹clipId›/… */
+                key?: string;
+                contentType?: string;
+                /** @description Delivery URL — plain for public, HMAC-signed for private. null when delivery isn't configured. */
+                url?: string | null;
+            }[];
+        };
+        /** @description The clip-creation route's own error envelope for POST /clips — distinct from the gateway-normalized `Error` schema used elsewhere in this document. */
+        ClipError: {
+            /** @constant */
+            ok: false;
+            error: string;
+            /** @description Optional structured detail. Absent or null on most errors. */
+            detail?: unknown;
+        };
+        /** @description A live stream. Never carries the Cloudflare stream key or any other ingest secret — only the public ingest/playback URLs. */
+        Stream: {
+            id?: string;
+            title?: string;
+            description?: string | null;
+            /** @enum {string} */
+            protocol?: "webrtc" | "srt" | "rtmp" | "auto";
+            /** @enum {string} */
+            status?: "idle" | "live" | "ended";
+            /** @enum {string} */
+            privacy?: "public" | "private";
+            viewer_count?: number;
+            peak_viewer_count?: number;
+            ingest_url?: string | null;
+            playback_url?: string | null;
+            cloudflare_live_input_uid?: string | null;
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            ended_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        CreateStreamRequest: {
+            title: string;
+            description?: string;
+            /**
+             * @default auto
+             * @enum {string}
+             */
+            protocol: "webrtc" | "srt" | "rtmp" | "auto";
+            recording?: {
+                enabled?: boolean;
+            };
+            /**
+             * @default public
+             * @enum {string}
+             */
+            privacy: "public" | "private";
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        Highlight: {
+            id?: string;
+            stream_id?: string;
+            organization_id?: string;
+            title?: string | null;
+            /** @description {label, timestamp, confidence, source} */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ModerateRequest: {
+            content: string;
+            /** @enum {string} */
+            contentType: "text" | "title" | "description" | "comment" | "chat" | "username" | "bio";
+            /** @description streamId attributes the moderated content to a stream (e.g. a chat message). */
+            context?: {
+                streamId?: string;
+                userId?: string;
+                previousContent?: string[];
+            };
+            options?: {
+                /** @default true */
+                returnDetails: boolean;
+                /** @description Subset of harassment, hate_speech, violence, sexual_content, spam, misinformation, self_harm, illegal_activity, personal_information, copyright. */
+                categories?: string[];
+                customRules?: {
+                    name: string;
+                    /** @description A regular expression evaluated against content. */
+                    pattern: string;
+                    /** @enum {string} */
+                    action: "flag" | "block";
+                }[];
+            };
+        };
+        ModerateResponse: {
+            allowed?: boolean;
+            /** @enum {string} */
+            action?: "allow" | "flag" | "block" | "review";
+            violations?: {
+                category?: string;
+                /** @enum {string} */
+                severity?: "low" | "medium" | "high" | "critical";
+                confidence?: number;
+                description?: string;
+                matchedText?: string;
+                rule?: string;
+            }[];
+            confidence?: number;
+            reasoning?: string;
+            suggestedAction?: string;
+            metadata?: {
+                contentId?: string;
+                processingTimeMs?: number;
+                model?: string;
+                categoriesChecked?: string[];
+            };
+        };
+        Production: {
+            id?: string;
+            organization_id?: string;
+            user_id?: string | null;
+            title?: string;
+            description?: string | null;
+            /** @enum {string} */
+            status?: "setup" | "rehearsal" | "live" | "paused" | "ended";
+            /** @enum {string} */
+            layout?: "single" | "split" | "pip" | "grid" | "custom";
+            stream_ids?: string[];
+            record?: boolean;
+            program_camera_index?: number | null;
+            preview_camera_index?: number | null;
+            last_transition?: string | null;
+            overlays?: {
+                [key: string]: unknown;
+            };
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            ended_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        CreateProductionRequest: {
+            title: string;
+            description?: string;
+            /**
+             * @default single
+             * @enum {string}
+             */
+            layout: "single" | "split" | "pip" | "grid" | "custom";
+            stream_ids?: string[];
+            /** @default false */
+            record: boolean;
+        };
+        SwitchCameraRequest: {
+            cameraIndex: number;
+            /** @enum {string} */
+            bus: "program" | "preview";
+            /**
+             * @default cut
+             * @enum {string}
+             */
+            transition: "cut" | "dissolve" | "wipe" | "fade";
+        };
+        Camera: {
+            id?: string;
+            organization_id?: string;
+            name?: string;
+            /** @enum {string} */
+            manufacturer?: "blackmagic" | "sony" | "canon" | "ptzoptics" | "other";
+            /** @enum {string} */
+            control_protocol?: "bmd_rest" | "visca_ip" | "visca_serial" | "canon_xc" | "onvif";
+            /** @description IPv4 address the camera was registered with. */
+            address?: string | null;
+            /** @enum {string} */
+            status?: "offline" | "online" | "discovering" | "error";
+            presets?: {
+                [key: string]: unknown;
+            }[];
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        RegisterCameraRequest: {
+            name: string;
+            /** @enum {string} */
+            manufacturer: "blackmagic" | "sony" | "canon" | "ptzoptics" | "other";
+            model?: string;
+            /** Format: ipv4 */
+            ipAddress: string;
+            /** @enum {string} */
+            controlProtocol: "bmd_rest" | "visca_ip" | "visca_serial" | "canon_xc" | "onvif";
+        };
+        /** @description Discriminated union on `type`. Supply only the fields the chosen variant needs. */
+        ControlCameraRequest: {
+            /** @constant */
+            type: "set_iris";
+            value: number;
+        } | {
+            /** @constant */
+            type: "set_focus";
+            value: number;
+        } | {
+            /** @constant */
+            type: "set_zoom";
+            value: number;
+        } | {
+            /** @constant */
+            type: "set_white_balance";
+            temperature: number;
+            tint: number;
+        } | {
+            /** @constant */
+            type: "set_gain";
+            value: number;
+        } | {
+            /** @constant */
+            type: "set_shutter";
+            angle: number;
+        } | {
+            /** @constant */
+            type: "start_recording";
+        } | {
+            /** @constant */
+            type: "stop_recording";
+        } | {
+            /** @constant */
+            type: "start_prerecord";
+        } | {
+            /** @constant */
+            type: "autofocus_trigger";
+        } | {
+            /** @constant */
+            type: "set_audio_level";
+            channel: number;
+            level: number;
+        } | {
+            /** @constant */
+            type: "recall_preset";
+            /** Format: uuid */
+            presetId: string;
+        } | {
+            /** @constant */
+            type: "save_preset";
+            name: string;
+            slot: number;
+        };
+        DateRange: {
+            from?: string;
+            to?: string;
+        };
+        /** @description The caller-org's billing status. `billingAccount: null` and `plan: "free"` mean the org has no Stripe customer yet. */
+        BillingAccount: {
+            organizationId?: string;
+            billingAccount?: {
+                customerId?: string;
+                email?: string | null;
+                paymentMethod?: {
+                    brand?: string;
+                    last4?: string;
+                    expMonth?: number;
+                    expYear?: number;
+                } | null;
+            } | null;
+            /** @description "free" when the org has no billing account. */
+            plan?: string;
+            subscription?: {
+                id?: string;
+                status?: string;
+                /** @description Unix seconds. */
+                currentPeriodEnd?: number;
+                plan?: {
+                    priceId?: string;
+                    unitAmount?: number | null;
+                    currency?: string;
+                    interval?: string | null;
+                } | null;
+            } | null;
+        };
+        BillingUsageResponse: {
+            organizationId?: string;
+            period?: components["schemas"]["DateRange"];
+            usage?: {
+                dimension?: string;
+                unit?: string;
+                quantity?: number;
+                billedQuantity?: number;
+            }[];
+            total?: number;
+        };
+        /** @description Raw per-dimension usage from the underlying meter ledger. */
+        UsageResponse: {
+            org?: string;
+            range?: {
+                from?: string;
+                to?: string;
+                days?: number;
+            };
+            /** @description Meter dimension → summed quantity (e.g. wave_braid_minutes, transcription_seconds, duration_ms:srt). The dimension set is append-only and not enumerated here. */
+            totals?: {
+                [key: string]: number;
+            };
         };
         Voice: {
             id?: string;
@@ -1073,6 +5255,10 @@ export interface components {
             updatedAt?: string;
         };
         CaptionJobCreate: {
+            /**
+             * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+             * @example rec-demo-0001
+             */
             videoId: string;
             /** @default en */
             sourceLanguage: string;
@@ -1347,6 +5533,10 @@ export interface components {
             updatedAt?: string;
         };
         TranscriptionCreate: {
+            /**
+             * @description An org-owned recording id, or an https URL to a media file.
+             * @example rec-demo-0001
+             */
             sourceId: string;
             /** @enum {string} */
             sourceType: "video" | "audio";
@@ -1411,19 +5601,95 @@ export interface components {
         };
         SearchResult: {
             id?: string;
+            score?: number;
+            fusedScore?: number;
             /** @enum {string} */
-            type?: "video" | "clip" | "chapter" | "transcript" | "episode";
+            matchType?: "semantic" | "keyword" | "hybrid";
+            denseScore?: number;
+            sparseScore?: number;
+            metadata?: {
+                namespace?: string;
+                title?: string;
+                text?: string;
+            };
+        };
+        SearchWebHit: {
             title?: string;
-            description?: string;
-            /** Format: uri */
-            thumbnailUrl?: string;
             /** Format: uri */
             url?: string;
-            score?: number;
-            highlights?: components["schemas"]["SearchHighlight"][];
+            highlights?: string;
+        };
+        SearchResponse: {
+            results?: components["schemas"]["SearchResult"][];
+            metadata?: {
+                query?: string;
+                namespace?: string;
+                totalResults?: number;
+                processingTimeMs?: number;
+                /** @enum {string} */
+                searchType?: "hybrid";
+                cached?: boolean;
+                web?: components["schemas"]["SearchWebHit"][];
+            };
+        };
+        SearchRequest: {
+            query: string;
+            /**
+             * @default streams
+             * @enum {string}
+             */
+            namespace: "streams" | "users" | "clips" | "transcripts" | "all";
+            /** @default 20 */
+            topK: number;
+        };
+        SearchIndexDoc: {
+            /**
+             * @description Document id, unique within `namespace`. Letters, digits, `.`, `_`, `:`, `-`, 1-128 characters.
+             * @example doc-1
+             */
+            id: string;
+            /** @enum {string} */
+            namespace: "streams" | "users" | "clips" | "transcripts";
+            title?: string;
+            text: string;
             metadata?: Record<string, never>;
+        };
+        SearchIndexRequest: {
+            /**
+             * @description Document id, unique within `namespace`. Letters, digits, `.`, `_`, `:`, `-`, 1-128 characters.
+             * @example doc-1
+             */
+            id: string;
+            /** @enum {string} */
+            namespace: "streams" | "users" | "clips" | "transcripts";
+            title?: string;
+            text: string;
+            metadata?: Record<string, never>;
+            docs?: components["schemas"]["SearchIndexDoc"][];
+        };
+        SearchIndexResponse: {
+            indexed?: number;
+            ids?: string[];
+        };
+        SearchDeleteResponse: {
+            deleted?: boolean;
+            id?: string;
+        };
+        SearchInsightRow: {
+            query?: string;
+            term?: string;
+            count?: number;
+            previous?: number;
+        };
+        SearchAnalyticsResponse: {
+            org?: string;
             /** Format: date-time */
-            createdAt?: string;
+            generated_at?: string;
+            insights?: {
+                top?: components["schemas"]["SearchInsightRow"][];
+                zeroResult?: components["schemas"]["SearchInsightRow"][];
+                trending?: components["schemas"]["SearchInsightRow"][];
+            };
         };
         SearchHighlight: {
             field?: string;
@@ -1432,45 +5698,6 @@ export interface components {
                 start?: number;
                 end?: number;
             }[];
-        };
-        SearchRequest: {
-            query: string;
-            types?: ("video" | "clip" | "chapter" | "transcript" | "episode")[];
-            filters?: {
-                /** Format: date */
-                dateFrom?: string;
-                /** Format: date */
-                dateTo?: string;
-                duration?: {
-                    min?: number;
-                    max?: number;
-                };
-                tags?: string[];
-                categories?: string[];
-                language?: string;
-            };
-            sort?: {
-                /**
-                 * @default relevance
-                 * @enum {string}
-                 */
-                field: "relevance" | "date" | "views" | "duration" | "title";
-                /**
-                 * @default desc
-                 * @enum {string}
-                 */
-                order: "asc" | "desc";
-            };
-            /** @default true */
-            highlight: boolean;
-            /** @default false */
-            fuzzy: boolean;
-            /** @default false */
-            semanticSearch: boolean;
-            /** @default 1 */
-            page: number;
-            /** @default 20 */
-            perPage: number;
         };
         SearchSuggestion: {
             text?: string;
@@ -1485,18 +5712,35 @@ export interface components {
                 count?: number;
             }[];
         };
-        /** @description `org` is derived from the caller's authenticated principal, not sent in the body. */
+        /**
+         * @description `org` is derived from the caller's authenticated principal, not sent in the body.
+         * @example {
+         *       "ns": "demo-braid",
+         *       "sources": [
+         *         {
+         *           "label": "mic-1",
+         *           "track": "mic-1",
+         *           "url": "https://wave.online/samples/input-1.mp4"
+         *         },
+         *         {
+         *           "label": "mic-2",
+         *           "track": "mic-2",
+         *           "url": "https://wave.online/samples/input-2.mp4"
+         *         }
+         *       ]
+         *     }
+         */
         BraidPublishRequest: {
             /** @description Namespace for the published track. Republishing the same ns replaces the prior machine. */
             ns: string;
-            /** @description Named audio sources to braid into one interleaved multichannel track. Each source needs a `label`/`track` and either a `url` or a `path`. */
-            sources: {
+            /** @description Named audio sources to braid into one interleaved multichannel track, at least 2. Each source needs a `label`/`track` and either a `url` or a `path`. */
+            sources: ({
                 label: string;
                 track: string;
                 /** Format: uri */
                 url?: string;
                 path?: string;
-            }[];
+            } | unknown | unknown)[];
             /** @description Braid window size in milliseconds. Defaults to the machine-config default when omitted. */
             windowMs?: number;
             /** @description Sample rate for the braided track. Defaults to the machine-config default when omitted. */
@@ -1573,10 +5817,20 @@ export interface components {
          * @enum {string}
          */
         RenderTemplate: "slate" | "lowerThird" | "announce" | "stat" | "hero" | "quote" | "backdrop" | "field" | "badge" | "endcard" | "sting" | "ident" | "kinetic" | "ticker" | "countdown" | "receipt" | "code" | "session" | "chart" | "audiogram" | "manifesto" | "changelog";
-        /** @description A render Brief — a template plus its props. Brand-parametric: an optional BYO `brandKit` (logo SVG, fonts as data URLs, colors) renders any template on a tenant's brand. */
+        /**
+         * @description A render Brief — a template plus its props. Brand-parametric: an optional BYO `brandKit` (logo SVG, fonts as data URLs, colors) renders any template on a tenant's brand.
+         * @example {
+         *       "template": "slate",
+         *       "props": {
+         *         "product": "WAVE",
+         *         "accent": "#16d6aa",
+         *         "tagline": "Media infrastructure for the agentic internet."
+         *       }
+         *     }
+         */
         RenderBrief: {
             template: components["schemas"]["RenderTemplate"];
-            /** @description Template-specific props (see the live contract for per-template shapes). All string props are HTML-escaped; width/height ≤ 4096, durationMs ≤ 60000, fps ≤ 60. */
+            /** @description Template-specific props. Each template publishes its own required and optional props (names, types, bounds, and defaults) in the live contract at `GET /render/openapi.json` so a caller can validate a Brief before sending it — this schema stays open by design. All string props are HTML-escaped; width/height ≤ 4096, durationMs ≤ 60000, fps ≤ 60. */
             props: {
                 [key: string]: unknown;
             };
@@ -1677,7 +5931,15 @@ export interface components {
             error: string;
             /** @description Payment options; sign one and retry with the `x-payment` header. */
             accepts: components["schemas"]["X402Accepts"][];
-            error_detail?: components["schemas"]["Error"];
+            error_detail?: components["schemas"]["ErrorBody"] & {
+                /** @description Present ONLY when a submitted payment was REJECTED (as opposed to no payment having been made at all): the sanitized deny verdict, so a paying caller can tell a rejected payment apart from an unpaid challenge and correct the named field. `reason` is a lowercase snake_case token from the gateway's closed deny vocabulary (e.g. `invalid_permit_header`, `session_expired`, `duplicate`, `rate_limited`); internal detail that cannot be published verbatim collapses to the generic `payment_rejected`. `rail` names the payment rail that denied (e.g. `base-usdc`, `tempo-pathusd`), or `unknown`. */
+                payment_rejected?: {
+                    /** @description Sanitized machine-readable rejection reason token. */
+                    reason: string;
+                    /** @description The payment rail the rejection occurred on. */
+                    rail: string;
+                };
+            };
             /** @description Machine-executable directive for agent callers — a `pay` directive carrying the same `accepts` options. */
             next_action?: {
                 [key: string]: unknown;
@@ -1706,6 +5968,72 @@ export interface components {
             extra?: {
                 [key: string]: unknown;
             };
+        };
+        PricingManifest: {
+            slug?: string;
+            org?: string;
+            tiers?: {
+                [key: string]: unknown;
+            }[];
+            createdAt?: string;
+            updatedAt?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description The resolved directory entry, DISCRIMINATED on the outer `agent` value: `agent: "telephony"` serves the TelephonyResolveResponse variant; every other directory key serves the AgentResolveResponse variant. Generated clients can narrow on `agent`. */
+        IdentityResolveResponse: components["schemas"]["AgentResolveResponse"] | components["schemas"]["TelephonyResolveResponse"];
+        AgentResolveResponse: {
+            /** @description The resolved agent id — any directory key EXCEPT the telephony service entry */
+            agent: string;
+            identity: components["schemas"]["AgentIdentity"];
+        };
+        TelephonyResolveResponse: {
+            /** @constant */
+            agent: "telephony";
+            identity: components["schemas"]["TelephonyIdentity"];
+        };
+        /** @description One agent's public directory entry. `key` is a credential key NAME, never a key value — the directory carries no secret material. */
+        AgentIdentity: {
+            /**
+             * Format: email
+             * @description The agent's inbox (e.g. `opencode@agents.wave.online`)
+             */
+            email: string;
+            /** @description Credential key NAME for the agent's inbox credential (never the value) */
+            key: string;
+            /** @description Owning org (e.g. `wave`) */
+            org: string;
+            /** @description Reachable channels (e.g. `mail`, `paid-rail`, `realtime`) */
+            channels: string[];
+        };
+        /** @description The telephony service entry — the one documented variation on the agent shape: plural credential key names + E.164 numbers, no email/key. `org` is always present so every identity object carries it. */
+        TelephonyIdentity: {
+            /** @description Owning org (e.g. `wave`) */
+            org: string;
+            /** @description Reachable channels (e.g. `voice`, `sms-blocked-a2p`) */
+            channels: string[];
+            /** @description E.164 numbers */
+            numbers: string[];
+            /** @description Credential key NAMES for the telephony credentials (never values) */
+            keys: string[];
+        };
+        /** @description 400 envelope for /identity/resolve — `error.code` is one of the documented validation codes, so generated clients can switch on it. */
+        IdentityResolveValidationError: {
+            error: {
+                /** @enum {string} */
+                code: "MISSING_AGENT" | "BAD_AGENT" | "ORG_MISMATCH";
+                message: string;
+            };
+        };
+        /** @description 404 envelope for /identity/resolve — `error.code` is always UNKNOWN_AGENT; `agent` echoes the requested id. */
+        IdentityResolveNotFoundError: {
+            error: {
+                /** @enum {string} */
+                code: "UNKNOWN_AGENT";
+                message: string;
+            };
+            /** @description Echo of the requested (unknown) agent id */
+            agent?: string;
         };
     };
     responses: {
@@ -1802,6 +6130,13 @@ export interface components {
         MoqTrackParam: string;
         PageParam: number;
         PerPageParam: number;
+        StreamIdParam: string;
+        ProductionIdParam: string;
+        CameraIdParam: string;
+        /** @description Range start (ISO 8601 timestamp). Defaults to 30 days before `to`. */
+        AnalyticsFromParam: string;
+        /** @description Range end (ISO 8601 timestamp). Defaults to now. */
+        AnalyticsToParam: string;
     };
     requestBodies: never;
     headers: never;
@@ -1809,6 +6144,198 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    agentAuthDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The device grant (codes, verification URI, expiry, poll interval) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        device_code: string;
+                        user_code: string;
+                        /**
+                         * Format: uri
+                         * @description The approve URL the human opens
+                         */
+                        verification_uri: string;
+                        /**
+                         * Format: uri
+                         * @description The same URL with the user code prefilled
+                         */
+                        verification_uri_complete: string;
+                        /** @description Seconds until the device code expires (600) */
+                        expires_in: number;
+                        /** @description Poll interval in seconds (5) */
+                        interval: number;
+                    };
+                };
+            };
+            /** @description Device authorization not enabled for the app (dashboard toggle) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            /** @description Upstream auth endpoint unreachable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ceremony not configured on this deployment (no app id) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    agentAuthToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description The registered RFC 8628 URN (canonical, what the upstream token endpoint requires) or the bare shorthand (accepted at this seam and canonicalized to the URN before forwarding)
+                     * @enum {string}
+                     */
+                    grant_type: "urn:ietf:params:oauth:grant-type:device_code" | "device_code";
+                    /** @description The `device_code` value returned by POST /agent/auth/device. Poll with it at the interval that response named until approval completes, expires, or is denied. */
+                    device_code: string;
+                } | {
+                    /** @enum {string} */
+                    grant_type: "refresh_token";
+                    refresh_token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Tokens. First approval returns access_token plus the initial refresh_token; a refresh exchange returns access_token plus a REPLACEMENT refresh_token (the old one is invalidated by the same call). An absent refresh_token signals revocation: restart the ceremony. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        access_token: string;
+                        /** @description Present on first approval and on every refresh exchange (rotation); absent only when the grant is revoked or expired */
+                        refresh_token?: string;
+                    };
+                };
+            };
+            /** @description Invalid grant_type or a missing credential for the grant returns the WAVE error envelope. A device_code that is not yet approved, not yet due for another poll, or no longer valid returns the RFC 8628 §3.5 device-flow error passed through verbatim, one of `authorization_pending` (not yet approved, keep polling), `slow_down` (poll less often), `expired_token` (the device_code expired, restart at /agent/auth/device), `access_denied` (the human declined), or `invalid_grant`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"] | components["schemas"]["DeviceFlowError"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            /** @description Upstream auth endpoint unreachable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ceremony not configured on this deployment (no app id) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    batchOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    operations: {
+                        /** @enum {string} */
+                        method: "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE";
+                        /** @description An enforced /v1 route */
+                        path: string;
+                        /** @description The operation's JSON body (mutating methods only) */
+                        body?: unknown;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Per-operation results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        operations?: number;
+                        results?: {
+                            ok?: boolean;
+                            status?: number;
+                            /** @description The operation's response body */
+                            body?: unknown;
+                        }[];
+                    };
+                };
+            };
+            /** @description Invalid batch (operations[] required, 25-op cap) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limited (RFC RateLimit headers on the response) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     renderVideo: {
         parameters: {
             query?: never;
@@ -1935,6 +6462,1098 @@ export interface operations {
             429: components["responses"]["RateLimitError"];
         };
     };
+    listStreams: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of streams to return. */
+                limit?: number;
+                offset?: number;
+                /** @description Filter by stream status. */
+                status?: "idle" | "live" | "ended";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of streams */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        streams: components["schemas"]["Stream"][];
+                        total: number;
+                        limit: number;
+                        offset: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStreamRequest"];
+            };
+        };
+        responses: {
+            /** @description Stream created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Stream"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Stream"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    startStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stream_id?: string;
+                        session_id?: string;
+                        /** @enum {string} */
+                        status?: "live";
+                        ingest_url?: string | null;
+                        /** Format: date-time */
+                        started_at?: string;
+                        message?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+            /** @description Stream is already live. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    stopStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream stopped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stream_id?: string;
+                        session_id?: string;
+                        /** @enum {string} */
+                        status?: "ended";
+                        /** Format: date-time */
+                        ended_at?: string;
+                        duration_minutes?: number;
+                        viewer_count_peak?: number;
+                        message?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+            /** @description Stream is not currently live. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getStreamStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stream_id?: string;
+                        /** @enum {string} */
+                        status?: "idle" | "live" | "ended";
+                        current_viewers?: number;
+                        protocol_active?: string;
+                        /** Format: date-time */
+                        created_at?: string;
+                        /** Format: date-time */
+                        updated_at?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    getStreamAnalytics: {
+        parameters: {
+            query?: {
+                /** @description Range start (ISO 8601 timestamp). */
+                from?: string;
+                /** @description Range end (ISO 8601 timestamp). */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream analytics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stream_id?: string;
+                        metrics?: {
+                            peak_concurrent_viewers?: number;
+                            sample_count?: number;
+                            avg_quality_score?: number | null;
+                        };
+                        timeseries?: {
+                            /** Format: date-time */
+                            timestamp?: string;
+                            viewer_count?: number;
+                            quality_score?: number | null;
+                            latency_ms?: number | null;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    listStreamHighlights: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of highlights */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        highlights?: components["schemas"]["Highlight"][];
+                        stream_id?: string;
+                        limit?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    markStreamHighlight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                streamId: components["parameters"]["StreamIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    label?: string;
+                    /**
+                     * Format: date-time
+                     * @description Defaults to now.
+                     */
+                    timestamp?: string;
+                    confidence?: number;
+                    duration_seconds?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Highlight marked */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Highlight"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    moderateContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Moderation verdict */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModerateResponse"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    startLivePipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description Audio bytes to transcribe.
+                     */
+                    file: string;
+                    /** @description Client-chosen correlation id (letters, digits, `. _ : -`, 1-128 chars), echoed back for per-stream correlation. */
+                    stream_id?: string;
+                    /** @description ISO 639 language hint (transcribe task only). */
+                    language?: string;
+                    /**
+                     * @default transcribe
+                     * @enum {string}
+                     */
+                    task?: "transcribe" | "translate";
+                    /**
+                     * @description Default whisper-large-v3-turbo; translate forces whisper-large-v3.
+                     * @enum {string}
+                     */
+                    model?: "whisper-large-v3-turbo" | "whisper-large-v3";
+                    /**
+                     * @default summarize
+                     * @enum {string}
+                     */
+                    mode?: "summarize" | "moderate" | "translate" | "custom";
+                    /** @description Custom instruction, used when mode=custom. */
+                    instruction?: string;
+                    /** @description Fast LLM model id to run the pipeline step. */
+                    llm_model: string;
+                    /** @default 256 */
+                    max_tokens?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Transcript plus the LLM step's output */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        transcript?: string;
+                        duration?: number;
+                        llm?: {
+                            mode?: string;
+                            model?: string;
+                            output?: string;
+                            usage?: {
+                                prompt_tokens?: number;
+                                completion_tokens?: number;
+                            };
+                        };
+                        stream_id?: string;
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description The live-pipeline feature is not armed for this account. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            /** @description Transcription is temporarily unavailable — retry after the given delay. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    transcribeLiveAudio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @description Client-chosen correlation id (letters, digits, `. _ : -`, 1-128 chars), echoed back for per-stream correlation. */
+                    stream_id?: string;
+                    language?: string;
+                    /**
+                     * @default transcribe
+                     * @enum {string}
+                     */
+                    task?: "transcribe" | "translate";
+                    /** @enum {string} */
+                    model?: "whisper-large-v3-turbo" | "whisper-large-v3";
+                    /**
+                     * @default verbose_json
+                     * @enum {string}
+                     */
+                    response_format?: "verbose_json" | "json" | "text";
+                    /**
+                     * @description Output shape. Non-json returns a serialized caption file body.
+                     * @default json
+                     * @enum {string}
+                     */
+                    format?: "json" | "vtt" | "srt" | "scc" | "text";
+                    /** @description Windowed-mode start offset (seconds) on the stream timeline. */
+                    t0?: number;
+                    /** @description Windowed-mode window index, echoed back for ordering. */
+                    seq?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Transcription result (JSON, or a serialized caption file when `format` != json) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description The live-pipeline feature is not armed for this account. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            /** @description Transcription is temporarily unavailable — retry after the given delay. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listProductions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                status?: "setup" | "rehearsal" | "live" | "paused" | "ended";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of productions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        productions?: components["schemas"]["Production"][];
+                        total?: number;
+                        limit?: number;
+                        offset?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createProduction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProductionRequest"];
+            };
+        };
+        responses: {
+            /** @description Production created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Production"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getProduction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                productionId: components["parameters"]["ProductionIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Production details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Production"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    switchProductionCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                productionId: components["parameters"]["ProductionIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwitchCameraRequest"];
+            };
+        };
+        responses: {
+            /** @description Camera switched */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        productionId?: string;
+                        /** @enum {string} */
+                        bus?: "program" | "preview";
+                        cameraIndex?: number;
+                        /** @enum {string} */
+                        transition?: "cut" | "dissolve" | "wipe" | "fade";
+                        /** Format: date-time */
+                        switchedAt?: string;
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    setProductionOverlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                productionId: components["parameters"]["ProductionIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    graphic_id: string;
+                    /** @enum {string} */
+                    action: "show" | "hide" | "update";
+                    /** @description Data bindings for the graphic template. */
+                    data?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Overlay state updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        productionId?: string;
+                        graphicId?: string;
+                        /** @enum {string} */
+                        action?: "show" | "hide" | "update";
+                        data?: {
+                            [key: string]: unknown;
+                        } | null;
+                        /** Format: date-time */
+                        updatedAt?: string;
+                        /** @description The production's full overlay map after this update. */
+                        overlays?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    listCameras: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of registered cameras */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cameras?: components["schemas"]["Camera"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    registerCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterCameraRequest"];
+            };
+        };
+        responses: {
+            /** @description Camera registered */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Camera"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    controlCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cameraId: components["parameters"]["CameraIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlCameraRequest"];
+            };
+        };
+        responses: {
+            /** @description Command queued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cameraId?: string;
+                        commandId?: string;
+                        command?: components["schemas"]["ControlCameraRequest"];
+                        /** @enum {string} */
+                        status?: "queued" | "acked" | "failed";
+                    };
+                };
+            };
+            /** @description Invalid or unrecognized control command. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundError"];
+        };
+    };
+    getBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Billing account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccount"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getBillingUsage: {
+        parameters: {
+            query?: {
+                /** @description Range start (YYYY-MM-DD). Defaults to the start of the current month. */
+                from?: string;
+                /** @description Range end (YYYY-MM-DD). Defaults to today. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Billed usage */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingUsageResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description Billing usage is temporarily unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getUsage: {
+        parameters: {
+            query?: {
+                /** @description Range start (YYYYMMDD). Defaults to today. */
+                from?: string;
+                /** @description Range end (YYYYMMDD). Defaults to today. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Raw usage totals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getUsageLeaderboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description { org, window:{from,to,days}, ranking:[{rank, meter, unit, used}] } — private, no-store */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description LEADERBOARD_AUTH_REQUIRED — no or invalid API key; body names the public board's URL */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description SCOPE_DENIED — key lacks usage:read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPlatformUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every product's live usage, grounded-only */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Operator authentication required: {"error":{"code":"TELEMETRY_AUTH_REQUIRED"}} */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAnalyticsOverview: {
+        parameters: {
+            query?: {
+                /** @description Range start (ISO 8601 timestamp). Defaults to 30 days before `to`. */
+                from?: components["parameters"]["AnalyticsFromParam"];
+                /** @description Range end (ISO 8601 timestamp). Defaults to now. */
+                to?: components["parameters"]["AnalyticsToParam"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Analytics overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        organizationId?: string;
+                        period?: components["schemas"]["DateRange"];
+                        summary?: {
+                            totalEvents?: number;
+                            totalQuantity?: number;
+                            activeDays?: number;
+                            topDimensions?: {
+                                dimension?: string;
+                                quantity?: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description Analytics are temporarily unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAnalyticsTopContent: {
+        parameters: {
+            query?: {
+                /** @description Range start (ISO 8601 timestamp). Defaults to 30 days before `to`. */
+                from?: components["parameters"]["AnalyticsFromParam"];
+                /** @description Range end (ISO 8601 timestamp). Defaults to now. */
+                to?: components["parameters"]["AnalyticsToParam"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Top content by usage */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        organizationId?: string;
+                        period?: components["schemas"]["DateRange"];
+                        topContent?: {
+                            rank?: number;
+                            dimension?: string;
+                            quantity?: number;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description Analytics are temporarily unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAnalyticsEngagement: {
+        parameters: {
+            query?: {
+                /** @description Range start (ISO 8601 timestamp). Defaults to 30 days before `to`. */
+                from?: components["parameters"]["AnalyticsFromParam"];
+                /** @description Range end (ISO 8601 timestamp). Defaults to now. */
+                to?: components["parameters"]["AnalyticsToParam"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Engagement analytics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        organizationId?: string;
+                        period?: components["schemas"]["DateRange"];
+                        engagement?: {
+                            totalEvents?: number;
+                            totalQuantity?: number;
+                            averageEventsPerDay?: number;
+                            peakDay?: string | null;
+                            peakEvents?: number;
+                            activeDays?: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            /** @description Analytics are temporarily unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listClips: {
         parameters: {
             query?: {
@@ -1982,10 +7601,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Clip"];
+                    "application/json": components["schemas"]["ClipCreateResponse"];
                 };
             };
-            400: components["responses"]["ValidationError"];
+            /** @description Validation error (the clip route's own envelope, not the shared Error schema). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipError"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getClip: {
@@ -2286,6 +7916,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+                 * @example rec-demo-0001
+                 */
                 videoId: string;
             };
             cookie?: never;
@@ -2303,6 +7937,15 @@ export interface operations {
                     };
                 };
             };
+            /** @description No recording with this id in your org. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     createChapter: {
@@ -2310,6 +7953,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+                 * @example rec-demo-0001
+                 */
                 videoId: string;
             };
             cookie?: never;
@@ -2329,6 +7976,15 @@ export interface operations {
                     "application/json": components["schemas"]["Chapter"];
                 };
             };
+            /** @description No recording with this id in your org. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     detectChapters: {
@@ -2336,6 +7992,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+                 * @example rec-demo-0001
+                 */
                 videoId: string;
             };
             cookie?: never;
@@ -2353,6 +8013,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DetectionJob"];
+                };
+            };
+            /** @description No recording with this id in your org. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getChapterDetectionJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+                 * @example rec-demo-0001
+                 */
+                videoId: string;
+                /**
+                 * @description Detection job id returned by POST /videos/{videoId}/chapters/detect.
+                 * @example job-demo-0001
+                 */
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The detection job view */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectionJob"];
+                };
+            };
+            /** @description No detection job with this id for this video. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteChapter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Identifier of an org-owned recording. Resolved org-scoped; a recording you do not own returns 404.
+                 * @example rec-demo-0001
+                 */
+                videoId: string;
+                /**
+                 * @description Chapter id, as returned by POST /videos/{videoId}/chapters or a detection job.
+                 * @example chp-demo-0001
+                 */
+                chapterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Chapter deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No chapter with this id for this video. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -3067,71 +8814,39 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Search results */
+            /** @description Ranked results + metadata (metered wave_search_queries) */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaginatedResponse"] & {
-                        data?: components["schemas"]["SearchResult"][];
-                        facets?: components["schemas"]["SearchFacet"][];
-                    };
+                    "application/json": components["schemas"]["SearchResponse"];
                 };
             };
-        };
-    };
-    quickSearch: {
-        parameters: {
-            query: {
-                q: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Search results */
-            200: {
+            /** @description Invalid request (bad body/query/namespace/topK) */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        results?: components["schemas"]["SearchResult"][];
-                    };
-                };
+                content?: never;
             };
-        };
-    };
-    searchSuggest: {
-        parameters: {
-            query: {
-                q: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Search suggestions */
-            200: {
+            /** @description Per-org rate limit exceeded */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        suggestions?: components["schemas"]["SearchSuggestion"][];
-                    };
+                content?: never;
+            };
+            /** @description Search plane unconfigured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
                 };
+                content?: never;
             };
         };
     };
-    semanticSearch: {
+    searchIndex: {
         parameters: {
             query?: never;
             header?: never;
@@ -3140,24 +8855,65 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    query: string;
-                    types?: string[];
-                    /** @default 10 */
-                    limit?: number;
-                };
+                "application/json": components["schemas"]["SearchIndexRequest"];
             };
         };
         responses: {
-            /** @description Semantic search results */
+            /** @description Indexed count + ids */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        results?: components["schemas"]["SearchResult"][];
-                    };
+                    "application/json": components["schemas"]["SearchIndexResponse"];
+                };
+            };
+        };
+    };
+    searchDelete: {
+        parameters: {
+            query: {
+                namespace: "streams" | "users" | "clips" | "transcripts";
+            };
+            header?: never;
+            path: {
+                /**
+                 * @description Document id, unique within `namespace`. Letters, digits, `.`, `_`, `:`, `-`, 1-128 characters.
+                 * @example doc-1
+                 */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted flag + id */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchDeleteResponse"];
+                };
+            };
+        };
+    };
+    searchAnalytics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Insight receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchAnalyticsResponse"];
                 };
             };
         };
@@ -3568,6 +9324,4948 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimitError"];
             503: components["responses"]["MoqJoinUnconfigured"];
+        };
+    };
+    identityResolve: {
+        parameters: {
+            query: {
+                /** @description Fleet agent id (lowercase, e.g. `opencode`, `claude`, `telephony`) */
+                agent: string;
+                /** @description Optional tenancy self-assertion; must equal the authenticated principal's org */
+                org?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The resolved directory entry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityResolveResponse"];
+                };
+            };
+            /** @description Missing/bad agent id, or org self-assertion mismatch (MISSING_AGENT / BAD_AGENT / ORG_MISMATCH) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityResolveValidationError"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Well-formed but unknown agent id (UNKNOWN_AGENT) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityResolveNotFoundError"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    pricingManifestsList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The org's manifests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        org: string;
+                        manifests: components["schemas"]["PricingManifest"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    pricingManifestsCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    slug: string;
+                    tiers: {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description The upserted manifest */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricingManifest"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    custodyOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The custody operation */
+                op: "grant" | "revoke" | "inspect" | "exercise";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    grantId: string;
+                    provider?: string;
+                    scopes?: string[];
+                    ttlSeconds?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The operation receipt (metadata only — never a secret field) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description CUSTODY_UNCONFIGURED — bindings/flag absent */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    engineCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The capability contract */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    gpuStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plane status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    gpuInfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    model?: string;
+                    input?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description The job receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    accessibilityStudio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    acp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    acuity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    aegis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    aes67: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    agenticMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    agents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    ai: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    analytics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    apiGateway: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    argus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    audienceEngagement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    audioMastering: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    auth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    autopilot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    behavioralIntelligence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    benchmark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    bmd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    bridge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    cameraControl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    campus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    challenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    chapters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    ci: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    cloudSwitcher: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    companion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    competitiveIntel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    compliance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    cookieConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    cost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    creator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    creatorEconomy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    creatorStorefront: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    crest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    cro: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    dante: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    dataExchange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    decode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    director: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    discovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    dispatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    dmca: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    dsar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    dub: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    echo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    edge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    embeddings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    encode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    engagement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    enhance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    example: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    experiments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    fleet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    forecast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    geo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    ghostProducer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    graphicsEngine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    integrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    intel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    listen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    liveAnnotation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    liveCommerce: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    localAi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    memory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    mesh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    mlvc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    mobileProducer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    monetization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    monitoring: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    mpp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    mux: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    mxl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    ndi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    nvr: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    omt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    ops: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    orbit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    organizations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    outliers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    payments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    perception: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    pipelines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    presence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    privy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    production: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    productionGraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    products: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    pulse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    qrSystem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    qualityScorecard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    radar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    rateLimit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    recommend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    remotion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    renders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    replay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    replayEngine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    rist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    router: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    routes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    rtmp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    runtime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    sandbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    scene: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    signal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    signalGenerator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    signalVerifier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    slidesToVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    socialDistribution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    sportsData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    srt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    st2110: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    streamRouter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    streamdeck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    streaming: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    studio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    studioAutomation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    switcher: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    tempo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    transcode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    twilio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    unsubscribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    usbRelay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    vault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    videoGen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    viewer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    virtualStudio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    vision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    visualProgramming: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    visualQa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    vod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    volumetric: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    waveConsole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    waveNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    waveSdk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    waveTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    webrtc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    whep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    whip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    workflowEngine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    x402: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    zeroTrustVault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    zoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    zoomIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
         };
     };
 }

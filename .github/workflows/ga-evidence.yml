@@ -1,0 +1,125 @@
+# ga-evidence.yml — GA-evidence PRODUCER for wave-av/api-spec (CONTRACT-001 + COMPAT-001).
+#
+# Part of the Instinct external GA validator epic (control repo wave-av/claude-workstation,
+# governance/plans/instinct-ga-validator/E1-HANDSHAKE.md, P2 row 3). wave-av/sdks is, as of this
+# workflow, the only repo that emits a schema-shaped ga-evidence.json for the WAVE GA readiness
+# gate — see its scripts/ga/registry-cleanroom.mjs and .github/workflows/registry-cleanroom.yml,
+# which this workflow mirrors action-for-action (same checkout / setup-node / upload-artifact
+# pins, same fail-loud Enforce step). This repo owns CONTRACT-001 and COMPAT-001, the two
+# platform-scoped criteria in governance/ga-gate/spec/WAVE-GA-gate-spec-v1.0.0.json that name
+# `api-spec` in owning_surface_or_repo_class.
+#
+# WHAT THIS DOES NOT DO: it uploads the evidence document as a build artifact
+# (`ga-evidence-api-spec`). It does NOT open a PR into claude-workstation's
+# governance/ga-gate/evidence/incoming/ — that intake is a separate, credential-gated cross-repo
+# step (see that directory's README: "the owning repo's own CI ... opens a PR to this repo"), and
+# this repo carries no write credential to claude-workstation. Wiring that hand-off is a distinct,
+# future change.
+#
+# PR CONTRACT: on `pull_request`, exit 1 (a live criterion failed) is a `::warning`, not a job
+# failure — a failing live criterion is a property of the live surface, not of the PR's diff.
+# Exit 2 (the producer could not run) always fails the job, on every trigger, including
+# `pull_request` — and on schedule/workflow_dispatch/push, exit 1 fails the job too.
+
+name: ga-evidence
+
+on:
+  pull_request:
+  workflow_dispatch: {}
+  schedule:
+    # 09:23 UTC daily — offset from this repo's other scheduled gates (published-contract-drift's
+    # 07:10 UTC `drift` job, foundation-gate's own schedule) so a shared platform outage window
+    # does not take every scheduled GA signal out at once.
+    - cron: '23 9 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ga-evidence:
+    name: GA evidence (CONTRACT-001 + COMPAT-001)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          # COMPAT-001 resolves the highest `v*` tag and reads it with `git show <tag>:openapi.yaml`.
+          # actions/checkout's default shallow clone does not fetch tags reachable only from other
+          # history, which would make that read fail CLOSED (exit 2, could-not-run) rather than
+          # fail open — correct, but noisy for no reason on every single run. Full history avoids it.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Install tooling
+        # js-yaml is installed explicitly rather than leaned on transitively, matching the pattern
+        # published-contract-drift.yml and foundation-gate.yml already use in this repo: no
+        # node_modules is committed, so every workflow that needs a parser installs it itself.
+        run: npm install --no-save --no-audit --no-fund js-yaml@4.1.0
+
+      - name: Verify a Go toolchain is available for the oasdiff fallback
+        # ubuntu-latest ships Go preinstalled, which is what lets compat-001-check.mjs's
+        # `go run github.com/oasdiff/oasdiff@<pinned version>` fallback work with no extra
+        # toolchain-install step or third-party action. This step installs nothing; it only turns
+        # a silent runner-image change into a clear log line instead of a mysterious exit 2 three
+        # steps later. If oasdiff is ever preinstalled on these runners instead, the check module
+        # prefers it automatically (see compat-001-check.mjs's resolution order).
+        run: go version
+
+      - name: Run the GA evidence producer
+        id: ga
+        run: |
+          set +e
+          node scripts/ga/ga-evidence.mjs --out-dir "$GITHUB_WORKSPACE/ga-out" 2>&1 | tee "$RUNNER_TEMP/ga-evidence.log"
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          {
+            echo "## GA evidence — CONTRACT-001 / COMPAT-001"
+            echo
+            echo "Exit code \`$code\` (0 = every runnable check passed — COMPAT-001 still reports \`unknown\` unless it found a breaking change, per its own honesty rule, not \`pass\`; 1 = a criterion is \`fail\`; 2 = a gate could not run — never read as a pass)."
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/ga-evidence.log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Upload GA evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ga-evidence-api-spec
+          path: ga-out/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Enforce
+        # A gate that cannot fail is not a gate — see registry-cleanroom.yml in wave-av/sdks for
+        # the exact failure mode this step exists to prevent (a PR merged on a green rollup while
+        # its own log read "FAILED: 8 check(s)"). No `|| true`, no continue-on-error, on any
+        # trigger. See the PR CONTRACT note in the header: a live-criterion failure (exit 1) on
+        # `pull_request` is the one case that logs and exits 0 instead of failing the job.
+        env:
+          CODE: ${{ steps.ga.outputs.exit_code }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$CODE" = "0" ]; then
+            echo "ga-evidence: all runnable checks passed — COMPAT-001 remains unknown unless it found a breaking change (see the job summary; never read exit 0 as COMPAT-001 == pass)"
+            exit 0
+          fi
+          if [ "$CODE" = "1" ] && [ "$EVENT" = "pull_request" ]; then
+            echo "::warning title=ga-evidence::api-spec GA evidence producer reports a failing live criterion (exit 1); evidence is in the job summary and artifact; this does not fail the PR because the criterion is a property of the live surface, not of this change"
+            exit 0
+          fi
+          echo "::error title=ga-evidence::producer exited $CODE (1 = a criterion failed, 2 = a gate could not run) — see the job summary and the ga-evidence-api-spec artifact"
+          exit 1

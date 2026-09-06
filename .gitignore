@@ -6,3 +6,6 @@ node_modules
 
 # macOS
 .DS_Store
+
+# scripts/ga/ga-evidence.mjs output — regenerated on every run, never committed.
+ga-out/

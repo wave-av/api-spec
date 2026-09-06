@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "WAVE Enterprise Streaming Platform API specification — openapi.yaml plus the tooling that validates it and generates SDK types from it.",
+  "description": "OpenAPI 3.1 specification for WAVE, media infrastructure for the agentic internet: openapi.yaml plus the tooling that validates it and generates SDK types from it.",
   "scripts": {
     "lint": "redocly lint openapi.yaml",
-    "gen:types": "openapi-typescript openapi.yaml -o generated/api-types.d.ts"
+    "gen:types": "openapi-typescript openapi.yaml -o generated/api-types.d.ts",
+    "test:ga": "node --test \"scripts/ga/**/*.test.mjs\""
   },
   "devDependencies": {
     "@redocly/cli": "2.40.0",
