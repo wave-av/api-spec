@@ -6,6 +6,39 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Composer surface** (`openapi.yaml`) — the gateway (build `d62760094`) serves three
+  `composer:*`-scoped operations that had no spec entry, so no SDK, CLI or MCP method could be
+  generated for them and the published contract's `operation-parity` check (CONTRACT-001) failed
+  on exactly these three (api-spec#92, api-spec#91). Documented verbatim from the published
+  contract at `https://api.wave.online/openapi.json`, fetched 2026-09-08T14:06:58Z:
+  - `POST /compose` (`createComposeProposal`, scope `composer:write`) — composes a PLAN from a
+    plain-language intent. Never calls a product and never bills; stamps
+    `x-wave-meter: wave_compose_proposals` (counted, never billed).
+  - `POST /compose/run` (`runComposeProposal`, scope `composer:write`) — runs a stored proposal
+    once, gated on input validity, idempotency, manifest freshness, budget and the declared-IO
+    typing gate. The 200 documented here is the replay shape (`ComposeRunReplay`) for a repeat
+    call with the same idempotency key and input.
+  - `GET /compose/proposals/{proposalId}` (`getComposeProposal`, scope `composer:read`) — org
+    scoped re-read of a stored proposal by id.
+  - Adds the `composer` tag and seven component schemas the three operations reach transitively:
+    `ComposeProposalCreate`, `ComposeProposal`, `ComposeCandidate`, `ComposeRetrievalInfo`,
+    `ComposeRunCreate`, `ComposeRunInput`, `ComposeRunReplay`. Two `nullable: true` fields the
+    published contract carries (`ComposeProposal.flowId`, `ComposeCandidate.product`) and one on
+    `ComposeRunReplay.code` are expressed here as `type: [string, 'null']` to match this repo's
+    declared `openapi: 3.1.0` dialect — the OpenAPI 3.0-style `nullable` keyword the gateway
+    publishes is not valid 3.1 struct and fails `redocly lint`'s `struct` rule; this is the same
+    class of publishing-service leakage the drift checker already treats as non-drift enrichment,
+    not a content difference (`compare()` diffs unresolved `$ref` strings at the operation level,
+    so this syntax normalization does not affect the published-contract-drift `shared-drift`
+    finding for these operations).
+  - Only the `200` response is documented for each operation because that is the only response
+    the published contract declares for them; no 4xx/5xx were invented.
+  - Not modelled here: 64 pre-existing `x-lifecycle`-field `shared-drift` findings across other,
+    unrelated operations, and CONTRACT-001's `content-digest` check (which was already failing
+    before this change, over the same 64 operations) — both out of scope for api-spec#92.
+
 ### Changed
 
 - **`POST /voice/generate` contract clarified against the live gateway.** The 200 response now

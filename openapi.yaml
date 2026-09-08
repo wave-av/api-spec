@@ -249,6 +249,12 @@ tags:
     description: >-
       WAVE compliance API — priced capability surface documented from the live gateway
       skills index; the request/response shape is not yet published (draft).
+  - name: composer
+    description: >-
+      Compose a plan from a plain-language intent, read it back, and run it once.
+      POST /compose composes and never bills; POST /compose/run executes the stored
+      proposal's stages under budget, idempotency and declared-IO typing gates.
+      Documented from the published contract (api-spec#92).
   - name: Connect
     description: >-
       WAVE connect API — priced capability surface documented from the live gateway
@@ -5788,6 +5794,84 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/RateLimitError'
+
+  /compose:
+    post:
+      tags:
+      - composer
+      summary: Compose a plan from a plain-language intent
+      description: 'Returns a PLAN: the stages, the products, the scopes needed, the price rows and the per-edge
+        typing verdict. Composing never calls a product and never bills. Requires composer:write.'
+      operationId: createComposeProposal
+      security:
+      - bearerWithScopes:
+        - composer:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComposeProposalCreate'
+      responses:
+        '200':
+          description: 'The composed proposal. Stamps x-wave-meter: wave_compose_proposals (counted, never
+            billed).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComposeProposal'
+
+  /compose/run:
+    post:
+      tags:
+      - composer
+      summary: Run a stored proposal once
+      description: 'Runs every gate that must hold before a product is called: input check, idempotency, manifest
+        freshness, budget and the declared-IO typing gate. Refuses with 501 RUN_NOT_YET_DECLARED naming the
+        exact missing declaration when a stage edge is undeclared. Requires composer:write.'
+      operationId: runComposeProposal
+      security:
+      - bearerWithScopes:
+        - composer:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComposeRunCreate'
+      responses:
+        '200':
+          description: A REPLAY of a prior run with the same idempotency key and the same input.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComposeRunReplay'
+
+  /compose/proposals/{proposalId}:
+    get:
+      tags:
+      - composer
+      summary: Read a stored proposal by id
+      description: Org scoped. Lets the CLI, SDK and MCP renderings re-read one proposal instead of re-composing
+        it. Requires composer:read.
+      operationId: getComposeProposal
+      security:
+      - bearerWithScopes:
+        - composer:read
+      parameters:
+      - name: proposalId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^prp_[A-Za-z0-9_-]+$
+      responses:
+        '200':
+          description: The stored proposal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComposeProposal'
 
   /connect:
     post:
@@ -14174,3 +14258,274 @@ components:
         agent:
           type: string
           description: Echo of the requested (unknown) agent id
+
+    ComposeProposalCreate:
+      type: object
+      description: POST /v1/compose request body. Validated by parseComposeRequest (compose-route.ts).
+      required:
+      - intent
+      properties:
+        intent:
+          type: string
+          minLength: 1
+          maxLength: 280
+          description: What the caller wants composed, in plain language. Sanitized and capped server side.
+        budgetUsd:
+          type: number
+          minimum: 0
+          description: Optional ceiling in USD. A proposal whose minimum total exceeds it is refused at run
+            time.
+        flowId:
+          type: string
+          pattern: ^flw_[A-Za-z0-9_-]{4,64}$
+          description: Optional id of an existing flow this proposal belongs to.
+        context:
+          type: object
+          description: 'Optional retrieval hints. Ordering only: nothing here is rendered, logged or sent to
+            a model.'
+          properties:
+            referer:
+              type: string
+              maxLength: 200
+
+    ComposeProposal:
+      type: object
+      description: 'A composed PLAN. `executes` is always false: a proposal never runs, POST /v1/compose/run
+        does.'
+      required:
+      - id
+      - intent
+      - why
+      - stages
+      - productIds
+      - tools
+      - scopes
+      - priceRows
+      - callShape
+      - candidates
+      - retrieval
+      - next
+      - typing
+      - executes
+      - grounding
+      - groundedAt
+      - manifestHash
+      - engine
+      - flowId
+      properties:
+        id:
+          type: string
+          pattern: ^prp_[A-Za-z0-9_-]+$
+          description: Proposal id. Re-readable via GET /v1/compose/proposals/{proposalId}.
+        intent:
+          type: string
+          description: The sanitized intent this plan was composed from.
+        why:
+          type: string
+          minLength: 1
+          description: One governed sentence about the proposal as a whole (#1682). For a grounded chain it
+            names the stages in composition order; for an intent WAVE could not build, it says exactly that.
+            Always present, never empty.
+        stages:
+          type: array
+          items:
+            type: object
+          description: The ordered stages of the plan, one per product call.
+        productIds:
+          type: array
+          items:
+            type: string
+          description: The product ids the stages name, in composition order.
+        tools:
+          type: array
+          items:
+            type: string
+          description: The MCP tool names the plan would call.
+        scopes:
+          type: array
+          items:
+            type: object
+          description: Every scope the plan needs, each with whether the caller can be granted it.
+        priceRows:
+          type: array
+          items:
+            type: object
+          description: One price row per stage. An unquoted row carries the literal 'quote at call time'.
+        callShape:
+          type: object
+          description: 'How to call the plan: the surface, the path and the body shape.'
+        candidates:
+          type: array
+          description: 'The shelf (#1672): every component retrieval connected to this intent, best scoring
+            entry per group.'
+          items:
+            $ref: '#/components/schemas/ComposeCandidate'
+        retrieval:
+          $ref: '#/components/schemas/ComposeRetrievalInfo'
+        next:
+          type: array
+          items:
+            type: string
+          description: The next actions a caller can take with this proposal.
+        typing:
+          type: array
+          items:
+            type: object
+          description: One row per stage edge stating whether stage N may follow stage N-1 AS DECLARED, and
+            citing what was read.
+        executes:
+          type: boolean
+          const: false
+          description: Always false. A proposal is a plan, never an execution.
+        grounding:
+          type: string
+          enum:
+          - live
+          - snapshot
+          description: Whether the index this plan was composed against was read live.
+        groundedAt:
+          type: string
+          format: date-time
+        manifestHash:
+          type: string
+          description: Digest of the product manifest the plan was composed against. A run refuses on a stale
+            hash.
+        engine:
+          type: object
+          description: Which composer engine produced the plan.
+        flowId:
+          type: [string, 'null']
+
+    ComposeCandidate:
+      type: object
+      description: 'One retrieved shelf entry: the best scoring knowledge entry for a /v1 group against this
+        intent (#1672).'
+      required:
+      - product
+      - group
+      - score
+      - source
+      properties:
+        product:
+          type: [string, 'null']
+          description: The product id when the live enforcement index carries a product row for this group,
+            else null.
+        group:
+          type: string
+          description: The /v1 group the retrieved entry belongs to. This is the diversity unit of the top k.
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Cosine similarity to the intent, 0..1, rounded to 4 dp.
+        source:
+          type: object
+          description: The PUBLIC document and field the winning entry for this group was read from.
+          required:
+          - url
+          - field
+          properties:
+            url:
+              type: string
+              format: uri
+            field:
+              type: string
+
+    ComposeRetrievalInfo:
+      type: object
+      description: 'How the shelf was retrieved: k, which embedder produced the numbers, and which corpus answered
+        (#1672).'
+      required:
+      - k
+      - embedder
+      - indexManifestHash
+      - builtAt
+      properties:
+        k:
+          type: integer
+          minimum: 0
+        embedder:
+          type: string
+          description: The embedder id. A swap changes this string on the wire, so a score is never comparable
+            across embedders by accident.
+        indexManifestHash:
+          type: string
+          description: The enforcement manifestHash the knowledge index was built from. Equals the proposal
+            manifestHash when fresh.
+        builtAt:
+          type: string
+          format: date-time
+
+    ComposeRunCreate:
+      type: object
+      description: POST /v1/compose/run request body. Validated by parseRunRequest (compose-run-lib.ts).
+      required:
+      - proposalId
+      - input
+      properties:
+        proposalId:
+          type: string
+          pattern: ^prp_[A-Za-z0-9_-]+$
+          description: A proposal the calling org owns.
+        input:
+          $ref: '#/components/schemas/ComposeRunInput'
+        budgetUsd:
+          type: number
+          minimum: 0
+          description: Ceiling in USD for this run. Exceeded means 402, not a partial run.
+        idempotencyKey:
+          type: string
+          pattern: ^[A-Za-z0-9_.:-]{8,200}$
+          description: Replay guard. The same key with a different input is a 409 COMPOSE_RUN_CONFLICT, never
+            a second run.
+
+    ComposeRunInput:
+      type: object
+      description: The caller's own input into stage 0. EXACTLY ONE of `url` or `uploadId`. `url` is validated
+        (https only, no userinfo credentials, no private or metadata host) and hashed. It is never dereferenced,
+        echoed or logged.
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: An https URL naming a public host.
+        uploadId:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{8,128}$
+      oneOf:
+      - required:
+        - url
+      - required:
+        - uploadId
+
+    ComposeRunReplay:
+      type: object
+      description: 'The 200 a REPLAYED run returns: the prior run''s outcome, not a new execution.'
+      required:
+      - runId
+      - proposalId
+      - status
+      - code
+      - replayed
+      - createdAt
+      properties:
+        runId:
+          type: string
+        proposalId:
+          type: string
+        status:
+          type: string
+          enum:
+          - refused
+          - running
+          - completed
+          - failed
+        code:
+          type: [string, 'null']
+        replayed:
+          type: boolean
+          const: true
+        createdAt:
+          type: string
+          format: date-time
