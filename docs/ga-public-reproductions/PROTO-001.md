@@ -1,6 +1,6 @@
 # PROTO-001 — public reproduction: "x402/payment protocol behavior has one canonical dialect or tested compatibility"
 
-`PROTO-001` is owned by `wave-av/wave-gateway`, a private repository. It is hosted here, in
+`PROTO-001` is owned by the gateway service repository (private). It is hosted here, in
 `wave-av/api-spec` (public), alongside `API-001.md`, for the same reason: the criterion's
 production-facing half is provable with anonymous HTTP requests against `https://api.wave.online`
 and `https://gateway.wave.online` alone. The gateway exposes its x402 payment challenge in **three**
@@ -19,7 +19,7 @@ shows all three, captured from the same live response, agreeing on every field t
   2026-09-06T02:05:12Z (confirm today's revision the same way as `API-001.md`:
   `curl -sS https://gateway.wave.online/healthz`).
 - The full conformance suite this reproduction summarizes (`test/x402-dialect-conformance.spec.ts`,
-  `test/x402-golden-fixtures.spec.ts`) lives in `wave-av/wave-gateway` (private) and drives the real
+  `test/x402-golden-fixtures.spec.ts`) lives in the private gateway test harness and drives the real
   Worker across 4 routed hosts × 2 rails (33/33 passing at the pinned revision) — that suite is not
   reproducible without a checkout of that private repo. **The live receipt below is**: it captures
   the identical invariant (all three dialects agree) directly off the public production endpoint,
