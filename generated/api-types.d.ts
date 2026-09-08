@@ -2180,6 +2180,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/compose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compose a plan from a plain-language intent
+         * @description Returns a PLAN: the stages, the products, the scopes needed, the price rows and the per-edge typing verdict. Composing never calls a product and never bills. Requires composer:write.
+         */
+        post: operations["createComposeProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compose/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a stored proposal once
+         * @description Runs every gate that must hold before a product is called: input check, idempotency, manifest freshness, budget and the declared-IO typing gate. Refuses with 501 RUN_NOT_YET_DECLARED naming the exact missing declaration when a stage edge is undeclared. Requires composer:write.
+         */
+        post: operations["runComposeProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compose/proposals/{proposalId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a stored proposal by id
+         * @description Org scoped. Lets the CLI, SDK and MCP renderings re-read one proposal instead of re-composing it. Requires composer:read.
+         */
+        get: operations["getComposeProposal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/connect": {
         parameters: {
             query?: never;
@@ -6043,6 +6103,120 @@ export interface components {
             };
             /** @description Echo of the requested (unknown) agent id */
             agent?: string;
+        };
+        /** @description POST /v1/compose request body. Validated by parseComposeRequest (compose-route.ts). */
+        ComposeProposalCreate: {
+            /** @description What the caller wants composed, in plain language. Sanitized and capped server side. */
+            intent: string;
+            /** @description Optional ceiling in USD. A proposal whose minimum total exceeds it is refused at run time. */
+            budgetUsd?: number;
+            /** @description Optional id of an existing flow this proposal belongs to. */
+            flowId?: string;
+            /** @description Optional retrieval hints. Ordering only: nothing here is rendered, logged or sent to a model. */
+            context?: {
+                referer?: string;
+            };
+        };
+        /** @description A composed PLAN. `executes` is always false: a proposal never runs, POST /v1/compose/run does. */
+        ComposeProposal: {
+            /** @description Proposal id. Re-readable via GET /v1/compose/proposals/{proposalId}. */
+            id: string;
+            /** @description The sanitized intent this plan was composed from. */
+            intent: string;
+            /** @description One governed sentence about the proposal as a whole (#1682). For a grounded chain it names the stages in composition order; for an intent WAVE could not build, it says exactly that. Always present, never empty. */
+            why: string;
+            /** @description The ordered stages of the plan, one per product call. */
+            stages: Record<string, never>[];
+            /** @description The product ids the stages name, in composition order. */
+            productIds: string[];
+            /** @description The MCP tool names the plan would call. */
+            tools: string[];
+            /** @description Every scope the plan needs, each with whether the caller can be granted it. */
+            scopes: Record<string, never>[];
+            /** @description One price row per stage. An unquoted row carries the literal 'quote at call time'. */
+            priceRows: Record<string, never>[];
+            /** @description How to call the plan: the surface, the path and the body shape. */
+            callShape: Record<string, never>;
+            /** @description The shelf (#1672): every component retrieval connected to this intent, best scoring entry per group. */
+            candidates: components["schemas"]["ComposeCandidate"][];
+            retrieval: components["schemas"]["ComposeRetrievalInfo"];
+            /** @description The next actions a caller can take with this proposal. */
+            next: string[];
+            /** @description One row per stage edge stating whether stage N may follow stage N-1 AS DECLARED, and citing what was read. */
+            typing: Record<string, never>[];
+            /**
+             * @description Always false. A proposal is a plan, never an execution.
+             * @constant
+             */
+            executes: false;
+            /**
+             * @description Whether the index this plan was composed against was read live.
+             * @enum {string}
+             */
+            grounding: "live" | "snapshot";
+            /** Format: date-time */
+            groundedAt: string;
+            /** @description Digest of the product manifest the plan was composed against. A run refuses on a stale hash. */
+            manifestHash: string;
+            /** @description Which composer engine produced the plan. */
+            engine: Record<string, never>;
+            flowId: string | null;
+        };
+        /** @description One retrieved shelf entry: the best scoring knowledge entry for a /v1 group against this intent (#1672). */
+        ComposeCandidate: {
+            /** @description The product id when the live enforcement index carries a product row for this group, else null. */
+            product: string | null;
+            /** @description The /v1 group the retrieved entry belongs to. This is the diversity unit of the top k. */
+            group: string;
+            /** @description Cosine similarity to the intent, 0..1, rounded to 4 dp. */
+            score: number;
+            /** @description The PUBLIC document and field the winning entry for this group was read from. */
+            source: {
+                /** Format: uri */
+                url: string;
+                field: string;
+            };
+        };
+        /** @description How the shelf was retrieved: k, which embedder produced the numbers, and which corpus answered (#1672). */
+        ComposeRetrievalInfo: {
+            k: number;
+            /** @description The embedder id. A swap changes this string on the wire, so a score is never comparable across embedders by accident. */
+            embedder: string;
+            /** @description The enforcement manifestHash the knowledge index was built from. Equals the proposal manifestHash when fresh. */
+            indexManifestHash: string;
+            /** Format: date-time */
+            builtAt: string;
+        };
+        /** @description POST /v1/compose/run request body. Validated by parseRunRequest (compose-run-lib.ts). */
+        ComposeRunCreate: {
+            /** @description A proposal the calling org owns. */
+            proposalId: string;
+            input: components["schemas"]["ComposeRunInput"];
+            /** @description Ceiling in USD for this run. Exceeded means 402, not a partial run. */
+            budgetUsd?: number;
+            /** @description Replay guard. The same key with a different input is a 409 COMPOSE_RUN_CONFLICT, never a second run. */
+            idempotencyKey?: string;
+        };
+        /** @description The caller's own input into stage 0. EXACTLY ONE of `url` or `uploadId`. `url` is validated (https only, no userinfo credentials, no private or metadata host) and hashed. It is never dereferenced, echoed or logged. */
+        ComposeRunInput: {
+            /**
+             * Format: uri
+             * @description An https URL naming a public host.
+             */
+            url?: string;
+            uploadId?: string;
+        } & (unknown | unknown);
+        /** @description The 200 a REPLAYED run returns: the prior run's outcome, not a new execution. */
+        ComposeRunReplay: {
+            runId: string;
+            proposalId: string;
+            /** @enum {string} */
+            status: "refused" | "running" | "completed" | "failed";
+            code: string | null;
+            /** @constant */
+            replayed: true;
+            /** Format: date-time */
+            createdAt: string;
         };
     };
     responses: {
@@ -10597,6 +10771,76 @@ export interface operations {
             402: components["responses"]["PaymentRequired"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimitError"];
+        };
+    };
+    createComposeProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComposeProposalCreate"];
+            };
+        };
+        responses: {
+            /** @description The composed proposal. Stamps x-wave-meter: wave_compose_proposals (counted, never billed). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeProposal"];
+                };
+            };
+        };
+    };
+    runComposeProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComposeRunCreate"];
+            };
+        };
+        responses: {
+            /** @description A REPLAY of a prior run with the same idempotency key and the same input. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeRunReplay"];
+                };
+            };
+        };
+    };
+    getComposeProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored proposal. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeProposal"];
+                };
+            };
         };
     };
     connect: {
