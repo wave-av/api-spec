@@ -6160,6 +6160,7 @@ export interface components {
             manifestHash: string;
             /** @description Which composer engine produced the plan. */
             engine: Record<string, never>;
+            /** @description Id of the flow this proposal belongs to, echoed from the request, or null when composed without one. */
             flowId: string | null;
         };
         /** @description One retrieved shelf entry: the best scoring knowledge entry for a /v1 group against this intent (#1672). */

@@ -252,7 +252,7 @@ tags:
   - name: composer
     description: >-
       Compose a plan from a plain-language intent, read it back, and run it once.
-      POST /compose composes and never bills; POST /compose/run executes the stored
+      POST /v1/compose composes and never bills; POST /v1/compose/run executes the stored
       proposal's stages under budget, idempotency and declared-IO typing gates.
       Documented from the published contract (api-spec#92).
   - name: Connect
@@ -14395,6 +14395,8 @@ components:
           description: Which composer engine produced the plan.
         flowId:
           type: [string, 'null']
+          description: Id of the flow this proposal belongs to, echoed from the request, or null
+            when composed without one.
 
     ComposeCandidate:
       type: object

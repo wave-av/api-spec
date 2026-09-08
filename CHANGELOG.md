@@ -34,7 +34,19 @@ All notable changes to this project are documented here. The format is based on
     so this syntax normalization does not affect the published-contract-drift `shared-drift`
     finding for these operations).
   - Only the `200` response is documented for each operation because that is the only response
-    the published contract declares for them; no 4xx/5xx were invented.
+    the published contract declares for them; no 4xx/5xx were invented. This is a real gap in the
+    live surface, not one this PR introduces: `POST /compose/run`'s own description prose (copied
+    verbatim from the published contract) names `501 RUN_NOT_YET_DECLARED`, a `402` budget-exceeded
+    refusal and a `409 COMPOSE_RUN_CONFLICT` idempotency conflict, and the only documented `200`
+    is the *replay* shape (`ComposeRunReplay`, `replayed: const true`) — the published contract
+    does not model a first-run/fresh-execution response shape at all. Re-verified against a fresh
+    fetch of `https://api.wave.online/openapi.json` (2026-09-08T15:41:07Z): unchanged, still only
+    a bare `200`. Modeling the missing error responses or a fresh-run schema here would mean
+    inventing content the gateway does not publish — which would both violate this PR's own
+    verbatim-extraction rule and reintroduce `shared-drift`/`content-digest` findings against the
+    very published-contract-drift check this PR exists to satisfy (CONTRACT-001's `compare()`
+    diffs each operation's raw `responses` map). Tracked as a live-contract completeness gap for
+    the service side, not fixed by fabricating response shapes here.
   - Not modelled here: 64 pre-existing `x-lifecycle`-field `shared-drift` findings across other,
     unrelated operations, and CONTRACT-001's `content-digest` check (which was already failing
     before this change, over the same 64 operations) — both out of scope for api-spec#92.
