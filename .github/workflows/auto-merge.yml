@@ -75,6 +75,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PR_FROM_EVENT: ${{ github.event.pull_request.number }}
           DISPATCH_PR: ${{ github.event.inputs.pr_number }}
+          CS_PR: ${{ github.event.check_suite.pull_requests[0].number }}
           CS_HEAD_SHA: ${{ github.event.check_suite.head_sha }}
         run: |
           set -euo pipefail
@@ -84,6 +85,8 @@ jobs:
             NUM="${DISPATCH_PR}"
           elif [ -n "${PR_FROM_EVENT:-}" ]; then
             NUM="${PR_FROM_EVENT}"
+          elif [[ "${CS_PR:-}" =~ ^[0-9]{1,9}$ ]]; then
+            NUM="${CS_PR}"   # the suite's own associated PR, before any search
           elif [[ "${CS_HEAD_SHA:-}" =~ ^[0-9a-f]{40}$ ]]; then
             NUM="$(gh pr list --repo "${GITHUB_REPOSITORY}" --state open --search "${CS_HEAD_SHA}" --json number --jq '.[0].number' 2>/dev/null || true)"
           fi
@@ -113,9 +116,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR: ${{ steps.pr.outputs.number }}
-          EVENT_NAME: ${{ github.event_name }}
           SENDER: ${{ github.event.sender.login }}
-          EVENT_LABEL: ${{ github.event.label.name }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           MIN_REVIEWERS: ${{ vars.GAM_MIN_REVIEWERS }}
           AUTHOR_ALLOWLIST: ${{ vars.GAM_AUTHOR_ALLOWLIST }}
@@ -161,25 +162,31 @@ jobs:
           [ "$DRAFT" = "false" ] || defer "PR is a draft."
           [ "$BASE" = "$DEFAULT_BRANCH" ] || refuse "base '${BASE}' is not the default branch '${DEFAULT_BRANCH}'."
 
-          # labeler permission, server-side (meaningful only on the labeled event)
-          if [ "$EVENT_NAME" = "pull_request" ] && [ "${EVENT_LABEL:-}" = "$GAM_LABEL" ]; then
-            case "${SENDER:-}" in
-              "$APP_LOGIN"|"${APP_LOGIN}[bot]") PERM="admin" ;;
-              "") PERM="none" ;;
-              *) PERM="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${SENDER}/permission" --jq '.permission' 2>/dev/null || echo none)" ;;
-            esac
-            case "$PERM" in write|maintain|admin) say "labeler '${SENDER}' permission=${PERM} — authorized." ;; *) refuse "label applied by '${SENDER:-unknown}' with permission '${PERM}' (need write/maintain/admin)." ;; esac
-          fi
+          # labeler permission, server-side, on EVERY run: the actor is read from the PR's own
+          # timeline (last `labeled` event for this label), not from the triggering event, so a
+          # check_suite re-run cannot launder a label a triage-level actor applied while disarmed.
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/issues/${PR}/events?per_page=100" > events.json 2>/dev/null || echo '[]' > events.json
+          LABELER="$(jq -r --arg l "$GAM_LABEL" '[.[][]? | select(.event=="labeled" and .label.name==$l)] | last | .actor.login // empty' events.json 2>/dev/null || true)"
+          [ -n "$LABELER" ] || LABELER="${SENDER:-}"
+          case "${LABELER:-}" in
+            "$APP_LOGIN"|"${APP_LOGIN}[bot]") PERM="admin" ;;
+            "") PERM="none" ;;
+            *) PERM="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${LABELER}/permission" --jq '.permission' 2>/dev/null || echo none)" ;;
+          esac
+          case "$PERM" in write|maintain|admin) say "labeler '${LABELER}' permission=${PERM} — authorized." ;; *) refuse "label applied by '${LABELER:-unknown}' with permission '${PERM}' (need write/maintain/admin)." ;; esac
 
-          # author: the App, or a login in the repo variable GAM_AUTHOR_ALLOWLIST
+          # author: the App (GraphQL reports the login with or without the [bot] suffix), or a
+          # login in the repo variable GAM_AUTHOR_ALLOWLIST
           AUTHOR_OK=false
-          { [ "$AUTHOR" = "$APP_LOGIN" ] && [ "$AUTHOR_TYPE" = "Bot" ]; } && AUTHOR_OK=true
+          case "$AUTHOR" in "$APP_LOGIN"|"${APP_LOGIN}[bot]") [ "$AUTHOR_TYPE" = "Bot" ] && AUTHOR_OK=true ;; esac
           if [ "$AUTHOR_OK" = "false" ] && [ -n "${AUTHOR_ALLOWLIST:-}" ] && printf '%s' "$AUTHOR_ALLOWLIST" | tr ',' '\n' | tr -d ' ' | grep -qxF -- "$AUTHOR"; then AUTHOR_OK=true; fi
           [ "$AUTHOR_OK" = "true" ] || refuse "author '${AUTHOR}' (${AUTHOR_TYPE}) is not the ${APP_LOGIN} App and not in GAM_AUTHOR_ALLOWLIST."
 
           # T3 paths: hard refusal; an unclassifiable PR is treated as T3
           [ "$FILES_TOTAL" -le 100 ] || refuse "PR touches ${FILES_TOTAL} files (> 100) — unclassifiable; treated as T3."
-          T3_RE='(^|/)(migrations?|supabase/migrations)/|\.(pem|key|p12|pfx)$|(^|/)CODEOWNERS$|^\.github/workflows/auto-merge\.yml$|(^|/)wrangler\.(toml|jsonc?)$|(^|/)\.env(\.|$)'
+          # Workflows/actions are T3 because a PR that edits them could publish forged reviewer
+          # check-runs against its own head; those edits stay operator merges.
+          T3_RE='(^|/)(migrations?|supabase/migrations)/|\.(pem|key|p12|pfx)$|(^|/)CODEOWNERS$|^\.github/(workflows|actions)/|(^|/)wrangler\.(toml|jsonc?)$|(^|/)\.env(\.|$)'
           T3_HIT="$(jq -r "$P.files.nodes[].path" pr.json | { grep -E -- "$T3_RE" || true; } | head -5 | tr '\n' ' ')"
           [ -z "$T3_HIT" ] || refuse "T3 path(s) touched — never autonomously merged: $(printf '%s' "$T3_HIT" | clean)"
 
@@ -205,8 +212,10 @@ jobs:
           # Legacy commit statuses need a `statuses` scope the App does not hold; a refused read only
           # makes the floor STRICTER (fewer reporters counted), so it is noted, not fatal.
           gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/status" > status.json 2>status.err || { echo '{"statuses":[]}' > status.json; say "note: combined-status read refused ($(clean < status.err)); counting check-runs only."; }
-          jq -r '.check_runs[]? | "\(.name)\t\(if .status=="completed" then (.conclusion // "none") else .status end)"' checks.json > reporters.tsv
-          jq -r '.statuses[]? | "\(.context)\t\(.state)"' status.json >> reporters.tsv
+          # Only reporters published by an EXTERNAL App count: a check-run or status that
+          # github-actions itself published is PR-controllable (a job can be named anything).
+          jq -r '.check_runs[]? | select(.app.slug != "github-actions") | "\(.name)\t\(if .status=="completed" then (.conclusion // "none") else .status end)"' checks.json > reporters.tsv
+          jq -r '.statuses[]? | select(.creator.login != "github-actions[bot]") | "\(.context)\t\(.state)"' status.json >> reporters.tsv
           RAN="$({ grep -iE -- "$LLM_RE" reporters.tsv || true; } | awk -F'\t' '$2=="success"||$2=="neutral"{print tolower($1)}' | sed -E 's/[^a-z]+.*$//' | sort -u | wc -l | tr -d ' ')"
           PENDING="$({ grep -iE -- "$LLM_RE" reporters.tsv || true; } | awk -F'\t' '$2=="queued"||$2=="in_progress"||$2=="pending"{c++} END{print c+0}')"
           say "review-liveness: ${RAN} distinct LLM reviewer(s) finished non-failing (floor ${FLOOR}); ${PENDING} still running"
@@ -232,7 +241,7 @@ jobs:
           defer "merge refused by GitHub: $(clean < merge.err) — the API enforces rules this token cannot bypass."
 
       - name: fail-closed comment (App token could not be minted)
-        if: steps.pr.outputs.found == 'true' && steps.app-token.outcome == 'failure'
+        if: always() && steps.pr.outputs.found == 'true' && steps.app-token.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ steps.pr.outputs.number }}
