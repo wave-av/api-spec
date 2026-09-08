@@ -2,19 +2,11 @@ name: gam-auto-merge
 
 # Governed Autonomous Merge (GAM) — PUBLIC-REPO edition (IGV-D-028). Installed from
 # claude-workstation `governance/templates/public-auto-merge.yml` by `rollout-public-gam.mjs`;
-# edit the template, not this copy. Design + receipts: governance/docs/IGV-D-028-public-merge-path.md.
-#
-# Merge authority lives HERE, acting as the `wave-av-agent` App — not with a person and not with
-# the agent's own `gh pr merge`. The agent's only merge action is the `autonomy:auto-merge` label.
-# Inert until: repo variable AUTONOMY_ENABLED == '1' (kill-switch, read first) AND secrets
-# WAVE_AGENT_APP_ID + WAVE_AGENT_PRIVATE_KEY are visible here AND the base branch lists >= 1
-# REQUIRED status check (verified in code). Fail-closed everywhere: a failed gate comments why.
-# Gates: label + labeler permission (server-side) · author is the App or GAM_AUTHOR_ALLOWLIST ·
-# not draft, base == default branch · no T3 path · mergeStateStatus CLEAN · 0 unresolved review
-# threads · >= GAM_MIN_REVIEWERS (default 2) distinct LLM reviewers finished non-failing on HEAD.
-# Landing: merge-queue base -> GraphQL enqueuePullRequest pinned to HEAD; else `gh pr merge
-# --merge --match-head-commit`. Never --squash, never --admin, never a checkout of PR-head code.
-# Every PR-controlled string reaches the shell via env:/jq, never interpolation.
+# edit the template, not this copy. Design, gates and receipts: governance/docs/IGV-D-028-public-merge-path.md.
+# Merge authority lives HERE, acting as the `wave-av-agent` App; the agent's only merge action is
+# the `autonomy:auto-merge` label. Inert until AUTONOMY_ENABLED == '1' AND the WAVE_AGENT_* secrets
+# are visible AND the base lists >= 1 REQUIRED check. Fail-closed: every failed gate comments why.
+# Never --squash, never --admin, never a checkout of PR-head code; PR text reaches the shell via env:/jq only.
 
 on:
   workflow_dispatch:
@@ -162,15 +154,13 @@ jobs:
           [ "$DRAFT" = "false" ] || defer "PR is a draft."
           [ "$BASE" = "$DEFAULT_BRANCH" ] || refuse "base '${BASE}' is not the default branch '${DEFAULT_BRANCH}'."
 
-          # labeler permission, server-side, on EVERY run: the actor is read from the PR's own
-          # timeline (last `labeled` event for this label), not from the triggering event, so a
-          # check_suite re-run cannot launder a label a triage-level actor applied while disarmed.
-          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/issues/${PR}/events?per_page=100" > events.json 2>/dev/null || echo '[]' > events.json
+          # labeler permission, server-side, on EVERY run, from the PR timeline (last `labeled`
+          # event) — never from the triggering event, never "whoever triggered this run".
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/issues/${PR}/events?per_page=100" > events.json 2>events.err || defer "labeler audit: the PR timeline could not be read ($(clean < events.err)) — not a pass."
           LABELER="$(jq -r --arg l "$GAM_LABEL" '[.[][]? | select(.event=="labeled" and .label.name==$l)] | last | .actor.login // empty' events.json 2>/dev/null || true)"
-          [ -n "$LABELER" ] || LABELER="${SENDER:-}"
-          case "${LABELER:-}" in
+          [ -n "$LABELER" ] || defer "labeler audit: no \`labeled\` event for '${GAM_LABEL}' in the PR timeline — cannot attribute the label; not a pass."
+          case "$LABELER" in
             "$APP_LOGIN"|"${APP_LOGIN}[bot]") PERM="admin" ;;
-            "") PERM="none" ;;
             *) PERM="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${LABELER}/permission" --jq '.permission' 2>/dev/null || echo none)" ;;
           esac
           case "$PERM" in write|maintain|admin) say "labeler '${LABELER}' permission=${PERM} — authorized." ;; *) refuse "label applied by '${LABELER:-unknown}' with permission '${PERM}' (need write/maintain/admin)." ;; esac
@@ -184,8 +174,7 @@ jobs:
 
           # T3 paths: hard refusal; an unclassifiable PR is treated as T3
           [ "$FILES_TOTAL" -le 100 ] || refuse "PR touches ${FILES_TOTAL} files (> 100) — unclassifiable; treated as T3."
-          # Workflows/actions are T3 because a PR that edits them could publish forged reviewer
-          # check-runs against its own head; those edits stay operator merges.
+          # Workflow/action edits are T3 (they could publish forged check-runs on their own head).
           T3_RE='(^|/)(migrations?|supabase/migrations)/|\.(pem|key|p12|pfx)$|(^|/)CODEOWNERS$|^\.github/(workflows|actions)/|(^|/)wrangler\.(toml|jsonc?)$|(^|/)\.env(\.|$)'
           T3_HIT="$(jq -r "$P.files.nodes[].path" pr.json | { grep -E -- "$T3_RE" || true; } | head -5 | tr '\n' ' ')"
           [ -z "$T3_HIT" ] || refuse "T3 path(s) touched — never autonomously merged: $(printf '%s' "$T3_HIT" | clean)"
@@ -209,16 +198,16 @@ jobs:
           FLOOR="${MIN_REVIEWERS:-2}"; [[ "$FLOOR" =~ ^[0-9]{1,2}$ ]] || FLOOR=2
           LLM_RE='cursor|bugbot|coderabbit|cubic|devin|greptile|copilot|graphite|gitar|qodo|sourcery|macroscope|wave[ -]reviewer'
           gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" > checks.json 2>checks.err || defer "check-runs read failed: $(clean < checks.err)"
-          # Legacy commit statuses need a `statuses` scope the App does not hold; a refused read only
-          # makes the floor STRICTER (fewer reporters counted), so it is noted, not fatal.
+          # A refused legacy-status read only makes the floor STRICTER, so it is noted, not fatal.
           gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/status" > status.json 2>status.err || { echo '{"statuses":[]}' > status.json; say "note: combined-status read refused ($(clean < status.err)); counting check-runs only."; }
-          # Only reporters published by an EXTERNAL App count: a check-run or status that
-          # github-actions itself published is PR-controllable (a job can be named anything).
-          jq -r '.check_runs[]? | select(.app.slug != "github-actions") | "\(.name)\t\(if .status=="completed" then (.conclusion // "none") else .status end)"' checks.json > reporters.tsv
-          jq -r '.statuses[]? | select(.creator.login != "github-actions[bot]") | "\(.context)\t\(.state)"' status.json >> reporters.tsv
-          RAN="$({ grep -iE -- "$LLM_RE" reporters.tsv || true; } | awk -F'\t' '$2=="success"||$2=="neutral"{print tolower($1)}' | sed -E 's/[^a-z]+.*$//' | sort -u | wc -l | tr -d ' ')"
-          PENDING="$({ grep -iE -- "$LLM_RE" reporters.tsv || true; } | awk -F'\t' '$2=="queued"||$2=="in_progress"||$2=="pending"{c++} END{print c+0}')"
-          say "review-liveness: ${RAN} distinct LLM reviewer(s) finished non-failing (floor ${FLOOR}); ${PENDING} still running"
+          # Only EXTERNAL-App reporters count (a github-actions job can be named anything) and
+          # distinctness is by PUBLISHER, not context name. Columns: name, state, publisher.
+          jq -r '.check_runs[]? | select(.app.slug != "github-actions") | "\(.name)\t\(if .status=="completed" then (.conclusion // "none") else .status end)\t\(.app.slug // "unknown")"' checks.json > reporters.tsv
+          jq -r '.statuses[]? | select(.creator.login != "github-actions[bot]") | "\(.context)\t\(.state)\t\(.creator.login // "unknown")"' status.json >> reporters.tsv
+          LLM_ROWS="$(awk -F'\t' -v re="$LLM_RE" 'tolower($1"\t"$3) ~ re' reporters.tsv || true)"
+          RAN="$(printf '%s\n' "$LLM_ROWS" | awk -F'\t' '$2=="success"||$2=="neutral"{print $3}' | sort -u | grep -c . || true)"
+          PENDING="$(printf '%s\n' "$LLM_ROWS" | awk -F'\t' '$2=="queued"||$2=="in_progress"||$2=="pending"{c++} END{print c+0}')"
+          say "review-liveness: ${RAN} distinct LLM reviewer publisher(s) finished non-failing (floor ${FLOOR}); ${PENDING} still running"
           [ "$PENDING" -eq 0 ] || defer "review-liveness: ${PENDING} LLM reviewer run(s) still in flight — not a pass yet."
           [ "$RAN" -ge "$FLOOR" ] || defer "review-liveness: ${RAN} distinct LLM reviewer(s) finished non-failing; floor is ${FLOOR}."
 
