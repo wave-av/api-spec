@@ -1,0 +1,243 @@
+name: gam-auto-merge
+
+# Governed Autonomous Merge (GAM) — PUBLIC-REPO edition (IGV-D-028). Installed from
+# claude-workstation `governance/templates/public-auto-merge.yml` by `rollout-public-gam.mjs`;
+# edit the template, not this copy. Design + receipts: governance/docs/IGV-D-028-public-merge-path.md.
+#
+# Merge authority lives HERE, acting as the `wave-av-agent` App — not with a person and not with
+# the agent's own `gh pr merge`. The agent's only merge action is the `autonomy:auto-merge` label.
+# Inert until: repo variable AUTONOMY_ENABLED == '1' (kill-switch, read first) AND secrets
+# WAVE_AGENT_APP_ID + WAVE_AGENT_PRIVATE_KEY are visible here AND the base branch lists >= 1
+# REQUIRED status check (verified in code). Fail-closed everywhere: a failed gate comments why.
+# Gates: label + labeler permission (server-side) · author is the App or GAM_AUTHOR_ALLOWLIST ·
+# not draft, base == default branch · no T3 path · mergeStateStatus CLEAN · 0 unresolved review
+# threads · >= GAM_MIN_REVIEWERS (default 2) distinct LLM reviewers finished non-failing on HEAD.
+# Landing: merge-queue base -> GraphQL enqueuePullRequest pinned to HEAD; else `gh pr merge
+# --merge --match-head-commit`. Never --squash, never --admin, never a checkout of PR-head code.
+# Every PR-controlled string reaches the shell via env:/jq, never interpolation.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to evaluate (must be OPEN)'
+        required: true
+        type: string
+  pull_request:
+    types: [labeled, synchronize, reopened]
+  check_suite:
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: gam-auto-merge-${{ github.event.pull_request.head.sha || github.event.check_suite.head_sha || github.event.inputs.pr_number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    if: >-
+      vars.AUTONOMY_ENABLED == '1'
+      && (github.event_name != 'check_suite'
+          || (github.event.check_suite.conclusion != 'cancelled'
+              && github.event.check_suite.conclusion != 'skipped'
+              && github.event.check_suite.pull_requests[0] != null))
+      && (github.event_name != 'workflow_dispatch'
+          || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pull-requests: write   # fail-closed comment when the App token cannot be minted
+      contents: read
+      checks: read
+      statuses: read
+    env:
+      GAM_LABEL: autonomy:auto-merge
+      APP_LOGIN: wave-av-agent
+    steps:
+      - name: kill-switch (read FIRST)
+        id: killswitch
+        env:
+          AUTONOMY_ENABLED: ${{ vars.AUTONOMY_ENABLED }}
+        run: |
+          set -euo pipefail
+          if [ "${AUTONOMY_ENABLED:-0}" != "1" ]; then
+            echo "GAM is OFF (AUTONOMY_ENABLED != 1) — no-op." >> "$GITHUB_STEP_SUMMARY"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: resolve candidate PR
+        if: steps.killswitch.outputs.enabled == 'true'
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_FROM_EVENT: ${{ github.event.pull_request.number }}
+          DISPATCH_PR: ${{ github.event.inputs.pr_number }}
+          CS_HEAD_SHA: ${{ github.event.check_suite.head_sha }}
+        run: |
+          set -euo pipefail
+          NUM=""
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            [[ "${DISPATCH_PR:-}" =~ ^[0-9]{1,9}$ ]] || { echo "pr_number is not a plain number — refusing." >> "$GITHUB_STEP_SUMMARY"; echo "found=false" >> "$GITHUB_OUTPUT"; exit 0; }
+            NUM="${DISPATCH_PR}"
+          elif [ -n "${PR_FROM_EVENT:-}" ]; then
+            NUM="${PR_FROM_EVENT}"
+          elif [[ "${CS_HEAD_SHA:-}" =~ ^[0-9a-f]{40}$ ]]; then
+            NUM="$(gh pr list --repo "${GITHUB_REPOSITORY}" --state open --search "${CS_HEAD_SHA}" --json number --jq '.[0].number' 2>/dev/null || true)"
+          fi
+          if [ -z "${NUM}" ] || [ "${NUM}" = "null" ]; then
+            echo "No open PR resolved for this event — nothing to merge." >> "$GITHUB_STEP_SUMMARY"
+            echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "found=true" >> "$GITHUB_OUTPUT"; echo "number=${NUM}" >> "$GITHUB_OUTPUT"
+
+      - name: mint the wave-av-agent App token (fail-closed)
+        if: steps.pr.outputs.found == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.WAVE_AGENT_APP_ID }}
+          private-key: ${{ secrets.WAVE_AGENT_PRIVATE_KEY }}
+          # Scoped DOWN from the installation's grant to exactly what gate + land needs.
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+          permission-checks: read
+          permission-metadata: read
+
+      - name: gate + land (as the App)
+        if: steps.pr.outputs.found == 'true'
+        id: gate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR: ${{ steps.pr.outputs.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          SENDER: ${{ github.event.sender.login }}
+          EVENT_LABEL: ${{ github.event.label.name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          MIN_REVIEWERS: ${{ vars.GAM_MIN_REVIEWERS }}
+          AUTHOR_ALLOWLIST: ${{ vars.GAM_AUTHOR_ALLOWLIST }}
+        run: |
+          set -euo pipefail
+          OWNER="${GITHUB_REPOSITORY%%/*}"; NAME="${GITHUB_REPOSITORY#*/}"
+          say() { printf '%s\n' "$1" | tee -a "$GITHUB_STEP_SUMMARY"; }
+          clean() { tr -c 'A-Za-z0-9 .,:_/()-' ' ' | cut -c1-200; }
+          comment() {
+            jq -n --arg b "🤖 **gam-auto-merge** — $1" '{body:$b}' > cmt.json
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --input cmt.json --silent || true
+          }
+          defer() { say "⏸️ $1"; comment "deferred — $1"; echo "outcome=deferred" >> "$GITHUB_OUTPUT"; exit 0; }
+          refuse() {
+            say "🛑 $1"; gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --remove-label "$GAM_LABEL" >/dev/null 2>&1 || true
+            comment "REFUSED (label removed) — $1"; echo "outcome=refused" >> "$GITHUB_OUTPUT"; exit 1
+          }
+
+          # identity: the token must be the App, never the workflow token
+          WHO="$(gh api graphql -f query='{ viewer { login } }' --jq '.data.viewer.login' 2>/dev/null || true)"
+          case "$WHO" in "$APP_LOGIN"|"${APP_LOGIN}[bot]") ;; *) defer "minted token is not the ${APP_LOGIN} App (viewer='${WHO:-none}') — WAVE_AGENT_APP_ID / WAVE_AGENT_PRIVATE_KEY missing or wrong here." ;; esac
+
+          # PR facts: one GraphQL read; PR-controlled strings stay inside jq
+          # shellcheck disable=SC2016
+          gh api graphql -F o="$OWNER" -F n="$NAME" -F p="$PR" -f query='
+            query($o:String!,$n:String!,$p:Int!){ repository(owner:$o,name:$n){ pullRequest(number:$p){
+              id state isDraft mergeStateStatus baseRefName headRefOid author{ login __typename }
+              labels(first:50){ nodes{ name } } reviewThreads(first:100){ totalCount nodes{ isResolved } }
+              files(first:100){ totalCount nodes{ path } } } } }' > pr.json
+          jq -e '.data.repository.pullRequest.id' pr.json >/dev/null 2>&1 || defer "PR could not be read: $(jq -r '.errors[0].message // "no pullRequest node"' pr.json 2>/dev/null | clean)"
+          P='.data.repository.pullRequest'
+          NODE_ID="$(jq -r "$P.id" pr.json)"; STATE="$(jq -r "$P.state" pr.json)"; DRAFT="$(jq -r "$P.isDraft" pr.json)"
+          MERGE_STATE="$(jq -r "$P.mergeStateStatus" pr.json)"; BASE="$(jq -r "$P.baseRefName" pr.json)"; HEAD_SHA="$(jq -r "$P.headRefOid" pr.json)"
+          AUTHOR="$(jq -r "$P.author.login // \"\"" pr.json)"; AUTHOR_TYPE="$(jq -r "$P.author.__typename // \"\"" pr.json)"
+          HAS_LABEL="$(jq -r --arg l "$GAM_LABEL" "[$P.labels.nodes[].name] | index(\$l) != null" pr.json)"
+          UNRESOLVED="$(jq -r "[$P.reviewThreads.nodes[] | select(.isResolved|not)] | length" pr.json)"
+          THREADS_TOTAL="$(jq -r "$P.reviewThreads.totalCount" pr.json)"; FILES_TOTAL="$(jq -r "$P.files.totalCount" pr.json)"
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || defer "head sha is not a 40-hex oid."
+          say "PR #${PR}: state=${STATE} draft=${DRAFT} mergeState=${MERGE_STATE} base=${BASE} head=${HEAD_SHA:0:12} author=${AUTHOR}/${AUTHOR_TYPE}"
+
+          [ "$HAS_LABEL" = "true" ] || { say "label '${GAM_LABEL}' absent — nothing to do."; echo "outcome=unlabeled" >> "$GITHUB_OUTPUT"; exit 0; }
+          [ "$STATE" = "OPEN" ] || { say "PR is ${STATE}, not OPEN."; echo "outcome=closed" >> "$GITHUB_OUTPUT"; exit 0; }
+          [ "$DRAFT" = "false" ] || defer "PR is a draft."
+          [ "$BASE" = "$DEFAULT_BRANCH" ] || refuse "base '${BASE}' is not the default branch '${DEFAULT_BRANCH}'."
+
+          # labeler permission, server-side (meaningful only on the labeled event)
+          if [ "$EVENT_NAME" = "pull_request" ] && [ "${EVENT_LABEL:-}" = "$GAM_LABEL" ]; then
+            case "${SENDER:-}" in
+              "$APP_LOGIN"|"${APP_LOGIN}[bot]") PERM="admin" ;;
+              "") PERM="none" ;;
+              *) PERM="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${SENDER}/permission" --jq '.permission' 2>/dev/null || echo none)" ;;
+            esac
+            case "$PERM" in write|maintain|admin) say "labeler '${SENDER}' permission=${PERM} — authorized." ;; *) refuse "label applied by '${SENDER:-unknown}' with permission '${PERM}' (need write/maintain/admin)." ;; esac
+          fi
+
+          # author: the App, or a login in the repo variable GAM_AUTHOR_ALLOWLIST
+          AUTHOR_OK=false
+          { [ "$AUTHOR" = "$APP_LOGIN" ] && [ "$AUTHOR_TYPE" = "Bot" ]; } && AUTHOR_OK=true
+          if [ "$AUTHOR_OK" = "false" ] && [ -n "${AUTHOR_ALLOWLIST:-}" ] && printf '%s' "$AUTHOR_ALLOWLIST" | tr ',' '\n' | tr -d ' ' | grep -qxF -- "$AUTHOR"; then AUTHOR_OK=true; fi
+          [ "$AUTHOR_OK" = "true" ] || refuse "author '${AUTHOR}' (${AUTHOR_TYPE}) is not the ${APP_LOGIN} App and not in GAM_AUTHOR_ALLOWLIST."
+
+          # T3 paths: hard refusal; an unclassifiable PR is treated as T3
+          [ "$FILES_TOTAL" -le 100 ] || refuse "PR touches ${FILES_TOTAL} files (> 100) — unclassifiable; treated as T3."
+          T3_RE='(^|/)(migrations?|supabase/migrations)/|\.(pem|key|p12|pfx)$|(^|/)CODEOWNERS$|^\.github/workflows/auto-merge\.yml$|(^|/)wrangler\.(toml|jsonc?)$|(^|/)\.env(\.|$)'
+          T3_HIT="$(jq -r "$P.files.nodes[].path" pr.json | { grep -E -- "$T3_RE" || true; } | head -5 | tr '\n' ' ')"
+          [ -z "$T3_HIT" ] || refuse "T3 path(s) touched — never autonomously merged: $(printf '%s' "$T3_HIT" | clean)"
+
+          # condition 3: the base must carry >= 1 REQUIRED status check (rulesets; /protection is admin-only)
+          enc="$(jq -rn --arg b "$BASE" '$b|@uri')"
+          gh api "repos/${GITHUB_REPOSITORY}/rules/branches/${enc}" > rules.json 2>/dev/null || echo '[]' > rules.json
+          REQ_N="$(jq -r '[.[] | select(.type=="required_status_checks") | .parameters.required_status_checks[]?] | length' rules.json 2>/dev/null || echo 0)"
+          [[ "$REQ_N" =~ ^[0-9]+$ ]] && [ "$REQ_N" -ge 1 ] || defer "base '${BASE}' lists no required status check in its rulesets — GAM refuses to be the only gate."
+          QUEUED="$(jq -r '[.[] | select(.type=="merge_queue")] | length > 0' rules.json 2>/dev/null || echo false)"
+
+          case "$MERGE_STATE" in
+            CLEAN) ;;
+            DIRTY|DRAFT) defer "mergeStateStatus=${MERGE_STATE} (conflicts/draft) — left for a human." ;;
+            *) defer "mergeStateStatus=${MERGE_STATE} — required checks/rules not satisfied yet (re-runs on the next check_suite)." ;;
+          esac
+          [ "$THREADS_TOTAL" -le 100 ] || defer "PR has ${THREADS_TOTAL} review threads (> 100 read) — cannot prove all resolved."
+          [ "$UNRESOLVED" -eq 0 ] || defer "${UNRESOLVED} unresolved review thread(s) — resolve them and re-label."
+
+          # review-liveness floor: DISTINCT LLM reviewers that FINISHED non-failing on HEAD (scanners do not count)
+          FLOOR="${MIN_REVIEWERS:-2}"; [[ "$FLOOR" =~ ^[0-9]{1,2}$ ]] || FLOOR=2
+          LLM_RE='cursor|bugbot|coderabbit|cubic|devin|greptile|copilot|graphite|gitar|qodo|sourcery|macroscope|wave[ -]reviewer'
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" > checks.json 2>checks.err || defer "check-runs read failed: $(clean < checks.err)"
+          # Legacy commit statuses need a `statuses` scope the App does not hold; a refused read only
+          # makes the floor STRICTER (fewer reporters counted), so it is noted, not fatal.
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/status" > status.json 2>status.err || { echo '{"statuses":[]}' > status.json; say "note: combined-status read refused ($(clean < status.err)); counting check-runs only."; }
+          jq -r '.check_runs[]? | "\(.name)\t\(if .status=="completed" then (.conclusion // "none") else .status end)"' checks.json > reporters.tsv
+          jq -r '.statuses[]? | "\(.context)\t\(.state)"' status.json >> reporters.tsv
+          RAN="$({ grep -iE -- "$LLM_RE" reporters.tsv || true; } | awk -F'\t' '$2=="success"||$2=="neutral"{print tolower($1)}' | sed -E 's/[^a-z]+.*$//' | sort -u | wc -l | tr -d ' ')"
+          PENDING="$({ grep -iE -- "$LLM_RE" reporters.tsv || true; } | awk -F'\t' '$2=="queued"||$2=="in_progress"||$2=="pending"{c++} END{print c+0}')"
+          say "review-liveness: ${RAN} distinct LLM reviewer(s) finished non-failing (floor ${FLOOR}); ${PENDING} still running"
+          [ "$PENDING" -eq 0 ] || defer "review-liveness: ${PENDING} LLM reviewer run(s) still in flight — not a pass yet."
+          [ "$RAN" -ge "$FLOOR" ] || defer "review-liveness: ${RAN} distinct LLM reviewer(s) finished non-failing; floor is ${FLOOR}."
+
+          PASSED="label · author=${AUTHOR} · mergeState=CLEAN · 0 unresolved threads · ${RAN} LLM reviewer(s) ≥ ${FLOOR} · ${REQ_N} required check(s) on base"
+          if [ "$QUEUED" = "true" ]; then
+            # shellcheck disable=SC2016
+            gh api graphql -F prId="$NODE_ID" -F oid="$HEAD_SHA" -f query='
+              mutation($prId: ID!, $oid: GitObjectID!) { enqueuePullRequest(input: {pullRequestId: $prId, expectedHeadOid: $oid}) { mergeQueueEntry { state position } } }' > enq.json 2>/dev/null || true
+            ENTRY="$(jq -r '.data.enqueuePullRequest.mergeQueueEntry.state // empty' enq.json 2>/dev/null || true)"
+            [ -n "$ENTRY" ] || defer "enqueue refused: $(jq -r '.errors[0].message // "no entry returned"' enq.json 2>/dev/null | clean)"
+            say "✅ ENQUEUED #${PR} at ${HEAD_SHA:0:12} on '${BASE}' (entry ${ENTRY})."
+            comment "ENQUEUED at ${HEAD_SHA:0:12} on the '${BASE}' merge queue (entry ${ENTRY}). Enqueued is not merged: the queue lands it when its own checks pass. Gates: ${PASSED}."
+            echo "outcome=enqueued" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --merge --match-head-commit "$HEAD_SHA" 2>merge.err; then
+            say "✅ MERGED #${PR} at ${HEAD_SHA:0:12} into '${BASE}' as ${APP_LOGIN}."
+            comment "MERGED at ${HEAD_SHA:0:12} into '${BASE}'. Gates: ${PASSED}."
+            echo "outcome=merged" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          defer "merge refused by GitHub: $(clean < merge.err) — the API enforces rules this token cannot bypass."
+
+      - name: fail-closed comment (App token could not be minted)
+        if: steps.pr.outputs.found == 'true' && steps.app-token.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          set -euo pipefail
+          jq -n '{body:"🤖 **gam-auto-merge** — deferred: the wave-av-agent App token could not be minted here (secrets WAVE_AGENT_APP_ID / WAVE_AGENT_PRIVATE_KEY missing or not visible to this repo). Nothing was merged; there is no fallback to the workflow token."}' > cmt.json
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --input cmt.json --silent || true
+          echo "App token mint failed — deferred with comment." >> "$GITHUB_STEP_SUMMARY"
