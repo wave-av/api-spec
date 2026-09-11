@@ -6036,23 +6036,18 @@ paths:
     post:
       tags: [Creator]
       operationId: creator
-      summary: WAVE creator API
+      summary: WAVE creator API (unrouted)
+      deprecated: true
+      x-status: unrouted
       x-schema-status: draft
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/creator.json
       description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `creator:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: null
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on creator; a flat per-call gate, not necessarily the metered rate.
+        DEPRECATED — unrouted. Measured live 2026-09-11: the gateway answers ROUTE_NOT_MAPPED
+        (HTTP 404) for this path on both GET and POST — it is not part of the callable WAVE API,
+        and the gateway deliberately leaves it unpriced (no x402 challenge is issued). This stub
+        was generated from the capability index, which still lists `creator`; it stays documented
+        (deprecated rather than deleted) until the route is either wired up or retired from that
+        index. Draft placeholder shape (`additionalProperties: true`); scope `creator:write`.
       security:
         - bearerWithScopes: [creator:write]
       requestBody:
@@ -6064,14 +6059,18 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Capability response (draft — shape not yet published).
+          description: Capability response (draft — shape not yet published; the route is not served).
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          description: '`ROUTE_NOT_MAPPED` — the live gateway does not serve this path.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           $ref: '#/components/responses/Forbidden'
         '429':
@@ -6081,23 +6080,19 @@ paths:
     post:
       tags: [Creator Economy]
       operationId: creatorEconomy
-      summary: WAVE creator-economy API
+      summary: WAVE creator-economy API (unrouted)
+      deprecated: true
+      x-status: unrouted
       x-schema-status: draft
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/creator-economy.json
       description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `creator-economy:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: null
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on creator-economy; a flat per-call gate, not necessarily the metered rate.
+        DEPRECATED — unrouted. Measured live 2026-09-11: the gateway answers ROUTE_NOT_MAPPED
+        (HTTP 404) for this path on both GET and POST — it is not part of the callable WAVE API,
+        and the gateway deliberately leaves it unpriced (no x402 challenge is issued). This stub
+        was generated from the capability index, which still lists `creator-economy`; it stays
+        documented (deprecated rather than deleted) until the route is either wired up or retired
+        from that index. Draft placeholder shape (`additionalProperties: true`); scope
+        `creator-economy:write`.
       security:
         - bearerWithScopes: [creator-economy:write]
       requestBody:
@@ -6109,14 +6104,18 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Capability response (draft — shape not yet published).
+          description: Capability response (draft — shape not yet published; the route is not served).
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          description: '`ROUTE_NOT_MAPPED` — the live gateway does not serve this path.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           $ref: '#/components/responses/Forbidden'
         '429':
@@ -6126,23 +6125,19 @@ paths:
     post:
       tags: [Creator Storefront]
       operationId: creatorStorefront
-      summary: WAVE creator-storefront API
+      summary: WAVE creator-storefront API (unrouted)
+      deprecated: true
+      x-status: unrouted
       x-schema-status: draft
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/creator-storefront.json
       description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `creator-storefront:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: null
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on creator-storefront; a flat per-call gate, not necessarily the metered rate.
+        DEPRECATED — unrouted. Measured live 2026-09-11: the gateway answers ROUTE_NOT_MAPPED
+        (HTTP 404) for this path on both GET and POST — it is not part of the callable WAVE API,
+        and the gateway deliberately leaves it unpriced (no x402 challenge is issued). This stub
+        was generated from the capability index, which still lists `creator-storefront`; it stays
+        documented (deprecated rather than deleted) until the route is either wired up or retired
+        from that index. Draft placeholder shape (`additionalProperties: true`); scope
+        `creator-storefront:write`.
       security:
         - bearerWithScopes: [creator-storefront:write]
       requestBody:
@@ -6154,14 +6149,18 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Capability response (draft — shape not yet published).
+          description: Capability response (draft — shape not yet published; the route is not served).
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          description: '`ROUTE_NOT_MAPPED` — the live gateway does not serve this path.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           $ref: '#/components/responses/Forbidden'
         '429':
@@ -7880,23 +7879,18 @@ paths:
     post:
       tags: [Mux]
       operationId: mux
-      summary: WAVE mux API
+      summary: WAVE mux API (unrouted)
+      deprecated: true
+      x-status: unrouted
       x-schema-status: draft
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/mux.json
       description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `mux:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: wave_mux_minutes
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on mux; a flat per-call gate, not necessarily the metered rate.
+        DEPRECATED — unrouted. Measured live 2026-09-11: the gateway answers ROUTE_NOT_MAPPED
+        (HTTP 404) for this path on both GET and POST — it is not part of the callable WAVE API,
+        and the gateway deliberately leaves it unpriced (no x402 challenge is issued). This stub
+        was generated from the capability index, which still lists `mux`; it stays documented
+        (deprecated rather than deleted) until the route is either wired up or retired from that
+        index. Draft placeholder shape (`additionalProperties: true`); scope `mux:write`.
       security:
         - bearerWithScopes: [mux:write]
       requestBody:
@@ -7908,14 +7902,18 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Capability response (draft — shape not yet published).
+          description: Capability response (draft — shape not yet published; the route is not served).
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          description: '`ROUTE_NOT_MAPPED` — the live gateway does not serve this path.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           $ref: '#/components/responses/Forbidden'
         '429':
@@ -8105,23 +8103,18 @@ paths:
     post:
       tags: [Ops]
       operationId: ops
-      summary: WAVE ops API
+      summary: WAVE ops API (unrouted)
+      deprecated: true
+      x-status: unrouted
       x-schema-status: draft
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/ops.json
       description: >
-        Generated from the live gateway skills index (not yet hand-documented). The
-        route is confirmed live at the gateway; the request/response shape below is a
-        draft placeholder (`additionalProperties: true`) pending the product team's
-        schema. Method is POST, inferred from the `ops:write` scope; the
-        gateway's paywall is a flat per-product gate, so other verbs may also be live.
-      x-price:
-        model: x402
-        meter: null
-        currency: USDC
-        network: base
-        atomicAmount: "1000"
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on ops; a flat per-call gate, not necessarily the metered rate.
+        DEPRECATED — unrouted. Measured live 2026-09-11: the gateway answers ROUTE_NOT_MAPPED
+        (HTTP 404) for this path on both GET and POST — it is not part of the callable WAVE API,
+        and the gateway deliberately leaves it unpriced (no x402 challenge is issued). This stub
+        was generated from the capability index, which still lists `ops`; it stays documented
+        (deprecated rather than deleted) until the route is either wired up or retired from that
+        index. Draft placeholder shape (`additionalProperties: true`); scope `ops:write`.
       security:
         - bearerWithScopes: [ops:write]
       requestBody:
@@ -8133,14 +8126,18 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Capability response (draft — shape not yet published).
+          description: Capability response (draft — shape not yet published; the route is not served).
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: true
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          description: '`ROUTE_NOT_MAPPED` — the live gateway does not serve this path.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           $ref: '#/components/responses/Forbidden'
         '429':
