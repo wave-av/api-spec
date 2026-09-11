@@ -51,6 +51,33 @@ All notable changes to this project are documented here. The format is based on
     unrelated operations, and CONTRACT-001's `content-digest` check (which was already failing
     before this change, over the same 64 operations) — both out of scope for api-spec#92.
 
+### Fixed
+
+- **`x-lifecycle` declared on the 36 preview operations, clearing `published-contract-drift`.** The
+  published contract at `https://api.wave.online/openapi.json` carries `x-lifecycle: preview` on 36
+  of its 255 operations; `openapi.yaml` declared the field nowhere. `published-drift-compare.mjs`
+  diffs the union of each shared operation's keys, so every one of those 36 surfaced as
+  `shared-drift` and the gate exited 2. This is the residue of the debt recorded above (64 at the
+  time of that note, 36 today) and it is why `published-contract-drift` has no green run in its
+  recorded history.
+  - The values are copied verbatim from the published contract — no lifecycle is invented, and none
+    is asserted for an operation the gateway does not already publish one for. `x-lifecycle` is
+    *not* gateway enrichment and must not be normalized away: the normalizer's existing enrichment
+    rules strip `x-version` and `x-deprecation-policy` precisely because the service assigns those
+    onto **every** operation, whereas `x-lifecycle` appears on a selective 36 of 255 along product
+    lines (Editor, Collab, Podcast, Studio AI, Sentiment, Realtime, …). It carries real editorial
+    signal, so the declaration is the side that was wrong.
+  - It is a distinct axis from `x-schema-status: draft`, not a synonym: only 9 of the 36 preview
+    operations are also declared draft. `x-schema-status` describes whether the *schema* below is a
+    promise; `x-lifecycle` describes where the *product* is in its rollout.
+  - `contract-drift.json` is regenerated in the same commit. It had been stranded since
+    2026-09-06 (it recorded 229 paths / 254 operations against a spec that now has 232 / 257), so
+    the offline `freshness` job was independently red on a receipt that no longer described the
+    spec beside it.
+  - Still failing and deliberately **not** addressed here: CONTRACT-001's `content-digest`, and
+    `live-route-drift`. Both are separate root causes and are tracked on their own; neither is
+    silenced by this change.
+
 ### Changed
 
 - **`POST /voice/generate` contract clarified against the live gateway.** The 200 response now

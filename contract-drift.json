@@ -1,6 +1,6 @@
 {
   "about": "Point-in-time operation-level diff between this repo's openapi.yaml and the contract the gateway publishes. It is a dated receipt, not a live view: regenerate with `node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json`. The published-contract-drift workflow uploads a fresh copy on every scheduled run. The PUBLISHED half of this receipt ages on the gateway's schedule and only the scheduled drift job can refresh it; the REPO half is pinned by sources.repoOperationsDigest, which the freshness job checks offline on every run so this file cannot quietly disagree with the openapi.yaml sitting next to it.",
-  "generatedAt": "2026-09-06T05:15:13.584Z",
+  "generatedAt": "2026-09-11T23:19:00.370Z",
   "criterion": [
     "CONTRACT-001",
     "COMPAT-001",
@@ -10,16 +10,16 @@
     "repoSpec": "openapi.yaml",
     "repoCommit": null,
     "publishedSpec": "https://api.wave.online/openapi.json",
-    "repoOperationsDigest": "c444b8649ef29f806ee2a0a178ed1fca487582e7e10ddd5e7f4fa651b1c98c8a"
+    "repoOperationsDigest": "b503d7a1cd84dab72becbb61240fdd649121a13e26687621d131d6f5ccf515fa"
   },
   "headline": {
     "repoVersion": "1.1.0",
-    "repoPaths": 229,
-    "repoOperations": 254,
+    "repoPaths": 232,
+    "repoOperations": 257,
     "publishedVersion": "1.1.0",
-    "publishedPaths": 227,
-    "publishedOperations": 252,
-    "sharedOperations": 252,
+    "publishedPaths": 230,
+    "publishedOperations": 255,
+    "sharedOperations": 255,
     "undocumentedLive": 0,
     "unpublishedRepo": 0,
     "draftButLive": 0,
