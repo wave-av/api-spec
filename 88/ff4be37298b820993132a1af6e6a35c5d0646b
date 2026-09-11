@@ -1,0 +1,29 @@
+.github/scripts/live-route-compare.mjs
+  s_b0aac4bb66108d::t_a0fc4882a0c73a 60,212
+.github/scripts/live-route-drift-regressions.test.mjs
+  s_b0aac4bb66108d::t_b0aa0610fe6ccd 79
+.github/scripts/live-route-drift.mjs
+  s_b0aac4bb66108d::t_955ce8205d3819 26-28
+.github/scripts/live-route-drift.test.mjs
+  s_b0aac4bb66108d::t_f1c1387f65990c 56-61,63-66,141,154,175,256,271-272
+.github/scripts/live-route-probe.mjs
+  s_b0aac4bb66108d::t_4592b5f4e392af 8-17,26-29,51-53,62-66
+openapi.yaml
+  s_b0aac4bb66108d::t_4f1b0c9691a347 2742-2743,2756-2757,2795-2796,2837-2838
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "88ff4be37298b820993132a1af6e6a35c5d0646b",
+  "prompts": {},
+  "sessions": {
+    "s_b0aac4bb66108d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a5be6538be5ba794a",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
