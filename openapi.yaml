@@ -676,6 +676,26 @@ tags:
     description: >-
       Raw per-dimension usage totals from the underlying meter ledger — see Billing
       for the billed-and-priced view.
+  - name: Webhooks
+    description: >-
+      Org-scoped webhook subscriptions — register an HTTPS receiver for gateway events,
+      list, inspect and delete registrations. Gateway-native; not metered.
+  - name: Audit
+    description: >-
+      The org's audit log — who did what, to which object, with what result. Read-only,
+      gateway-native; not metered.
+  - name: Comms
+    description: >-
+      Communications tenants — the per-org tenant records behind the mail / voice / SMS
+      channels. Gateway-native.
+  - name: Network
+    description: >-
+      The public network surface contract — anycast and dedicated inbound addresses,
+      egress spine, and the gaps the platform states about itself. Public, cacheable.
+  - name: Ingest
+    description: >-
+      Contribution ingest by protocol (SRT, RIST, RTMP, MoQ). Reverse-proxied to the
+      ingest edge; fail-closed (503) when the edge is not configured.
   - name: USB Relay
     description: >-
       WAVE usb-relay API — priced capability surface documented from the live gateway
@@ -8667,6 +8687,55 @@ paths:
           $ref: '#/components/responses/RateLimitError'
 
   /pulse:
+    get:
+      tags: [Pulse]
+      operationId: getPulse
+      summary: Pulse snapshot — cross-org aggregate (public) or one org (service token)
+      description: >-
+        Measured live 2026-09-11: an unauthenticated `GET /v1/pulse` answers 200 (pre-auth
+        public route). The default is the cross-org aggregate `PulseSnapshot`. Passing
+        `scope=org` together with `org` narrows the snapshot to one org and requires the WAVE
+        service token — without it the gateway answers 401. Served from the analytics store;
+        when that store cannot answer the route returns `PULSE_UNAVAILABLE`. Responses carry
+        `cache-control: no-store`. The snapshot's field list is not yet pinned here, so the
+        200 body is documented as an open object.
+      security: []
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [org]
+          description: '`org` narrows the snapshot to a single org (service token required).'
+        - name: org
+          in: query
+          required: false
+          schema:
+            type: string
+          description: The org id to narrow to; only read when `scope=org`.
+      responses:
+        '200':
+          description: Pulse snapshot (`PulseSnapshot`; field list not yet pinned).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: '`scope=org` requested without the WAVE service token.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: '`PULSE_UNAVAILABLE` — the analytics store did not answer.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Pulse]
       operationId: pulse
@@ -11317,6 +11386,1639 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimitError'
 
+  # ── Gateway-native operations measured live 2026-09-11 ───────────────────────────────────────
+  # Every path item below answered an unauthenticated, bodiless probe with something other than
+  # ROUTE_NOT_MAPPED at the document's own origin (a 402 x402 challenge, a 401 first-party
+  # AUTH_REQUIRED, or a 200 on the pre-auth public routes), yet none had a spec entry — so no SDK,
+  # CLI or MCP method could be generated for them. Request/response shapes are documented from the
+  # serving handlers where the gateway owns the shape; where a spoke owns it the operation is a
+  # draft placeholder (`x-schema-status: draft`, `additionalProperties: true`) and says so.
+  /insights:
+    get:
+      tags: [Usage]
+      operationId: getInsights
+      summary: Usage insights for the caller's org over a trailing window
+      description: >-
+        Event-level usage rolled up by category, spoke and product for the trailing `days`
+        window. Gateway-native (not metered); requires `usage:read`. Measured live 2026-09-11:
+        an unauthenticated GET answers a 402 x402 challenge; a POST answers ROUTE_NOT_MAPPED
+        (GET/HEAD only).
+      security:
+        - bearerWithScopes: [usage:read]
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 7
+          description: Trailing window in days; values outside 1–90 are clamped.
+      responses:
+        '200':
+          description: Usage insights for the window.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  org:
+                    type: string
+                  window_days:
+                    type: integer
+                  generatedAt:
+                    type: string
+                    format: date-time
+                  total_events:
+                    type: integer
+                  by_category:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  by_spoke:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  by_product:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '400':
+          description: '`invalid_org` — the principal carries no usable org.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: '`insights_unavailable` — the analytics store did not answer (status propagated).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /meter/ledger:
+    get:
+      tags: [Usage]
+      operationId: getMeterLedger
+      summary: Per-channel meter ledger for a date window
+      description: >-
+        The raw meter ledger for the caller's org, optionally narrowed to one channel. `from` /
+        `to` are day-snapped and the window is capped server-side. Gateway-native (not metered);
+        requires `meter:read`; GET only (HEAD answers ROUTE_NOT_MAPPED). Measured live
+        2026-09-11: an unauthenticated GET answers a 402 x402 challenge.
+      security:
+        - bearerWithScopes: [meter:read]
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [mail, voice, sms, realtime, storage]
+          description: Narrow the ledger to one channel; omit for every channel.
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Window start (ISO-8601, day-snapped).
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Window end (ISO-8601, day-snapped).
+      responses:
+        '200':
+          description: The ledger for the window.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  org:
+                    type: string
+                  from:
+                    type: string
+                  to:
+                    type: string
+                  channels:
+                    type: object
+                    description: One entry per channel present in the window (mail, voice, sms, realtime, storage).
+                    additionalProperties:
+                      type: object
+                      additionalProperties: true
+                  tier:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      discount_pct:
+                        type: number
+                      monthly_credit_usd_micros:
+                        type: integer
+                      credit_balance_usd_micros:
+                        type: [integer, 'null']
+                  generated_at:
+                    type: string
+                    format: date-time
+        '400':
+          description: '`invalid_org`, `bad_channel`, `range_too_large`, `from_after_to`, or a malformed ISO date.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /meter/ledger/rollup:
+    get:
+      tags: [Usage]
+      operationId: getMeterLedgerRollup
+      summary: Meter ledger rolled up by period, as JSON or CSV
+      description: >-
+        The ledger totals for the window, rolled up by `period` (default `month`). `format=csv`
+        returns `text/csv` with `Content-Disposition: inline; filename="meter-rollup-<org>-<from>-<to>.csv"`.
+        Gateway-native (not metered); requires `meter:read`. Measured live 2026-09-11: an
+        unauthenticated GET answers a 402 x402 challenge.
+      security:
+        - bearerWithScopes: [meter:read]
+      parameters:
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [json, csv]
+            default: json
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            default: month
+          description: Rollup period.
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: The rollup.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  org:
+                    type: string
+                  from:
+                    type: string
+                  to:
+                    type: string
+                  period:
+                    type: string
+                  totals:
+                    type: object
+                    additionalProperties: true
+                  generated_at:
+                    type: string
+                    format: date-time
+            text/csv:
+              schema:
+                type: string
+        '400':
+          description: '`invalid_org`, `bad_format`, `bad_period`, or a window error (`range_too_large`, `from_after_to`).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /usage/cap:
+    get:
+      tags: [Usage]
+      operationId: getUsageCap
+      summary: Read the org's spend cap and current spend
+      description: >-
+        The caller-org's configured spend cap (`capUsd`, `null` when none is set) and the spend
+        counted against it so far. Gateway-native (not metered); requires `usage:read`; answers
+        `cache-control: no-store`. Measured live 2026-09-11: an unauthenticated GET answers a
+        402 x402 challenge.
+      security:
+        - bearerWithScopes: [usage:read]
+      responses:
+        '200':
+          description: The cap and current spend.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageCap'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: '`METER_UNAVAILABLE` — the meter store did not answer.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags: [Usage]
+      operationId: setUsageCap
+      summary: Set the org's spend cap
+      description: >-
+        Replaces the caller-org's spend cap. `capUsd` must be a finite number ≥ 0. Requires
+        `usage:write`. Measured live 2026-09-11: an unauthenticated PUT answers a 402 x402
+        challenge.
+      security:
+        - bearerWithScopes: [usage:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [capUsd]
+              properties:
+                capUsd:
+                  type: number
+                  minimum: 0
+                  description: The new cap in USD.
+      responses:
+        '200':
+          description: The cap after the write, with current spend.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageCap'
+        '400':
+          description: '`INVALID_BODY` (not a JSON object) or `INVALID_CAP` (not a finite number ≥ 0).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: '`METER_UNAVAILABLE` — the meter store did not answer.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /webhook-subscriptions:
+    post:
+      tags: [Webhooks]
+      operationId: createWebhookSubscription
+      summary: Register a webhook receiver for gateway events
+      description: >-
+        Registers an HTTPS receiver. The `url` must be `https://`, carry no userinfo, and pass the
+        gateway's SSRF check; at most 50 subscriptions per org. The signing `secret` is returned
+        ONCE, in this response only — every later read redacts it. Requires `webhooks:write`.
+        Not metered. Measured live 2026-09-11: an unauthenticated POST answers a 402 x402
+        challenge.
+      security:
+        - bearerWithScopes: [webhooks:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookSubscriptionCreate'
+      responses:
+        '201':
+          description: Created. The only response that carries `secret`.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/WebhookSubscription'
+                  - type: object
+                    properties:
+                      secret:
+                        type: string
+                        description: Signing secret — returned once, at creation, never again.
+        '400':
+          description: '`INVALID_JSON`, `SUBSCRIPTION_INVALID` (url / events / mode), `SUBSCRIPTION_LIMIT` (50 per org), or `INVALID_ORG`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: '`WEBHOOK_SUBSCRIPTIONS_UNCONFIGURED` — the registry is not provisioned in this environment.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags: [Webhooks]
+      operationId: listWebhookSubscriptions
+      summary: List the org's webhook subscriptions (secrets redacted)
+      description: >-
+        Every subscription registered by the caller's org, with `secret` redacted. Requires
+        `webhooks:read`. Not metered. Measured live 2026-09-11: an unauthenticated GET answers a
+        402 x402 challenge.
+      security:
+        - bearerWithScopes: [webhooks:read]
+      responses:
+        '200':
+          description: The org's subscriptions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  org:
+                    type: string
+                  subscriptions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WebhookSubscription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: '`WEBHOOK_SUBSCRIPTIONS_UNCONFIGURED` — the registry is not provisioned in this environment.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /webhook-subscriptions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The subscription id returned at creation.
+    get:
+      tags: [Webhooks]
+      operationId: getWebhookSubscription
+      summary: Read one webhook subscription (secret redacted)
+      description: >-
+        One subscription by id, org-scoped, `secret` redacted. Requires `webhooks:read`.
+      security:
+        - bearerWithScopes: [webhooks:read]
+      responses:
+        '200':
+          description: The subscription.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSubscription'
+        '400':
+          description: '`BAD_ID` — the id is not well-formed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: '`UNKNOWN_SUBSCRIPTION` — no subscription with this id in your org.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          description: '`REGISTRY_CORRUPT` — the stored record could not be parsed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Webhooks]
+      operationId: deleteWebhookSubscription
+      summary: Delete a webhook subscription
+      description: Removes the subscription. Requires `webhooks:write`.
+      security:
+        - bearerWithScopes: [webhooks:write]
+      responses:
+        '200':
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  id:
+                    type: string
+                  deleted:
+                    type: boolean
+        '400':
+          description: '`BAD_ID` — the id is not well-formed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: '`UNKNOWN_SUBSCRIPTION` — no subscription with this id in your org.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /audit:
+    get:
+      tags: [Audit]
+      operationId: listAuditLog
+      summary: Read the org's audit log
+      description: >-
+        Up to 1000 audit rows for the caller's org, sorted by `at`, optionally windowed by
+        `from` / `to`. Gateway-native (not metered); requires `audit:read`; GET only (a POST
+        answers ROUTE_NOT_MAPPED); answers `cache-control: no-store`. The handler always
+        answers 200 — a store error yields an empty `rows`. Measured live 2026-09-11: an
+        unauthenticated GET answers a 402 x402 challenge.
+      security:
+        - bearerWithScopes: [audit:read]
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Audit rows (≤ 1000).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tenant:
+                          type: string
+                        actor:
+                          type: string
+                        action:
+                          type: string
+                        object:
+                          type: string
+                        result:
+                          type: string
+                        meta:
+                          type: object
+                          additionalProperties: true
+                        at:
+                          type: string
+                          format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /billing/invoices:
+    get:
+      tags: [Billing]
+      operationId: listBillingInvoices
+      summary: List the org's invoices
+      x-schema-status: draft
+      description: >-
+        Invoices for the caller's org. This route is served ahead of the x402 paywall by
+        first-party key validation: a request with no Bearer key answers **401 AUTH_REQUIRED**,
+        never a 402 (measured live 2026-09-11). Requires `billing:read`. The invoice list's
+        field shape is owned by the billing module and is not yet pinned here — the 200 body is
+        a draft placeholder.
+      security:
+        - bearerWithScopes: [billing:read]
+      responses:
+        '200':
+          description: Invoice list (draft — shape not yet pinned).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /billing/checkout:
+    post:
+      tags: [Billing]
+      operationId: createBillingCheckout
+      summary: Open a hosted checkout session for a sellable price
+      description: >-
+        Creates a hosted checkout session for the caller's org. `price` must be a sellable
+        price id (`price_…`). Served by first-party key validation ahead of the paywall — no
+        Bearer key answers **401 AUTH_REQUIRED** (measured live 2026-09-11). Requires
+        `billing:write`. Not metered.
+      security:
+        - bearerWithScopes: [billing:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [price]
+              properties:
+                price:
+                  type: string
+                  pattern: '^price_'
+                  description: The price id to check out.
+      responses:
+        '200':
+          description: The hosted session to redirect the buyer to.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  url:
+                    type: string
+                    format: uri
+                  session_id:
+                    type: string
+                  customer:
+                    type: string
+        '400':
+          description: '`INVALID_PRINCIPAL`, `INVALID_BODY`, or `INVALID_PRICE`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`SCOPE_INSUFFICIENT` (body names `required_scope`) or `PRICE_NOT_SELLABLE`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          description: '`BILLING_CHECKOUT_DISABLED` — checkout is switched off in this environment.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: '`CHECKOUT_CREATE_FAILED` — the payment provider refused the session.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: '`STRIPE_NOT_WIRED` — the payment provider is not configured.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /billing/portal:
+    post:
+      tags: [Billing]
+      operationId: createBillingPortal
+      summary: Open the hosted billing portal for the org
+      description: >-
+        Creates a hosted billing-portal session for the caller's org; `return_url`, when given,
+        must be on the gateway's allowlist. Served by first-party key validation ahead of the
+        paywall — no Bearer key answers **401 AUTH_REQUIRED** (measured live 2026-09-11).
+        Requires `billing:write`. Not metered.
+      security:
+        - bearerWithScopes: [billing:write]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                return_url:
+                  type: string
+                  format: uri
+                  description: Where the portal sends the user back to; allowlist-checked.
+      responses:
+        '200':
+          description: The hosted portal session.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  url:
+                    type: string
+                    format: uri
+                  customer:
+                    type: string
+        '400':
+          description: '`INVALID_PRINCIPAL`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          description: '`BILLING_PORTAL_DISABLED` — the portal is switched off in this environment.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: '`CUSTOMER_ENSURE_FAILED` or `PORTAL_CREATE_FAILED` — the payment provider refused.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: '`STRIPE_NOT_WIRED` — the payment provider is not configured.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /comms/tenants:
+    get:
+      tags: [Comms]
+      operationId: listCommsTenants
+      summary: List the org's communications tenants
+      description: >-
+        The tenant records registered for the caller's org. Requires `comms:read`. Measured live
+        2026-09-11: an unauthenticated GET answers a 402 x402 challenge.
+      security:
+        - bearerWithScopes: [comms:read]
+      responses:
+        '200':
+          description: The org's tenants.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  org:
+                    type: string
+                  tenants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        client_id:
+                          type: string
+                        pod_id:
+                          type: string
+                        key_id:
+                          type: string
+                        created_at:
+                          type: string
+                          format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          description: '`REGISTRY_CORRUPT` — a stored tenant record could not be parsed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: '`TENANTS_UNCONFIGURED` — the tenant registry is not provisioned in this environment.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags: [Comms]
+      operationId: createCommsTenant
+      summary: Create the org's communications tenant
+      x-schema-status: draft
+      description: >-
+        Creates the tenant for the caller's org. `client_id` defaults to the caller's org and
+        must equal it — any other value answers 403 `TENANT_FORBIDDEN`. Requires `comms:write`.
+        The success body is passed through from the tenant provisioner and is not yet pinned
+        here — the 200 body is a draft placeholder. Measured live 2026-09-11: an unauthenticated
+        POST answers a 402 x402 challenge.
+      security:
+        - bearerWithScopes: [comms:write]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client_id:
+                  type: string
+                  pattern: '^[a-zA-Z0-9-]{1,64}$'
+                  description: Defaults to the caller's org; must equal it.
+      responses:
+        '200':
+          description: The provisioned tenant (draft — shape not yet pinned).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: '`INVALID_JSON` or `BAD_CLIENT_ID`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          description: '`TENANT_FORBIDDEN` — `client_id` is not the caller''s org; or the key lacks `comms:write`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /inference/models:
+    get:
+      tags: [Dispatch]
+      operationId: listInferenceModels
+      summary: List the models the inference funnel serves (OpenAI-compatible)
+      description: >-
+        Alias of `GET /dispatch/models` — the OpenAI-compatible model list. Exact path+method
+        rule only (`/v1/inference` on its own answers ROUTE_NOT_MAPPED). Requires
+        `dispatch:read`. Measured live 2026-09-11: an unauthenticated GET answers a 402 x402
+        challenge.
+      security:
+        - bearerWithScopes: [dispatch:read]
+      responses:
+        '200':
+          description: OpenAI-style model list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    enum: [list]
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        object:
+                          type: string
+                          enum: [model]
+                        owned_by:
+                          type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /inference/chat/completions:
+    post:
+      tags: [Dispatch]
+      operationId: createInferenceChatCompletion
+      summary: Chat completion through the inference funnel (OpenAI-compatible)
+      description: >-
+        Alias of `POST /dispatch/chat/completions`. The body is OpenAI-compatible: `model`
+        (required), `messages`, optional `tools` / `tool_choice` (validated; streaming with
+        tools is refused), `stream`. Bodies over 256 KiB answer 413. The response is the
+        provider's `chat.completion` object passed through. Metered on the inference token
+        meters. Requires `dispatch:write`. Measured live 2026-09-11: an unauthenticated POST
+        answers a 402 x402 challenge.
+      security:
+        - bearerWithScopes: [dispatch:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [model]
+              properties:
+                model:
+                  type: string
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                tools:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                tool_choice:
+                  description: OpenAI `tool_choice` — a string mode or a named-tool object.
+                stream:
+                  type: boolean
+              additionalProperties: true
+      responses:
+        '200':
+          description: The provider's `chat.completion` object, passed through.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: >-
+            `invalid_json`, `model_required`, `model_not_supported`, `TOOLS_NOT_SUPPORTED`,
+            `INVALID_TOOL_CHOICE`, `INVALID_TOOLS`, `TOO_MANY_TOOLS`, or
+            `STREAMING_TOOLS_NOT_SUPPORTED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          description: '`body_too_large` — the request body exceeds 256 KiB.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /mlvc/status:
+    get:
+      tags: [Mlvc]
+      operationId: getMlvcStatus
+      summary: MLVC codec status
+      x-schema-status: draft
+      description: >-
+        Served live (measured 2026-09-11: an unauthenticated GET answers a 402 x402 challenge);
+        `GET /codec/status` is an alias of this route. The status body is owned by the codec
+        spoke and is not yet published — the 200 shape below is a draft placeholder. Requires
+        `mlvc:read`.
+      security:
+        - bearerWithScopes: [mlvc:read]
+      responses:
+        '200':
+          description: Codec status (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /mlvc/bench:
+    post:
+      tags: [Mlvc]
+      operationId: runMlvcBench
+      summary: Run an MLVC codec benchmark
+      x-schema-status: draft
+      description: >-
+        Served live (measured 2026-09-11: an unauthenticated POST answers a 402 x402
+        challenge); `POST /codec/bench` is an alias of this route. Request and response shapes
+        are owned by the codec spoke and are not yet published — draft placeholders. Requires
+        `mlvc:write`.
+      security:
+        - bearerWithScopes: [mlvc:write]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Benchmark result (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /codec/status:
+    get:
+      tags: [Mlvc]
+      operationId: getCodecStatus
+      summary: Codec status (alias of GET /mlvc/status)
+      x-schema-status: draft
+      description: >-
+        Exact-path alias of `GET /mlvc/status` — same scope (`mlvc:read`), same body. The bare
+        `/v1/codec` answers ROUTE_NOT_MAPPED. Measured live 2026-09-11: an unauthenticated GET
+        answers a 402 x402 challenge. Draft placeholder until the codec spoke publishes its shape.
+      security:
+        - bearerWithScopes: [mlvc:read]
+      responses:
+        '200':
+          description: Codec status (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /codec/bench:
+    post:
+      tags: [Mlvc]
+      operationId: runCodecBench
+      summary: Run a codec benchmark (alias of POST /mlvc/bench)
+      x-schema-status: draft
+      description: >-
+        Exact-path alias of `POST /mlvc/bench` — same scope (`mlvc:write`), same shapes.
+        Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge. Draft
+        placeholder until the codec spoke publishes its shape.
+      security:
+        - bearerWithScopes: [mlvc:write]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Benchmark result (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /crest/control:
+    post:
+      tags: [Crest]
+      operationId: crestControl
+      summary: Send a Crest control command
+      x-schema-status: draft
+      description: >-
+        Forwarded to the Crest spoke; the command shape is spoke-owned and not yet published —
+        draft placeholder. Every verb on `/crest/control` and `/crest/state` requires the
+        `crest:control` scope. Measured live 2026-09-11: an unauthenticated POST answers a 402
+        x402 challenge quoting 2000 atomic USDC.
+      x-price:
+        model: x402
+        meter: wave_crest_minutes
+        currency: USDC
+        network: base
+        atomicAmount: "2000"
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        x-price-note: Observed live 2026-09-11 via an unauthenticated x402 402 challenge; a flat per-call gate, not necessarily the metered rate.
+      security:
+        - bearerWithScopes: [crest:control]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Control acknowledgement (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /crest/state:
+    get:
+      tags: [Crest]
+      operationId: getCrestState
+      summary: Read Crest state
+      x-schema-status: draft
+      description: >-
+        Forwarded to the Crest spoke; the state shape is spoke-owned and not yet published —
+        draft placeholder. Requires `crest:control`. Measured live 2026-09-11: an
+        unauthenticated GET answers a 402 x402 challenge quoting 2000 atomic USDC.
+      x-price:
+        model: x402
+        meter: wave_crest_minutes
+        currency: USDC
+        network: base
+        atomicAmount: "2000"
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        x-price-note: Observed live 2026-09-11 via an unauthenticated x402 402 challenge; a flat per-call gate, not necessarily the metered rate.
+      security:
+        - bearerWithScopes: [crest:control]
+      responses:
+        '200':
+          description: Crest state (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /dante/observe:
+    post:
+      tags: [Dante]
+      operationId: ingestDanteObservation
+      summary: Ingest a Dante observation payload (OTLP)
+      x-schema-status: draft
+      description: >-
+        Accepts an OTLP-shaped observation payload and forwards it to the Dante observe spoke;
+        counted on `wave_dante_observe_ingests`. The payload shape is spoke-owned and not yet
+        published — draft placeholder. Measured live 2026-09-11: an unauthenticated POST
+        answers a 402 x402 challenge quoting 3000 atomic USDC.
+      x-price:
+        model: x402
+        meter: wave_dante_observe_ingests
+        currency: USDC
+        network: base
+        atomicAmount: "3000"
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        x-price-note: Observed live 2026-09-11 via an unauthenticated x402 402 challenge; a flat per-call gate, not necessarily the metered rate.
+      security:
+        - bearerWithScopes: [dante:write]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Ingest acknowledgement (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /dante/observe/state:
+    get:
+      tags: [Dante]
+      operationId: getDanteObserveState
+      summary: Read Dante observe state
+      x-schema-status: draft
+      description: >-
+        Forwarded to the Dante observe spoke; the state shape is spoke-owned and not yet
+        published — draft placeholder. Sibling of `POST /dante/observe` (same spoke, same
+        paywall).
+      security:
+        - bearerWithScopes: [dante:read]
+      responses:
+        '200':
+          description: Observe state (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /dante/observe/alerts:
+    get:
+      tags: [Dante]
+      operationId: listDanteObserveAlerts
+      summary: List Dante observe alerts
+      x-schema-status: draft
+      description: >-
+        Forwarded to the Dante observe spoke; the alert shape is spoke-owned and not yet
+        published — draft placeholder. Sibling of `POST /dante/observe` (same spoke, same
+        paywall).
+      security:
+        - bearerWithScopes: [dante:read]
+      responses:
+        '200':
+          description: Alerts (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /ingest/srt:
+    post:
+      tags: [Ingest]
+      operationId: ingestSrt
+      summary: SRT contribution ingest
+      x-schema-status: draft
+      description: >-
+        Prefix route: everything under `/ingest/srt/` (for example `/ingest/srt/session`, which
+        opens a contribution session) is reverse-proxied verbatim to the ingest edge, and
+        answers 503 fail-closed when that edge is not configured. Scopes `srt:read` (GET) /
+        `srt:write` (POST). Shapes are edge-owned and not yet published — draft placeholder.
+        Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge.
+      security:
+        - bearerWithScopes: [srt:write]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Ingest response (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: The ingest edge is not configured in this environment (fail-closed).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ingest/rist:
+    post:
+      tags: [Ingest]
+      operationId: ingestRist
+      summary: RIST contribution ingest
+      x-schema-status: draft
+      description: >-
+        Prefix route under `/ingest/rist/`, reverse-proxied verbatim to the ingest edge; 503
+        fail-closed when the edge is not configured. Scopes `rist:read` (GET) / `rist:write`
+        (POST). Draft placeholder. Measured live 2026-09-11: an unauthenticated POST answers a
+        402 x402 challenge.
+      security:
+        - bearerWithScopes: [rist:write]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Ingest response (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: The ingest edge is not configured in this environment (fail-closed).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ingest/rtmp:
+    post:
+      tags: [Ingest]
+      operationId: ingestRtmp
+      summary: RTMP / RTMPS contribution ingest
+      x-schema-status: draft
+      description: >-
+        Prefix route under `/ingest/rtmp/` (RTMPS reuses the same scopes), reverse-proxied
+        verbatim to the ingest edge; 503 fail-closed when the edge is not configured. Scopes
+        `rtmp:read` (GET) / `rtmp:write` (POST). Draft placeholder. Measured live 2026-09-11:
+        an unauthenticated POST answers a 402 x402 challenge.
+      security:
+        - bearerWithScopes: [rtmp:write]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Ingest response (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: The ingest edge is not configured in this environment (fail-closed).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ingest/moq:
+    post:
+      tags: [Ingest]
+      operationId: ingestMoq
+      summary: MoQ contribution ingest
+      x-schema-status: draft
+      description: >-
+        Prefix route under `/ingest/moq/`, reverse-proxied verbatim to the ingest edge; 503
+        fail-closed when the edge is not configured. Scopes `moq:read` (GET) / `moq:write`
+        (POST). Draft placeholder. Measured live 2026-09-11: an unauthenticated POST answers a
+        402 x402 challenge.
+      security:
+        - bearerWithScopes: [moq:write]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Ingest response (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: The ingest edge is not configured in this environment (fail-closed).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /render/still:
+    post:
+      tags: [Render]
+      operationId: renderStill
+      summary: Render a still frame (x402-payable)
+      x-schema-status: draft
+      description: >-
+        Forwarded to the render spoke; the gateway holds no validation, quote key or meter
+        specific to this path, so the request and response shapes are spoke-owned and not yet
+        published — draft placeholder. Same paywall as `POST /render` (no API key; pay the x402
+        challenge and retry), so `security: []` mirrors that sibling. Measured live 2026-09-11:
+        an unauthenticated POST answers a 402 x402 challenge quoting 600000 atomic USDC — the
+        same quote as `/render`.
+      x-price:
+        model: x402
+        meter: wave_render_minutes
+        currency: USDC
+        network: base
+        atomicAmount: "600000"
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        x-price-note: Observed live 2026-09-11 via an unauthenticated x402 402 challenge; a flat per-call gate, not necessarily the metered rate.
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Still render result (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /network/surface:
+    get:
+      tags: [Network]
+      operationId: getNetworkSurface
+      summary: The public network surface contract
+      description: >-
+        Pre-auth public route (no key): the platform's inbound anycast and dedicated addresses,
+        the egress spine, the gaps it states about itself, and the laws it holds to. Answers
+        `cache-control: public, max-age=3600`. Not metered. Measured live 2026-09-11: an
+        unauthenticated GET answers 200.
+      security: []
+      responses:
+        '200':
+          description: The network surface contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  product:
+                    type: string
+                  inbound:
+                    type: object
+                    properties:
+                      anycast:
+                        type: object
+                        properties:
+                          ipv4:
+                            type: array
+                            items:
+                              type: string
+                          hostnames:
+                            type: array
+                            items:
+                              type: string
+                          tls:
+                            type: object
+                            properties:
+                              http2:
+                                type: boolean
+                              http3:
+                                type: boolean
+                      dedicated:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            ip:
+                              type: string
+                            surface:
+                              type: string
+                            provider:
+                              type: string
+                  outbound:
+                    type: object
+                    properties:
+                      egress_spine:
+                        type: object
+                        properties:
+                          ipv4:
+                            type: array
+                            items:
+                              type: string
+                          ipv6:
+                            type: array
+                            items:
+                              type: string
+                          feed:
+                            type: string
+                          policy:
+                            type: string
+                  gaps:
+                    type: object
+                    properties:
+                      non_http_anycast:
+                        type: string
+                  laws:
+                    type: array
+                    items:
+                      type: string
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /samples/clips:
+    get:
+      tags: [Clips]
+      operationId: listSampleClips
+      summary: Sample clips — public, no key
+      description: >-
+        A public sample of clip records for trying the Clips shape without a key. GET / HEAD /
+        OPTIONS (OPTIONS answers 204); per-IP rate limited (429). Answers `x-wave-sample: true`,
+        `cache-control: public, max-age=3600` and `Access-Control-Allow-Origin: *`. Not metered.
+        Measured live 2026-09-11: an unauthenticated GET answers 200.
+      security: []
+      responses:
+        '200':
+          description: Sample clips with pagination.
+          headers:
+            x-wave-sample:
+              schema:
+                type: string
+                enum: ['true']
+              description: Marks the body as sample data, not the caller's own.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    type: string
+                    enum: [sample]
+                  notice:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Clip'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /mpp/facilitator/supported:
+    get:
+      tags: [MPP]
+      operationId: getMppFacilitatorSupported
+      summary: Networks and assets the MPP facilitator supports
+      description: >-
+        Pre-auth public route (GET / HEAD, no key). Lists the payment networks the MPP
+        facilitator accepts — each entry names the network id, protocol version and settlement
+        asset — plus the facilitator's endpoints. Measured live 2026-09-11: an unauthenticated
+        GET answers 200. The exact field list beyond `supportedNetworks` is not yet pinned here.
+      security: []
+      responses:
+        '200':
+          description: Supported networks and endpoints.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacilitatorSupported'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /x402/facilitator/supported:
+    get:
+      tags: [X402]
+      operationId: getX402FacilitatorSupported
+      summary: Networks and assets the x402 facilitator supports
+      description: >-
+        Pre-auth public route (GET / HEAD, no key). Lists the payment networks the x402
+        facilitator accepts — each entry names the network id, protocol version and settlement
+        asset — plus the facilitator's endpoints. Distinct body from the MPP twin. Measured live
+        2026-09-11: an unauthenticated GET answers 200. The exact field list beyond
+        `supportedNetworks` is not yet pinned here.
+      security: []
+      responses:
+        '200':
+          description: Supported networks and endpoints.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacilitatorSupported'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
 
 components:
   securitySchemes:
@@ -11721,6 +13423,85 @@ components:
             /agent/auth/device. `access_denied`: the human declined. `invalid_grant`: the grant is
             no longer valid.
 
+    UsageCap:
+      type: object
+      description: The org's spend cap and the spend counted against it (GET/PUT /usage/cap).
+      properties:
+        capUsd:
+          type: [number, 'null']
+          description: The configured cap in USD; `null` when no cap is set.
+        usedUsd:
+          type: number
+          description: Spend counted against the cap so far, in USD.
+    WebhookSubscriptionCreate:
+      type: object
+      required: [url, events]
+      properties:
+        url:
+          type: string
+          format: uri
+          pattern: '^https://'
+          description: HTTPS receiver URL — no userinfo; must pass the gateway's SSRF check.
+        events:
+          type: array
+          minItems: 1
+          items:
+            type: string
+          description: Event names to deliver.
+        mode:
+          type: string
+          enum: [thin, fat]
+          default: fat
+          description: '`thin` delivers ids only; `fat` (default) delivers the full event payload.'
+    WebhookSubscription:
+      type: object
+      description: A webhook subscription as returned by every read — `secret` is redacted.
+      properties:
+        id:
+          type: string
+        org:
+          type: string
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+        mode:
+          type: string
+          enum: [thin, fat]
+        created_at:
+          type: string
+          format: date-time
+    FacilitatorSupported:
+      type: object
+      description: >-
+        What a payment facilitator (MPP or x402) accepts. `supportedNetworks` is common to both;
+        the remaining fields differ per protocol and are not yet pinned here.
+      properties:
+        supportedNetworks:
+          type: array
+          items:
+            type: object
+            properties:
+              networkId:
+                type: string
+              version:
+                type: string
+              asset:
+                type: string
+            additionalProperties: true
+        supportedUrl:
+          type: string
+          format: uri
+        endpoints:
+          type: object
+          properties:
+            supported:
+              type: string
+          additionalProperties: true
+      additionalProperties: true
     Pagination:
       type: object
       properties:
