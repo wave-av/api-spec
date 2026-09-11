@@ -1,0 +1,14 @@
+# CODEOWNERS - GitHub auto-requests review from the listed owners on matching paths.
+# Every handle here must be a user or team with write access to this repository;
+# an unresolvable handle is silently ignored and any "require Code Owner review"
+# rule becomes unsatisfiable. Validate after editing:
+#   gh api repos/wave-av/api-spec/codeowners/errors    # expect {"errors":[]}
+# Later rules take precedence over earlier ones.
+
+# Default owner for everything.
+*                       @yakimoto
+
+# Release-critical surfaces: CI/CD, package manifest, release tooling, ownership.
+/.github/workflows/    @yakimoto
+/package.json           @yakimoto
+/.github/CODEOWNERS     @yakimoto
