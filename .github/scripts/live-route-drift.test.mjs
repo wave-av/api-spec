@@ -53,8 +53,17 @@ test('402 is MAPPED — a paywall proves the route EXISTS and is priced, it is n
   assert.equal(classifyProbe({ status: 402, body: { x402Version: 1, error: 'payment required' } }), MAPPED);
 });
 
-test('only an explicit ROUTE_NOT_MAPPED code is ABSENT; a bare 403 is MAPPED', () => {
+test('only an explicit ROUTE_NOT_MAPPED code is ABSENT; a bare 403 or 404 is MAPPED', () => {
+  // MEASURED 2026-09-11: the gateway answers ROUTE_NOT_MAPPED with 404 (it was 403 on earlier
+  // builds, and a few gateway-native paths still answer 403 with the same code). Both are absence.
+  // A classifier keyed on 403 alone read every absent route as MAPPED for the days in between and
+  // the declared-not-live direction went silently empty — this case is what makes that fail loudly.
+  assert.equal(classifyProbe({ status: 404, body: { error: { code: 'ROUTE_NOT_MAPPED' } } }), ABSENT);
   assert.equal(classifyProbe({ status: 403, body: { error: { code: 'ROUTE_NOT_MAPPED' } } }), ABSENT);
+  // A bare 404 with no route-level refusal code is what a MAPPED resource route returns for a
+  // missing or unsubstituted path parameter — it proves a handler answered, so it is MAPPED.
+  assert.equal(classifyProbe({ status: 404, body: { error: { code: 'NOT_FOUND' } } }), MAPPED);
+  assert.equal(classifyProbe({ status: 404, body: null }), MAPPED);
   // A plain authorization failure PROVES the route exists — there was something to be unauthorized
   // for. Inferring absence from the status number alone would delete real findings.
   assert.equal(classifyProbe({ status: 403, body: { error: { code: 'FORBIDDEN' } } }), MAPPED);
@@ -129,7 +138,7 @@ test('SEEDED VIOLATION — a non-draft declaration the gateway does not serve is
   // The other direction only a probe can see: both documents can agree and both be wrong.
   const probes = probeMap([
     { path: '/v1/clips', state: MAPPED, status: 402 },
-    { path: '/v1/render', state: ABSENT, status: 403 },
+    { path: '/v1/render', state: ABSENT, status: 404 },
   ]);
   const r = compareAgainstLive({ repoDoc: REPO_DOC, publishedDoc: PUBLISHED_DOC, probes });
   assert.equal(r.headline.declaredNotLive, 1);
@@ -142,7 +151,7 @@ test('x-schema-status: draft suppresses declared-not-live, but never live-undecl
   const r = compareAgainstLive({
     repoDoc: draftRepo,
     publishedDoc: { servers: SERVERS, paths: {} },
-    probes: probeMap([{ path: '/v1/clips', state: ABSENT, status: 403 }]),
+    probes: probeMap([{ path: '/v1/clips', state: ABSENT, status: 404 }]),
   });
   assert.equal(r.findings.length, 0, 'a draft that is not yet served is not a finding');
 
@@ -163,7 +172,7 @@ test('POSITIVE CONTROL — a fully compliant surface produces ZERO findings', ()
   const probes = probeMap([
     { path: '/v1/clips', state: MAPPED, status: 402 },
     { path: '/v1/render', state: MAPPED, status: 402 },
-    { path: '/v1/not-a-route', state: ABSENT, status: 403 },
+    { path: '/v1/not-a-route', state: ABSENT, status: 404 },
   ]);
   const r = compareAgainstLive({ repoDoc: REPO_DOC, publishedDoc: PUBLISHED_DOC, probes });
   assert.equal(r.findings.length, 0);
@@ -244,7 +253,7 @@ test('withinSpecBase does not exclude by prefix accident, and an absent base exc
 
 test('a POST-only declaration answering ROUTE_NOT_MAPPED to a GET is INDETERMINATE, not a finding', () => {
   // MEASURED: /v1/agent/auth/device and /v1/agent/auth/token are POST-only OAuth device-grant
-  // routes. A GET to each returns 403 ROUTE_NOT_MAPPED because the gateway's scope map is keyed by
+  // routes. A GET to each returns 404 ROUTE_NOT_MAPPED because the gateway's scope map is keyed by
   // route AND method — which says nothing about whether their POST is served. An earlier draft of
   // this gate reported both as findings; that was the gate asserting a fact its evidence did not
   // support. Unknown is not a pass either: it is surfaced.
@@ -259,8 +268,8 @@ test('a POST-only declaration answering ROUTE_NOT_MAPPED to a GET is INDETERMINA
     repoDoc: repo,
     publishedDoc: repo,
     probes: probeMap([
-      { path: '/v1/agent/auth/device', state: ABSENT, status: 403 },
-      { path: '/v1/render', state: ABSENT, status: 403 },
+      { path: '/v1/agent/auth/device', state: ABSENT, status: 404 },
+      { path: '/v1/render', state: ABSENT, status: 404 },
     ]),
   });
   assert.equal(r.headline.declaredNotLive, 1, 'CONTROL: the GET-declaring path IS still reported');

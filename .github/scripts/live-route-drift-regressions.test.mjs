@@ -76,7 +76,7 @@ test('an operation-level servers override is excluded from candidates and from t
   const r = compareAgainstLive({
     repoDoc: repo,
     publishedDoc: { servers: SERVERS, paths: {} },
-    probes: probeMap([{ path: '/v1/realtime/connect', state: ABSENT, status: 403 }]),
+    probes: probeMap([{ path: '/v1/realtime/connect', state: ABSENT, status: 404 }]),
   });
   assert.equal(r.findings.length, 0, 'a cross-host operation must never be reported declared-not-live against the wrong origin');
 });

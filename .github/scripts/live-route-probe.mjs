@@ -5,9 +5,16 @@
  * CLI in `live-route-drift.mjs`; see that file's header for why a third source is needed at all.
  *
  * ── THE PROBE SEMANTICS ARE LOAD-BEARING ────────────────────────────────────────────────────────
- * On this gateway an unmapped path answers HTTP 403 with `error.code === "ROUTE_NOT_MAPPED"`
- * ("no scope rule for this route (fail-closed)"). Anything else — INCLUDING 402 — means the route
- * exists.
+ * On this gateway an unmapped path answers HTTP 404 with `error.code === "ROUTE_NOT_MAPPED"`
+ * ("no scope rule for this route (fail-closed)"). Earlier gateway builds answered the same code
+ * with HTTP 403, and a few gateway-native paths still do, so BOTH statuses are accepted — but only
+ * with that exact code. Anything else — INCLUDING 402 — means the route exists.
+ *
+ *   MEASURED 2026-09-11: the gateway moved ROUTE_NOT_MAPPED from 403 to 404 without this
+ *   classifier following. Every absent route then read as MAPPED, and the declared-not-live
+ *   direction went silently empty — a gate that could no longer fail. Keying absence on the code
+ *   with a small allowlist of statuses is what keeps that from recurring; keying it on a status
+ *   alone would reintroduce the false-green the moment the number changes again.
  *
  *   402 IS NOT AN ABSENCE. It is the strongest available evidence of PRESENCE: the route is mapped
  *   and it is PRICED. Reading a paywall as "route not found" would make this gate blind to exactly
@@ -16,8 +23,10 @@
  *
  * ONLY an explicit `ROUTE_NOT_MAPPED` counts as absence. A bare 403 does not: 403 is also what an
  * authorization failure looks like, and an authorization failure PROVES the route exists — there
- * was something there to be unauthorized for. Requiring the code keeps "absent" a positive claim
- * read off the body rather than an inference from a status number.
+ * was something there to be unauthorized for. A bare 404 does not either: a MAPPED resource route
+ * answers 404 for a missing or unsubstituted path parameter (the gateway routed the request to a
+ * real handler, which reported "no such resource"). Requiring the code keeps "absent" a positive
+ * claim read off the body rather than an inference from a status number.
  *
  * A 5xx, a timeout or a transport error is INDETERMINATE, never absent. An origin having a bad
  * minute must not be recorded as "this route does not exist", because that would silently clear a
@@ -39,6 +48,9 @@ export const MAPPED = 'mapped';
 export const ABSENT = 'absent';
 export const INDETERMINATE = 'indeterminate';
 
+/** Statuses the gateway has been observed to pair with ROUTE_NOT_MAPPED. 404 is current; 403 is retained for older builds and the gateway-native paths that still use it. */
+export const ROUTE_NOT_MAPPED_STATUSES = new Set([403, 404]);
+
 /** Classify one probe response. See the header — 402 is MAPPED, and only ROUTE_NOT_MAPPED is ABSENT. */
 export function classifyProbe({ status, body }) {
   if (status >= 500) return INDETERMINATE;
@@ -47,9 +59,11 @@ export function classifyProbe({ status, body }) {
   // in both directions — it can hide a genuinely withdrawn/redirected route (false green) and it can
   // fabricate a live-undeclared finding for a redirecting undeclared path (false red).
   if (status >= 300 && status < 400) return INDETERMINATE;
-  // Require the 403 the documented contract specifies. Checking the body code alone would let a
-  // non-403 gateway error that happens to carry the same code hide a real live-route finding.
-  if (status === 403 && body?.error?.code === 'ROUTE_NOT_MAPPED') return ABSENT;
+  // Require one of the statuses the documented contract pairs with the code (404 today, 403 on
+  // earlier builds). Checking the body code alone would let a gateway error at some other status
+  // that happens to carry the same code hide a real live-route finding — the 5xx guard above is the
+  // concrete case: a 500 carrying ROUTE_NOT_MAPPED must stay INDETERMINATE.
+  if (ROUTE_NOT_MAPPED_STATUSES.has(status) && body?.error?.code === 'ROUTE_NOT_MAPPED') return ABSENT;
   return MAPPED;
 }
 

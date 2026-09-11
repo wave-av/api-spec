@@ -2739,7 +2739,8 @@ paths:
                     type: string
 
   # Chapters API — the nested /videos/{videoId}/chapters* shape below is DEPRECATED: verified
-  # 2026-09-02 against the live gateway, both paths return 403 ROUTE_NOT_MAPPED (fail-closed,
+  # 2026-09-02 against the live gateway, both paths return ROUTE_NOT_MAPPED (fail-closed; HTTP 404
+  # since 2026-09-11, 403 on earlier gateway builds —
   # "this path and method are not part of the WAVE API"). The gateway's live-priced Chapters
   # capability is the flat `/chapters` operation added further down this tag; keep both
   # documented (one dead, one live) until the nested shape is either wired up or removed —
@@ -2752,7 +2753,8 @@ paths:
       deprecated: true
       x-status: unrouted
       description: >
-        DEPRECATED — unrouted. The live gateway returns 403 ROUTE_NOT_MAPPED for this path;
+        DEPRECATED — unrouted. The live gateway returns ROUTE_NOT_MAPPED (HTTP 404; 403 on earlier
+        builds) for this path;
         it is not part of the callable WAVE API. Use `GET /chapters` (the live-priced
         capability) instead.
       parameters:
@@ -2790,7 +2792,8 @@ paths:
       deprecated: true
       x-status: unrouted
       description: >
-        DEPRECATED — unrouted. The live gateway returns 403 ROUTE_NOT_MAPPED for this path;
+        DEPRECATED — unrouted. The live gateway returns ROUTE_NOT_MAPPED (HTTP 404; 403 on earlier
+        builds) for this path;
         it is not part of the callable WAVE API. Use `POST /chapters` (the live-priced
         capability) instead.
       parameters:
@@ -2831,7 +2834,8 @@ paths:
       deprecated: true
       x-status: unrouted
       description: >
-        DEPRECATED — unrouted. The live gateway returns 403 ROUTE_NOT_MAPPED for this path;
+        DEPRECATED — unrouted. The live gateway returns ROUTE_NOT_MAPPED (HTTP 404; 403 on earlier
+        builds) for this path;
         it is not part of the callable WAVE API. Use `POST /chapters` (the live-priced
         capability) instead.
       parameters:
