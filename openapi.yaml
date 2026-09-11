@@ -4577,7 +4577,7 @@ paths:
         meter: wave_acuity_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "10000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on acuity; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -5342,7 +5342,7 @@ paths:
         meter: wave_bridge_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "5000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on bridge; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -6184,7 +6184,7 @@ paths:
         meter: wave_crest_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "2000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on crest; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -6274,7 +6274,7 @@ paths:
         meter: wave_dante_observe_ingests
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "3000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on dante; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -6364,7 +6364,7 @@ paths:
         meter: wave_decode_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "10000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on decode; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -6724,7 +6724,7 @@ paths:
         meter: wave_edge_delivered_units
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "10000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on edge; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -6814,7 +6814,7 @@ paths:
         meter: wave_encode_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "20000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on encode; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -7308,7 +7308,7 @@ paths:
         meter: wave_listen_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "2000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on listen; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -9063,7 +9063,7 @@ paths:
         meter: wave_render_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "600000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on renders; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -9198,7 +9198,7 @@ paths:
         meter: wave_review_calls
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "50000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on review; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -9423,7 +9423,7 @@ paths:
         meter: wave_runtime_delivered_units
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "2000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on runtime; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -9918,7 +9918,7 @@ paths:
         meter: wave_stream_bridge_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "5000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on stream; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -10278,7 +10278,7 @@ paths:
         meter: wave_transcode_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "15000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on transcode; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -10638,7 +10638,7 @@ paths:
         meter: wave_vision_summarize_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "50000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on vision; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -10728,7 +10728,7 @@ paths:
         meter: wave_visual_qa_runs
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "100000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on visual-qa; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -10773,7 +10773,7 @@ paths:
         meter: wave_vod_delivered_gb
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "100000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on vod; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -11088,7 +11088,7 @@ paths:
         meter: wave_whep_egress_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "3000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on whep; a flat per-call gate, not necessarily the metered rate.
       security:
@@ -11133,7 +11133,7 @@ paths:
         meter: wave_whip_ingest_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "5000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
         x-price-note: Observed live via an unauthenticated x402 402 challenge on whip; a flat per-call gate, not necessarily the metered rate.
       security:
