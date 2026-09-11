@@ -1,0 +1,33 @@
+openapi.yaml
+  s_efe86faf2558e9::t_e0c86d0e6ab76f 8690-8738
+  s_efe86faf2558e9::t_5228239e015be9 11389-11469,11471-11475,11477-13021
+  s_efe86faf2558e9::t_979c9c00af650b 679-698
+  s_efe86faf2558e9::t_b7384a0b7f4f62 13033,13426-13504
+  s_efe86faf2558e9::t_77a6e8577a590b 13022-13024,13030-13032
+  s_efe86faf2558e9::t_333619a60da77b 13034-13036
+  s_df5cf5862134d1::t_ed67fcd10ea182 13025-13029,13037-13189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "505e6d40f305ed7363c12f40ca09a375688749d5",
+  "prompts": {},
+  "sessions": {
+    "s_df5cf5862134d1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a840beef1ba3b426b",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    },
+    "s_efe86faf2558e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2b6e2e9-ab55-4d57-9d9f-d57a588ae688",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
