@@ -51,6 +51,35 @@ All notable changes to this project are documented here. The format is based on
     unrelated operations, and CONTRACT-001's `content-digest` check (which was already failing
     before this change, over the same 64 operations) — both out of scope for api-spec#92.
 
+### Fixed
+
+- **CONTRACT-001 `content-digest` now honours the same `shared-drift` allowlist its sibling
+  `operation-parity` honours** (`scripts/ga/contract-001-check.mjs`). The two sub-checks run over
+  the same operation set and are supposed to give one answer to "is this divergence accepted?".
+  They gave two: `operation-parity` reads `compare()`'s post-allowlist findings, while
+  `content-digest` re-derived its own list from the raw shared keys and subtracted nothing. Because
+  `operation-parity` deliberately excludes `shared-drift` from its own verdict ("already reported,
+  more precisely, by content-digest below"), the allowlist's entire `shared-drift` direction was
+  suppressing a finding that nothing then consumed — nine documented, predicate-guarded exemptions
+  were dead letters and the criterion they were written for failed on them regardless. The digest
+  now excludes exactly the operations `compare()` still exempts, at operation granularity (object
+  *and* reachable `$ref` content — six of the nine diverge in referenced schemas precisely because
+  of the divergence their entry documents). A lapsed entry is not subtracted; an entry in any other
+  direction is not subtracted; an exemption can only remove an operation from the comparison and can
+  never turn a real mismatch into a pass. Both directions are pinned by six new tests.
+  **No allowlist entry was added and no gate was weakened** — the allowlist is unchanged at 11
+  entries, and `content-digest` still fails on the genuine content differences below.
+- **Not fixed here, and deliberately not allowlisted:** eleven shared operations still differ under
+  `content-digest` for real reasons. Six are the 3.0-vs-3.1 `nullable` divergence this file already
+  records under the composer entry below — note that the claim there that the syntax normalization
+  "does not affect the … `shared-drift` finding" is true only of the operation-level comparator;
+  `content-digest` resolves `$ref` content and therefore does see it. Three
+  (`GET|POST /videos/{videoId}/chapters`, `POST /videos/{videoId}/chapters/detect`) reach `Error`
+  and `ErrorBody` schemas the published contract does not define at all. Two are repo-side
+  validation constraints absent live (`SearchIndexRequest`/`SearchIndexDoc.id.pattern`;
+  `BraidPublishRequest.sources.minItems` and its `anyOf`). Each needs its own judgement and its own
+  change; none is an allowlist candidate on current evidence.
+
 ### Changed
 
 - **`POST /voice/generate` contract clarified against the live gateway.** The 200 response now

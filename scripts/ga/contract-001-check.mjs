@@ -18,16 +18,47 @@
  *      declared here or explicitly allowlisted (published-drift-allowlist.json, with an owner and
  *      a lapsing predicate). This is CONTRACT-001's own text: "repo-only and live-only operations
  *      are zero unless explicitly allowlisted."
- *   2. content-digest — for every operation declared on BOTH sides, this builds two independent
- *      sha256 digests: one walking the repo's copy of each shared operation (after stripping the
- *      gateway's serve-time enrichment via the shared normalizePair()), one walking the live
- *      document's copy the same way. These two digests must be byte-identical. Two independent
- *      walks are used deliberately, rather than one shared list, so a bug that fabricated one side
- *      from the other could not produce a false match.
+ *   2. content-digest — for every operation declared on BOTH sides AND not covered by a still-live
+ *      `shared-drift` allowlist exemption, this builds two independent sha256 digests: one walking
+ *      the repo's copy of each such operation (after stripping the gateway's serve-time enrichment
+ *      via the shared normalizePair()), one walking the live document's copy the same way. These
+ *      two digests must be byte-identical. Two independent walks are used deliberately, rather than
+ *      one shared list, so a bug that fabricated one side from the other could not produce a false
+ *      match.
  *
  * Both conditions must hold; neither substitutes for the other. (1) alone would miss in-place
  * content drift on an operation whose path+method did not move. (2) alone would miss an entire
  * operation appearing or disappearing.
+ *
+ * WHY content-digest SUBTRACTS THE `shared-drift` ALLOWLIST. The two sub-checks are siblings over
+ * the same operation set and must honour the same exemptions, or the repo has two different answers
+ * to "is this divergence accepted?". They did not. `operation-parity` reads compare()'s findings,
+ * which are post-allowlist; content-digest re-derived its own list from the raw shared keys and so
+ * ignored every exemption. That was not a stricter check — it was an incoherent one, and measurably
+ * so: `operation-parity` deliberately filters `shared-drift` out of its own verdict ("already
+ * reported, more precisely, by content-digest below"), so the allowlist's entire `shared-drift`
+ * direction suppressed a finding that NOTHING then consumed. Nine documented, predicate-guarded
+ * exemptions were dead letters, and the criterion they were written for failed on them anyway.
+ *
+ * The exemption is applied at OPERATION granularity — an exempted operation contributes neither its
+ * own object nor its reachable `$ref` content to the digest. That is deliberate and it is the honest
+ * reading of what a `shared-drift` entry says: this operation's published shape is accepted as
+ * diverging. It is also load-bearing rather than cosmetic — six of the nine current exemptions
+ * diverge in referenced component content precisely BECAUSE of the divergence the entry documents
+ * (a gateway-native or draft-placeholder operation reaches different components than the
+ * hand-written one), so a refs-only carve-out would exempt the stated cause and still fail on its
+ * direct consequence.
+ *
+ * THE RESIDUAL RISK, STATED: while an exemption stands, a genuine change to a component schema that
+ * only that operation reaches is not seen by this digest. That risk is intrinsic to granting the
+ * exemption at all, not introduced here, and it is bounded by the machinery that already exists —
+ * every entry carries a lapsing `expect`/`expectAbsent` predicate, a lapsed entry drops straight
+ * back into `findings` (and therefore back into this digest), and compare() separately surfaces
+ * entries that match nothing. The remedy for an exemption that has outlived its justification is to
+ * delete it, which re-arms this check in the same commit.
+ *
+ * An exemption can only ever REMOVE an operation from the digest; it can never make a
+ * non-exempted difference pass. Both directions are pinned by tests in contract-001-check.test.mjs.
  *
  * NOT CHECKED HERE: the registry/MCP/SDK/CLI surfaces CONTRACT-001 also names. Those are owned by
  * wave-av/sdks (see its registry-cleanroom producer) and are out of this repo's scope.
@@ -167,7 +198,10 @@ export async function run(opts = {}) {
   const normalizeMod = await import(pathToFileURL(join(REPO_ROOT, '.github/scripts/published-drift-normalize.mjs')));
   const { indexOperations, compare, validateAllowlist } = compareMod;
   const { normalizePair } = normalizeMod;
-  const allowlistPath = join(REPO_ROOT, '.github/scripts/published-drift-allowlist.json');
+  // opts-only, deliberately NOT env-readable: this is the in-process seam the hermetic tests use to
+  // supply a fixture allowlist, exactly like opts.repoSpecPath/opts.liveFile. The CLI never passes
+  // opts, so the real run can only ever read the committed allowlist at its fixed repo path.
+  const allowlistPath = opts.allowlistPath ?? join(REPO_ROOT, '.github/scripts/published-drift-allowlist.json');
 
   let repoDoc;
   try {
@@ -212,9 +246,21 @@ export async function run(opts = {}) {
   const liveOps = indexOperations(liveDoc);
   const sharedKeys = [...repoOps.keys()].filter((k) => liveOps.has(k)).sort();
 
+  // The exemptions compare() ACTUALLY honoured this run. `result.allowlisted` holds only entries
+  // whose lapsing predicate still matches the live document — a lapsed entry is absent from it (it
+  // goes to lapsedAllowlistEntries and its finding stays in `findings`), so a lapsed exemption
+  // leaves its operation in the digest, where it belongs. Key format matches indexOperations().
+  const exemptKeys = new Set(
+    (result.allowlisted ?? [])
+      .filter((a) => a.direction === 'shared-drift')
+      .map((a) => `${String(a.method).toUpperCase()} ${a.path}`),
+  );
+  const digestKeys = sharedKeys.filter((k) => !exemptKeys.has(k));
+  const exemptedCount = sharedKeys.length - digestKeys.length;
+
   const rowsRepo = [];
   const rowsLive = [];
-  for (const key of sharedKeys) {
+  for (const key of digestKeys) {
     const { path, method, op: repoOp } = repoOps.get(key);
     const { op: liveOp } = liveOps.get(key);
     const { repo, live } = normalizePair(repoOp, liveOp, path, method);
@@ -248,10 +294,14 @@ export async function run(opts = {}) {
     },
     {
       name: 'content-digest',
+      // The exempted count is always reported, on pass AND on fail. A gate that quietly subtracts
+      // work from itself is unreadable; the number that was skipped has to be as visible as the
+      // number that was checked, so a growing exemption set is obvious in the evidence line itself.
       ok: localDigest === liveDigest,
-      detail: localDigest === liveDigest
-        ? `repo and live digests match over ${sharedKeys.length} shared operation(s) (${localDigest.slice(0, 12)})`
-        : `repo digest ${localDigest.slice(0, 12)} != live digest ${liveDigest.slice(0, 12)} over ${sharedKeys.length} shared operation(s)`,
+      detail: `${localDigest === liveDigest
+        ? `repo and live digests match over ${digestKeys.length} compared operation(s) (${localDigest.slice(0, 12)})`
+        : `repo digest ${localDigest.slice(0, 12)} != live digest ${liveDigest.slice(0, 12)} over ${digestKeys.length} compared operation(s)`}` +
+        ` [${sharedKeys.length} shared, ${exemptedCount} allowlisted shared-drift exemption(s) excluded]`,
     },
   ];
 
@@ -264,6 +314,8 @@ export async function run(opts = {}) {
     repoOpCount: repoOps.size,
     liveOpCount: liveOps.size,
     sharedCount: sharedKeys.length,
+    digestedCount: digestKeys.length,
+    exemptedCount,
   };
 }
 
