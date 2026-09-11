@@ -11388,8 +11388,11 @@ paths:
   # ROUTE_NOT_MAPPED at the document's own origin (a 402 x402 challenge, a 401 first-party
   # AUTH_REQUIRED, or a 200 on the pre-auth public routes), yet none had a spec entry — so no SDK,
   # CLI or MCP method could be generated for them. Request/response shapes are documented from the
-  # serving handlers where the gateway owns the shape; where a spoke owns it the operation is a
-  # draft placeholder (`x-schema-status: draft`, `additionalProperties: true`) and says so.
+  # serving handlers where the gateway owns the shape; where a spoke owns it the operation carries
+  # an open placeholder shape (`additionalProperties: true`) and says so. None of them is
+  # `x-schema-status: draft`: in this document `draft` means "not observed live" (the drift gates
+  # suppress a draft only while the gateway answers ROUTE_NOT_MAPPED for it), and every path here
+  # was observed live — a 402 is not a draft.
   /insights:
     get:
       tags: [Usage]
@@ -11957,18 +11960,18 @@ paths:
       tags: [Billing]
       operationId: listBillingInvoices
       summary: List the org's invoices
-      x-schema-status: draft
       description: >-
         Invoices for the caller's org. This route is served ahead of the x402 paywall by
         first-party key validation: a request with no Bearer key answers **401 AUTH_REQUIRED**,
         never a 402 (measured live 2026-09-11). Requires `billing:read`. The invoice list's
         field shape is owned by the billing module and is not yet pinned here — the 200 body is
-        a draft placeholder.
+        an open placeholder shape. Deliberately not `x-schema-status: draft`: in this document
+        `draft` means "not observed live", and this route was.
       security:
         - bearerWithScopes: [billing:read]
       responses:
         '200':
-          description: Invoice list (draft — shape not yet pinned).
+          description: Invoice list (shape not yet pinned).
           content:
             application/json:
               schema:
@@ -12184,13 +12187,12 @@ paths:
       tags: [Comms]
       operationId: createCommsTenant
       summary: Create the org's communications tenant
-      x-schema-status: draft
       description: >-
         Creates the tenant for the caller's org. `client_id` defaults to the caller's org and
         must equal it — any other value answers 403 `TENANT_FORBIDDEN`. Requires `comms:write`.
         The success body is passed through from the tenant provisioner and is not yet pinned
-        here — the 200 body is a draft placeholder. Measured live 2026-09-11: an unauthenticated
-        POST answers a 402 x402 challenge.
+        here — the 200 body is an open placeholder shape. Measured live 2026-09-11: an
+        unauthenticated POST answers a 402 x402 challenge.
       security:
         - bearerWithScopes: [comms:write]
       requestBody:
@@ -12206,7 +12208,7 @@ paths:
                   description: Defaults to the caller's org; must equal it.
       responses:
         '200':
-          description: The provisioned tenant (draft — shape not yet pinned).
+          description: The provisioned tenant (shape not yet pinned).
           content:
             application/json:
               schema:
@@ -12351,17 +12353,16 @@ paths:
       tags: [Mlvc]
       operationId: getMlvcStatus
       summary: MLVC codec status
-      x-schema-status: draft
       description: >-
         Served live (measured 2026-09-11: an unauthenticated GET answers a 402 x402 challenge);
         `GET /codec/status` is an alias of this route. The status body is owned by the codec
-        spoke and is not yet published — the 200 shape below is a draft placeholder. Requires
+        spoke and is not yet published — the 200 shape below is an open placeholder. Requires
         `mlvc:read`.
       security:
         - bearerWithScopes: [mlvc:read]
       responses:
         '200':
-          description: Codec status (draft — shape not yet published).
+          description: Codec status (shape not yet published by the spoke).
           content:
             application/json:
               schema:
@@ -12379,12 +12380,11 @@ paths:
       tags: [Mlvc]
       operationId: runMlvcBench
       summary: Run an MLVC codec benchmark
-      x-schema-status: draft
       description: >-
         Served live (measured 2026-09-11: an unauthenticated POST answers a 402 x402
         challenge); `POST /codec/bench` is an alias of this route. Request and response shapes
-        are owned by the codec spoke and are not yet published — draft placeholders. Requires
-        `mlvc:write`.
+        are owned by the codec spoke and are not yet published — open placeholder shapes.
+        Requires `mlvc:write`.
       security:
         - bearerWithScopes: [mlvc:write]
       requestBody:
@@ -12396,7 +12396,7 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Benchmark result (draft — shape not yet published).
+          description: Benchmark result (shape not yet published by the spoke).
           content:
             application/json:
               schema:
@@ -12414,16 +12414,15 @@ paths:
       tags: [Mlvc]
       operationId: getCodecStatus
       summary: Codec status (alias of GET /mlvc/status)
-      x-schema-status: draft
       description: >-
         Exact-path alias of `GET /mlvc/status` — same scope (`mlvc:read`), same body. The bare
         `/v1/codec` answers ROUTE_NOT_MAPPED. Measured live 2026-09-11: an unauthenticated GET
-        answers a 402 x402 challenge. Draft placeholder until the codec spoke publishes its shape.
+        answers a 402 x402 challenge. Open placeholder shape until the codec spoke publishes it.
       security:
         - bearerWithScopes: [mlvc:read]
       responses:
         '200':
-          description: Codec status (draft — shape not yet published).
+          description: Codec status (shape not yet published by the spoke).
           content:
             application/json:
               schema:
@@ -12441,11 +12440,10 @@ paths:
       tags: [Mlvc]
       operationId: runCodecBench
       summary: Run a codec benchmark (alias of POST /mlvc/bench)
-      x-schema-status: draft
       description: >-
         Exact-path alias of `POST /mlvc/bench` — same scope (`mlvc:write`), same shapes.
-        Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge. Draft
-        placeholder until the codec spoke publishes its shape.
+        Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge. Open
+        placeholder shape until the codec spoke publishes it.
       security:
         - bearerWithScopes: [mlvc:write]
       requestBody:
@@ -12457,7 +12455,7 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Benchmark result (draft — shape not yet published).
+          description: Benchmark result (shape not yet published by the spoke).
           content:
             application/json:
               schema:
@@ -12475,10 +12473,9 @@ paths:
       tags: [Crest]
       operationId: crestControl
       summary: Send a Crest control command
-      x-schema-status: draft
       description: >-
         Forwarded to the Crest spoke; the command shape is spoke-owned and not yet published —
-        draft placeholder. Every verb on `/crest/control` and `/crest/state` requires the
+        open placeholder shape. Every verb on `/crest/control` and `/crest/state` requires the
         `crest:control` scope. Measured live 2026-09-11: an unauthenticated POST answers a 402
         x402 challenge quoting 2000 atomic USDC.
       x-price:
@@ -12500,7 +12497,7 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Control acknowledgement (draft — shape not yet published).
+          description: Control acknowledgement (shape not yet published by the spoke).
           content:
             application/json:
               schema:
@@ -12518,10 +12515,9 @@ paths:
       tags: [Crest]
       operationId: getCrestState
       summary: Read Crest state
-      x-schema-status: draft
       description: >-
         Forwarded to the Crest spoke; the state shape is spoke-owned and not yet published —
-        draft placeholder. Requires `crest:control`. Measured live 2026-09-11: an
+        open placeholder shape. Requires `crest:control`. Measured live 2026-09-11: an
         unauthenticated GET answers a 402 x402 challenge quoting 2000 atomic USDC.
       x-price:
         model: x402
@@ -12535,7 +12531,7 @@ paths:
         - bearerWithScopes: [crest:control]
       responses:
         '200':
-          description: Crest state (draft — shape not yet published).
+          description: Crest state (shape not yet published by the spoke).
           content:
             application/json:
               schema:
@@ -12553,11 +12549,10 @@ paths:
       tags: [Dante]
       operationId: ingestDanteObservation
       summary: Ingest a Dante observation payload (OTLP)
-      x-schema-status: draft
       description: >-
         Accepts an OTLP-shaped observation payload and forwards it to the Dante observe spoke;
         counted on `wave_dante_observe_ingests`. The payload shape is spoke-owned and not yet
-        published — draft placeholder. Measured live 2026-09-11: an unauthenticated POST
+        published — open placeholder shape. Measured live 2026-09-11: an unauthenticated POST
         answers a 402 x402 challenge quoting 3000 atomic USDC.
       x-price:
         model: x402
@@ -12578,7 +12573,7 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Ingest acknowledgement (draft — shape not yet published).
+          description: Ingest acknowledgement (shape not yet published by the spoke).
           content:
             application/json:
               schema:
@@ -12596,16 +12591,15 @@ paths:
       tags: [Dante]
       operationId: getDanteObserveState
       summary: Read Dante observe state
-      x-schema-status: draft
       description: >-
         Forwarded to the Dante observe spoke; the state shape is spoke-owned and not yet
-        published — draft placeholder. Sibling of `POST /dante/observe` (same spoke, same
+        published — open placeholder shape. Sibling of `POST /dante/observe` (same spoke, same
         paywall).
       security:
         - bearerWithScopes: [dante:read]
       responses:
         '200':
-          description: Observe state (draft — shape not yet published).
+          description: Observe state (shape not yet published by the spoke).
           content:
             application/json:
               schema:
@@ -12623,16 +12617,15 @@ paths:
       tags: [Dante]
       operationId: listDanteObserveAlerts
       summary: List Dante observe alerts
-      x-schema-status: draft
       description: >-
         Forwarded to the Dante observe spoke; the alert shape is spoke-owned and not yet
-        published — draft placeholder. Sibling of `POST /dante/observe` (same spoke, same
+        published — open placeholder shape. Sibling of `POST /dante/observe` (same spoke, same
         paywall).
       security:
         - bearerWithScopes: [dante:read]
       responses:
         '200':
-          description: Alerts (draft — shape not yet published).
+          description: Alerts (shape not yet published by the spoke).
           content:
             application/json:
               schema:
@@ -12650,12 +12643,11 @@ paths:
       tags: [Ingest]
       operationId: ingestSrt
       summary: SRT contribution ingest
-      x-schema-status: draft
       description: >-
         Prefix route: everything under `/ingest/srt/` (for example `/ingest/srt/session`, which
         opens a contribution session) is reverse-proxied verbatim to the ingest edge, and
         answers 503 fail-closed when that edge is not configured. Scopes `srt:read` (GET) /
-        `srt:write` (POST). Shapes are edge-owned and not yet published — draft placeholder.
+        `srt:write` (POST). Shapes are edge-owned and not yet published — open placeholder shape.
         Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge.
       security:
         - bearerWithScopes: [srt:write]
@@ -12668,7 +12660,7 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Ingest response (draft — shape not yet published).
+          description: Ingest response (shape not yet published by the edge).
           content:
             application/json:
               schema:
@@ -12692,11 +12684,10 @@ paths:
       tags: [Ingest]
       operationId: ingestRist
       summary: RIST contribution ingest
-      x-schema-status: draft
       description: >-
         Prefix route under `/ingest/rist/`, reverse-proxied verbatim to the ingest edge; 503
         fail-closed when the edge is not configured. Scopes `rist:read` (GET) / `rist:write`
-        (POST). Draft placeholder. Measured live 2026-09-11: an unauthenticated POST answers a
+        (POST). Open placeholder shape. Measured live 2026-09-11: an unauthenticated POST answers a
         402 x402 challenge.
       security:
         - bearerWithScopes: [rist:write]
@@ -12709,7 +12700,7 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Ingest response (draft — shape not yet published).
+          description: Ingest response (shape not yet published by the edge).
           content:
             application/json:
               schema:
@@ -12733,11 +12724,10 @@ paths:
       tags: [Ingest]
       operationId: ingestRtmp
       summary: RTMP / RTMPS contribution ingest
-      x-schema-status: draft
       description: >-
         Prefix route under `/ingest/rtmp/` (RTMPS reuses the same scopes), reverse-proxied
         verbatim to the ingest edge; 503 fail-closed when the edge is not configured. Scopes
-        `rtmp:read` (GET) / `rtmp:write` (POST). Draft placeholder. Measured live 2026-09-11:
+        `rtmp:read` (GET) / `rtmp:write` (POST). Open placeholder shape. Measured live 2026-09-11:
         an unauthenticated POST answers a 402 x402 challenge.
       security:
         - bearerWithScopes: [rtmp:write]
@@ -12750,7 +12740,7 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Ingest response (draft — shape not yet published).
+          description: Ingest response (shape not yet published by the edge).
           content:
             application/json:
               schema:
@@ -12774,11 +12764,10 @@ paths:
       tags: [Ingest]
       operationId: ingestMoq
       summary: MoQ contribution ingest
-      x-schema-status: draft
       description: >-
         Prefix route under `/ingest/moq/`, reverse-proxied verbatim to the ingest edge; 503
         fail-closed when the edge is not configured. Scopes `moq:read` (GET) / `moq:write`
-        (POST). Draft placeholder. Measured live 2026-09-11: an unauthenticated POST answers a
+        (POST). Open placeholder shape. Measured live 2026-09-11: an unauthenticated POST answers a
         402 x402 challenge.
       security:
         - bearerWithScopes: [moq:write]
@@ -12791,7 +12780,7 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Ingest response (draft — shape not yet published).
+          description: Ingest response (shape not yet published by the edge).
           content:
             application/json:
               schema:
@@ -12815,11 +12804,10 @@ paths:
       tags: [Render]
       operationId: renderStill
       summary: Render a still frame (x402-payable)
-      x-schema-status: draft
       description: >-
         Forwarded to the render spoke; the gateway holds no validation, quote key or meter
         specific to this path, so the request and response shapes are spoke-owned and not yet
-        published — draft placeholder. Same paywall as `POST /render` (no API key; pay the x402
+        published — open placeholder shape. Same paywall as `POST /render` (no API key; pay the x402
         challenge and retry), so `security: []` mirrors that sibling. Measured live 2026-09-11:
         an unauthenticated POST answers a 402 x402 challenge quoting 600000 atomic USDC — the
         same quote as `/render`.
@@ -12841,7 +12829,7 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Still render result (draft — shape not yet published).
+          description: Still render result (shape not yet published by the spoke).
           content:
             application/json:
               schema:
