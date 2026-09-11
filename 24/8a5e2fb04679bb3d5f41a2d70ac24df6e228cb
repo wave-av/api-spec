@@ -1,0 +1,55 @@
+CHANGELOG.md
+  s_efe86faf2558e9::t_fc47eb3f50dbc9 303-313
+  s_efe86faf2558e9::t_f6a08f3516cfa0 11-21,27-31,33-35,39
+  s_efe86faf2558e9::t_6b602a195f7354 22-26
+  s_efe86faf2558e9::t_7fc089491b0220 330-348
+  s_efe86faf2558e9::t_c0160d0451531f 36-38
+  s_efe86faf2558e9::t_e2327b7e3a7256 32
+openapi.yaml
+  s_efe86faf2558e9::t_e22b52a79a09f9 12534
+  s_efe86faf2558e9::t_0048a30aa20b50 12576
+  s_efe86faf2558e9::t_52273719ba0c42 12602
+  s_efe86faf2558e9::t_0d63bea82bceef 12520
+  s_efe86faf2558e9::t_a3d174bd9ee1e2 12500
+  s_efe86faf2558e9::t_a970cce61d4d2d 12365,12425
+  s_efe86faf2558e9::t_3d2709c3118818 11974
+  s_efe86faf2558e9::t_ee778b9649472a 12359
+  s_efe86faf2558e9::t_67bf38448fbe0a 12555
+  s_efe86faf2558e9::t_4a3d35d206dc3f 12650
+  s_efe86faf2558e9::t_00453b19c401ac 11968-11969
+  s_efe86faf2558e9::t_92c4855db0c202 12211
+  s_efe86faf2558e9::t_6a19dc9a54d693 12194-12195
+  s_efe86faf2558e9::t_b331274e93c6f9 12663,12703,12743,12783
+  s_efe86faf2558e9::t_3a7b2977425f74 12832
+  s_efe86faf2558e9::t_ce925ae24a37b1 12386-12387
+  s_efe86faf2558e9::t_1656d021d3e044 12690,12730,12770
+  s_efe86faf2558e9::t_ad0a2f55c7dd02 11391-11395
+  s_efe86faf2558e9::t_b516675eec179f 12478
+  s_efe86faf2558e9::t_78ac5f378fe728 12810
+  s_efe86faf2558e9::t_20bc996f166b45 12420
+  s_efe86faf2558e9::t_9f3d6eb5fba833 12399,12458
+  s_efe86faf2558e9::t_d63fa97715dc34 12445-12446
+  s_efe86faf2558e9::t_72919df746bef6 12596,12622
+  s_efe86faf2558e9::t_a974e4baac0790 12628
+.github/scripts/published-drift-allowlist.json
+  s_efe86faf2558e9::t_8b46ca81da1fa2 33,42,81,189,225,231,237,243,249,255,261,267,273,279,285,291,297,303,309
+  s_efe86faf2558e9::t_afb0635861234a 219
+  s_efe86faf2558e9::t_a8923fc2ce8f32 94-188,190-217,220-223,226-229,232-235,238-241,244-247,250-253,256-259,262-265,268-271,274-277,280-283,286-289,292-295,298-301,304-307
+  s_efe86faf2558e9::t_c819232751349f 218,224,230,236,242,248,254,260,266,272,278,284,290,296,302,308
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "248a5e2fb04679bb3d5f41a2d70ac24df6e228cb",
+  "prompts": {},
+  "sessions": {
+    "s_efe86faf2558e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2b6e2e9-ab55-4d57-9d9f-d57a588ae688",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
