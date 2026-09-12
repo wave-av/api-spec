@@ -53,21 +53,30 @@ test('402 is MAPPED — a paywall proves the route EXISTS and is priced, it is n
   assert.equal(classifyProbe({ status: 402, body: { x402Version: 1, error: 'payment required' } }), MAPPED);
 });
 
-test('only an explicit ROUTE_NOT_MAPPED code is ABSENT; a bare 403 or 404 is MAPPED', () => {
+test('only an explicit ROUTE_NOT_MAPPED code is ABSENT; a bare 403 is MAPPED', () => {
   // MEASURED 2026-09-11: the gateway answers ROUTE_NOT_MAPPED with 404 (it was 403 on earlier
   // builds, and a few gateway-native paths still answer 403 with the same code). Both are absence.
   // A classifier keyed on 403 alone read every absent route as MAPPED for the days in between and
   // the declared-not-live direction went silently empty — this case is what makes that fail loudly.
   assert.equal(classifyProbe({ status: 404, body: { error: { code: 'ROUTE_NOT_MAPPED' } } }), ABSENT);
   assert.equal(classifyProbe({ status: 403, body: { error: { code: 'ROUTE_NOT_MAPPED' } } }), ABSENT);
-  // A bare 404 with no route-level refusal code is what a MAPPED resource route returns for a
-  // missing or unsubstituted path parameter — it proves a handler answered, so it is MAPPED.
-  assert.equal(classifyProbe({ status: 404, body: { error: { code: 'NOT_FOUND' } } }), MAPPED);
-  assert.equal(classifyProbe({ status: 404, body: null }), MAPPED);
   // A plain authorization failure PROVES the route exists — there was something to be unauthorized
   // for. Inferring absence from the status number alone would delete real findings.
   assert.equal(classifyProbe({ status: 403, body: { error: { code: 'FORBIDDEN' } } }), MAPPED);
   assert.equal(classifyProbe({ status: 401, body: { error: { code: 'UNAUTHENTICATED' } } }), MAPPED);
+});
+
+test('a BARE 404 is INDETERMINATE — never ABSENT, and never MAPPED either', () => {
+  // Every probed path is parameterless, so a 404 here cannot be a mapped handler reporting a
+  // missing id. It can be an origin behind a mapped prefix that does not serve this sub-path, or
+  // an HTML/empty body the probe could not parse. Reading either as MAPPED would let a declared
+  // route that nothing serves go green on an unreadable body — the false-green this gate exists to
+  // catch. Reading it as ABSENT would fabricate a finding from a status number. It is unknown, and
+  // unknown is surfaced, not passed.
+  assert.equal(classifyProbe({ status: 404, body: { error: { code: 'NOT_FOUND' } } }), INDETERMINATE);
+  assert.equal(classifyProbe({ status: 404, body: null }), INDETERMINATE);
+  assert.equal(classifyProbe({ status: 404, body: {} }), INDETERMINATE);
+  assert.equal(classifyProbe({ status: 404, body: { error: 'not found' } }), INDETERMINATE);
 });
 
 test('200 is MAPPED and 5xx is INDETERMINATE — an origin having a bad minute is not an absence', () => {

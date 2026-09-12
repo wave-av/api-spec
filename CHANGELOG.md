@@ -333,11 +333,18 @@ All notable changes to this project are documented here. The format is based on
   paths still do). `classifyProbe()` keyed absence on 403 alone, so every absent route read as
   `MAPPED` and the `declared-not-live` direction went silently empty — a gate that could no
   longer fail. Absence is now keyed on the exact body code with a small set of accepted
-  statuses (403, 404); a bare 404 without the code stays `MAPPED` (a real handler answered "no
-  such resource") and a 5xx carrying the code stays `INDETERMINATE`. Fixtures and the regression
-  test move to 404, with a 404+code ⇒ `ABSENT` case and a bare-404 ⇒ `MAPPED` case added so a
-  classifier softened in either direction fails a test that says so. The four unrouted chapters
-  operations' descriptions now state the 404.
+  statuses (403, 404); a 5xx carrying the code stays `INDETERMINATE`. A bare 404 without the
+  code — including one whose body is not JSON — is `INDETERMINATE` too, never `MAPPED`: every
+  probed path is parameterless, so it cannot be a handler reporting a missing id, and what it can
+  be is an origin behind a mapped prefix not serving that sub-path, which read as `MAPPED` would
+  let a declared-but-unserved route go green on an unreadable body (the sibling
+  `published-drift-live.mjs` classifier already reads a bare 404 as `unknown`). Surfaced by path
+  and exits `UNKNOWN`, not `OK`. Measured against the live origin on 2026-09-12 across all 226
+  candidate paths: zero bare 404s, so nothing in the current run changes state. Fixtures and the
+  regression test move to 404, with 404+code ⇒ `ABSENT`, bare-404 ⇒ `INDETERMINATE` and a
+  compare-level bare-404 ⇒ surfaced-and-`UNKNOWN` case added so a classifier softened in either
+  direction fails a test that says so. The four unrouted chapters operations' descriptions now
+  state the 404.
 - **18 `x-price.atomicAmount` values corrected to the live 402 quote** (`openapi.yaml`) —
   eighteen draft stubs carried the generator's `"1000"` placeholder while their `x-price-note`
   claimed the amount was observed live. Measured 2026-09-11, the gateway's 402 quotes a
