@@ -5,9 +5,16 @@
  * CLI in `live-route-drift.mjs`; see that file's header for why a third source is needed at all.
  *
  * ── THE PROBE SEMANTICS ARE LOAD-BEARING ────────────────────────────────────────────────────────
- * On this gateway an unmapped path answers HTTP 403 with `error.code === "ROUTE_NOT_MAPPED"`
- * ("no scope rule for this route (fail-closed)"). Anything else — INCLUDING 402 — means the route
- * exists.
+ * On this gateway an unmapped path answers HTTP 404 with `error.code === "ROUTE_NOT_MAPPED"`
+ * ("no scope rule for this route (fail-closed)"). Earlier gateway builds answered the same code
+ * with HTTP 403, and a few gateway-native paths still do, so BOTH statuses are accepted — but only
+ * with that exact code. Anything else — INCLUDING 402 — means the route exists.
+ *
+ *   MEASURED 2026-09-11: the gateway moved ROUTE_NOT_MAPPED from 403 to 404 without this
+ *   classifier following. Every absent route then read as MAPPED, and the declared-not-live
+ *   direction went silently empty — a gate that could no longer fail. Keying absence on the code
+ *   with a small allowlist of statuses is what keeps that from recurring; keying it on a status
+ *   alone would reintroduce the false-green the moment the number changes again.
  *
  *   402 IS NOT AN ABSENCE. It is the strongest available evidence of PRESENCE: the route is mapped
  *   and it is PRICED. Reading a paywall as "route not found" would make this gate blind to exactly
@@ -19,9 +26,20 @@
  * was something there to be unauthorized for. Requiring the code keeps "absent" a positive claim
  * read off the body rather than an inference from a status number.
  *
+ * A BARE 404 — any 404 without that code, including one whose body is not JSON — is INDETERMINATE,
+ * neither absent nor present. It is not absence, because only ROUTE_NOT_MAPPED is a route-level
+ * refusal. It is not presence either: every probed path is parameterless (see `isProbeable`), so
+ * the one 404 a mapped handler legitimately returns — "no such resource" for a missing or
+ * unsubstituted id — cannot arise here, and what CAN arise is a mapped prefix forwarding to an
+ * origin that does not serve this particular sub-path and says so with a 404 of its own. Reading
+ * that as MAPPED would let a declared-but-unserved route go green on an unreadable body, which is
+ * exactly the false-green this gate exists to catch. The sibling classifier in
+ * `published-drift-live.mjs` makes the same call (a bare 404 is `unknown`).
+ *
  * A 5xx, a timeout or a transport error is INDETERMINATE, never absent. An origin having a bad
  * minute must not be recorded as "this route does not exist", because that would silently clear a
- * real finding and leave the gate greener than the evidence supports.
+ * real finding and leave the gate greener than the evidence supports. INDETERMINATE is never a
+ * pass: `live-route-compare.mjs` surfaces every such probe by path and reason.
  *
  * ── COST ────────────────────────────────────────────────────────────────────────────────────────
  * Every probe is an unauthenticated GET. No credential is sent, so no tenant, meter or balance is
@@ -39,6 +57,9 @@ export const MAPPED = 'mapped';
 export const ABSENT = 'absent';
 export const INDETERMINATE = 'indeterminate';
 
+/** Statuses the gateway has been observed to pair with ROUTE_NOT_MAPPED. 404 is current; 403 is retained for older builds and the gateway-native paths that still use it. */
+export const ROUTE_NOT_MAPPED_STATUSES = new Set([403, 404]);
+
 /** Classify one probe response. See the header — 402 is MAPPED, and only ROUTE_NOT_MAPPED is ABSENT. */
 export function classifyProbe({ status, body }) {
   if (status >= 500) return INDETERMINATE;
@@ -47,9 +68,15 @@ export function classifyProbe({ status, body }) {
   // in both directions — it can hide a genuinely withdrawn/redirected route (false green) and it can
   // fabricate a live-undeclared finding for a redirecting undeclared path (false red).
   if (status >= 300 && status < 400) return INDETERMINATE;
-  // Require the 403 the documented contract specifies. Checking the body code alone would let a
-  // non-403 gateway error that happens to carry the same code hide a real live-route finding.
-  if (status === 403 && body?.error?.code === 'ROUTE_NOT_MAPPED') return ABSENT;
+  // Require one of the statuses the documented contract pairs with the code (404 today, 403 on
+  // earlier builds). Checking the body code alone would let a gateway error at some other status
+  // that happens to carry the same code hide a real live-route finding — the 5xx guard above is the
+  // concrete case: a 500 carrying ROUTE_NOT_MAPPED must stay INDETERMINATE.
+  if (ROUTE_NOT_MAPPED_STATUSES.has(status) && body?.error?.code === 'ROUTE_NOT_MAPPED') return ABSENT;
+  // A 404 without the code is evidence of nothing (see the header): the path is parameterless, so
+  // this is not a handler reporting a missing id — it may be an origin behind a mapped prefix that
+  // does not serve this sub-path, or a body the probe could not read. Neither fabricates presence.
+  if (status === 404) return INDETERMINATE;
   return MAPPED;
 }
 

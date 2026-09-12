@@ -57,7 +57,7 @@ export function segmentKey(path) {
  * documented under the main document (base `/v1`) but are annotated `servers: [{url:
  * https://realtime.wave.online}]` and served there, not at `api.wave.online/v1/realtime/connect`.
  * Without this exclusion the live prober — which only ever queries the document's own origin —
- * would probe the wrong host, get back 403 ROUTE_NOT_MAPPED, and file a false `declared-not-live`
+ * would probe the wrong host, get back 404 ROUTE_NOT_MAPPED, and file a false `declared-not-live`
  * finding against an endpoint that is live, just live somewhere else.
  */
 export function hasOwnServerOverride(item) {
@@ -209,7 +209,7 @@ export function compareAgainstLive({ repoDoc, publishedDoc, probes, allowlist = 
       // perfectly live. Reporting that as "declared but not served" would be this gate committing
       // the very error it exists to prevent — asserting a fact about production that its evidence
       // does not support. MEASURED: /v1/agent/auth/device and /v1/agent/auth/token are POST-only
-      // OAuth device-grant routes; a GET to each returns 403 ROUTE_NOT_MAPPED, and an earlier draft
+      // OAuth device-grant routes; a GET to each returns 404 ROUTE_NOT_MAPPED, and an earlier draft
       // of this file reported both as findings. They are not findings.
       //
       // This does NOT quietly pass them. An unverifiable claim is INDETERMINATE and is surfaced as

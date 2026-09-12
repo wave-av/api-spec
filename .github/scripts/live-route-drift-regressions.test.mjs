@@ -12,9 +12,11 @@
 //   5. enumeratorShapeError must reject a malformed 200 rather than silently enumerating zero
 //      routes from it.
 //   6. parseArgs must not mistake --out's value for the spec when the caller omits the spec.
+//   7. A bare 404 on a declared GET route must surface as INDETERMINATE and exit UNKNOWN — never
+//      read as MAPPED (false green) and never as a declared-not-live finding (fabricated).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ABSENT, MAPPED } from './live-route-probe.mjs';
+import { ABSENT, MAPPED, INDETERMINATE, classifyProbe } from './live-route-probe.mjs';
 import { basePath, candidatePaths, compareAgainstLive, hasOwnServerOverride } from './live-route-compare.mjs';
 import { decideExit, enumeratorShapeError, parseArgs, EXIT_OK, EXIT_UNKNOWN, EXIT_DRIFT } from './live-route-drift.mjs';
 
@@ -76,7 +78,7 @@ test('an operation-level servers override is excluded from candidates and from t
   const r = compareAgainstLive({
     repoDoc: repo,
     publishedDoc: { servers: SERVERS, paths: {} },
-    probes: probeMap([{ path: '/v1/realtime/connect', state: ABSENT, status: 403 }]),
+    probes: probeMap([{ path: '/v1/realtime/connect', state: ABSENT, status: 404 }]),
   });
   assert.equal(r.findings.length, 0, 'a cross-host operation must never be reported declared-not-live against the wrong origin');
 });
@@ -123,4 +125,20 @@ test('parseArgs skips the value consumed by --out when picking the spec, includi
   );
   assert.match(parseArgs(['--out']).error, /needs a value/);
   assert.match(parseArgs(['--out', '--out']).error, /needs a value/);
+});
+
+// ─── bare 404 on a declared route. ──────────────────────────────────────────────────────────────────
+
+test('a bare 404 on a declared GET route is surfaced as INDETERMINATE and exits UNKNOWN, not green', () => {
+  // Probed paths are parameterless, so a 404 without ROUTE_NOT_MAPPED is not a handler reporting a
+  // missing id; it is an origin behind a mapped prefix not serving this sub-path, or an unreadable
+  // body. Either way the declared-not-live direction must not silently pass on it.
+  const probe = { path: '/v1/clips', ok: true, status: 404, body: null };
+  probe.state = classifyProbe(probe);
+  assert.equal(probe.state, INDETERMINATE);
+  const repo = { servers: SERVERS, paths: { '/clips': { get: { operationId: 'listClips' } } } };
+  const r = compareAgainstLive({ repoDoc: repo, publishedDoc: repo, probes: probeMap([probe]) });
+  assert.equal(r.findings.length, 0, 'a bare 404 must not fabricate a declared-not-live finding');
+  assert.deepEqual(r.indeterminate, [{ path: '/v1/clips', reason: 'HTTP 404' }], 'and it must be surfaced by path');
+  assert.equal(decideExit(r), EXIT_UNKNOWN, 'an unreadable declared route is not a clean run');
 });
