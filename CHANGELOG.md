@@ -53,6 +53,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
+- **`identityResolve` free forever** (`openapi.yaml`) — documents that public-directory
+  `GET /identity/resolve` / gate checks are free forever ($0): no priced meter, no x402;
+  rate limits / daily request quota may still apply (KYA K1 / WAVE-25294 /
+  wave-av/claude-workstation#5543).
+
 - **`POST /voice/generate` contract clarified against the live gateway.** The 200 response now
   documents that the primary path returns raw `audio/mpeg` bytes directly; the `application/json`
   shapes (`VoiceSynthesisInline`, `VoiceGeneration`) are returned only when the request opts out
