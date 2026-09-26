@@ -196,7 +196,7 @@ jobs:
 
           # review-liveness floor: DISTINCT LLM reviewers that FINISHED non-failing on HEAD (scanners do not count)
           FLOOR="${MIN_REVIEWERS:-2}"; [[ "$FLOOR" =~ ^[0-9]{1,2}$ ]] || FLOOR=2
-          LLM_RE='cursor|bugbot|coderabbit|devin|copilot|graphite|sourcery|macroscope|wave[ -]reviewer'
+          LLM_RE='cursor|bugbot|coderabbit|cubic|devin|copilot|graphite|sourcery|macroscope|wave[ -]reviewer'
           gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" > checks.json 2>checks.err || defer "check-runs read failed: $(clean < checks.err)"
           # A refused legacy-status read only makes the floor STRICTER, so it is noted, not fatal.
           gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/status" > status.json 2>status.err || { echo '{"statuses":[]}' > status.json; say "note: combined-status read refused ($(clean < status.err)); counting check-runs only."; }
