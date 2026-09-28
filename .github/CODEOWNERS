@@ -1,0 +1,21 @@
+# CODEOWNERS - GitHub auto-requests review from the listed owners on matching paths.
+# Every handle here must be a user or team with write access to this repository;
+# an unresolvable handle is silently ignored and any "require Code Owner review"
+# rule becomes unsatisfiable. Validate after editing — pass the edited ref, because
+# without `ref` the endpoint inspects the default branch, not your change:
+#   gh api 'repos/wave-av/api-spec/codeowners/errors?ref=<branch-or-commit>'    # expect {"errors":[]}
+# Later rules take precedence over earlier ones.
+#
+# This repository has a single maintainer. GitHub does not let a pull request's
+# author satisfy a Code Owner review of their own change, so "require review from
+# Code Owners" must NOT be enabled on the branch protection until a second owner
+# with write access is added below; today the file only drives review requests.
+
+# Default owner for everything.
+*                       @yakimoto
+
+# Release-critical surfaces: CI/CD, package manifest, release tooling, ownership.
+/.github/workflows/    @yakimoto
+/package.json           @yakimoto
+/scripts/               @yakimoto
+/.github/CODEOWNERS     @yakimoto
