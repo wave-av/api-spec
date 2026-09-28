@@ -3,9 +3,9 @@
     "path": "/leaderboard",
     "method": "GET",
     "direction": "shared-drift",
-    "justification": "Editorial-only difference, not a behavioral one. The gateway's own generated document never assigns an operationId to this gateway-native root route and tags it with the raw lowercase 'usage' slug; this repo assigns a real operationId (SDK codegen quality — an unnamed operation gets a synthesized name in every generated client) and Title-Cases the tag to match every other operation's documentation convention in this spec. Keyed on the exact published summary so a real content change to this operation still surfaces as drift.",
+    "justification": "Editorial-only difference, not a behavioral one. The gateway's own generated document never assigns an operationId to this gateway-native root route and tags it with the raw lowercase 'usage' slug; this repo assigns a real operationId (SDK codegen quality \u2014 an unnamed operation gets a synthesized name in every generated client) and Title-Cases the tag to match every other operation's documentation convention in this spec. Keyed on the exact published summary so a real content change to this operation still surfaces as drift.",
     "expect": {
-      "summary": "Your org's usage leaderboard (meters ranked by consumption) — API key + usage:read"
+      "summary": "Your org's usage leaderboard (meters ranked by consumption) \u2014 API key + usage:read"
     }
   },
   {
@@ -14,14 +14,14 @@
     "direction": "shared-drift",
     "justification": "Same editorial-only reasoning as GET /leaderboard: an assigned operationId and a Title-Cased tag versus the gateway's unnamed, lowercase-tagged generated shape. Keyed on the exact published summary so a real content change still surfaces as drift.",
     "expect": {
-      "summary": "Platform-wide live usage — OPERATOR ONLY (inference + voice + codec + storage + realtime + clips + captions)"
+      "summary": "Platform-wide live usage \u2014 OPERATOR ONLY (inference + voice + codec + storage + realtime + clips + captions)"
     }
   },
   {
     "path": "/usage",
     "method": "GET",
     "direction": "shared-drift",
-    "justification": "KEY COLLISION between two distinct operations that happen to share the literal path+method 'GET /usage' in their respective documents. openapi.yaml documents the real, tenant-scoped /v1 billing endpoint (tag Billing, operationId getUsage, usage:read scope) added independently of this exemption. The gateway ALSO serves a gateway-native, operator-only telemetry endpoint at the bare host root (tag internal, WAVE service bearer, no /v1 prefix) that this repo cannot document at this same key without overwriting the real customer endpoint's declaration — the two must live at the same path string in the published document because the operator route was never given a distinguishing per-operation servers override (unlike its siblings /leaderboard and /platform, which do carry one). This entry exempts ONLY the operator shape (matched by its 'internal' tag, which never appears on the real customer operation); it lapses the moment the published operation at this key stops being tagged internal, forcing a fresh look rather than silently re-exempting whatever answers here.",
+    "justification": "KEY COLLISION between two distinct operations that happen to share the literal path+method 'GET /usage' in their respective documents. openapi.yaml documents the real, tenant-scoped /v1 billing endpoint (tag Billing, operationId getUsage, usage:read scope) added independently of this exemption. The gateway ALSO serves a gateway-native, operator-only telemetry endpoint at the bare host root (tag internal, WAVE service bearer, no /v1 prefix) that this repo cannot document at this same key without overwriting the real customer endpoint's declaration \u2014 the two must live at the same path string in the published document because the operator route was never given a distinguishing per-operation servers override (unlike its siblings /leaderboard and /platform, which do carry one). This entry exempts ONLY the operator shape (matched by its 'internal' tag, which never appears on the real customer operation); it lapses the moment the published operation at this key stops being tagged internal, forcing a fresh look rather than silently re-exempting whatever answers here.",
     "expect": {
       "tags.0": "internal"
     }
@@ -30,7 +30,7 @@
     "path": "/streams",
     "method": "GET",
     "direction": "shared-drift",
-    "justification": "The gateway still serves the auto-generated skills-index open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) for this operation (lowercase tag, no operationId, a summary that says 'draft — see api-spec for the full shape' and literally defers to this repo). openapi.yaml has since promoted this to a fully hand-documented /v1 operation (real params, description, Streams tag, operationId listStreams) ahead of the gateway shipping the matching handler. Exempt only while the published operation still has no operationId — the moment the gateway ships the real handler and starts publishing one, this predicate fails and the exemption lapses so the two shapes get compared for real.",
+    "justification": "The gateway still serves the auto-generated skills-index open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here) for this operation (lowercase tag, no operationId, a summary that says 'draft \u2014 see api-spec for the full shape' and literally defers to this repo). openapi.yaml has since promoted this to a fully hand-documented /v1 operation (real params, description, Streams tag, operationId listStreams) ahead of the gateway shipping the matching handler. Exempt only while the published operation still has no operationId \u2014 the moment the gateway ships the real handler and starts publishing one, this predicate fails and the exemption lapses so the two shapes get compared for real.",
     "expect": {
       "operationId": null
     }
@@ -39,7 +39,7 @@
     "path": "/streams",
     "method": "POST",
     "direction": "shared-drift",
-    "justification": "Same shape and same reasoning as GET /streams: the published operation is still the auto-generated open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) (no operationId), while openapi.yaml documents the real, hand-specified /v1 operation (operationId createStream) ahead of the gateway shipping it. Lapses the moment the published operation gains an operationId.",
+    "justification": "Same shape and same reasoning as GET /streams: the published operation is still the auto-generated open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here) (no operationId), while openapi.yaml documents the real, hand-specified /v1 operation (operationId createStream) ahead of the gateway shipping it. Lapses the moment the published operation gains an operationId.",
     "expect": {
       "operationId": null
     }
@@ -48,7 +48,7 @@
     "path": "/agent/auth/token",
     "method": "POST",
     "direction": "shared-drift",
-    "justification": "The service's own generated 400 response for this operation is a single, coarser schema ($ref Error) with a shorter description; openapi.yaml documents a oneOf of the WAVE error envelope AND the RFC 8628 §3.5 device-flow error passthrough (authorization_pending / slow_down / expired_token / access_denied / invalid_grant) verbatim, which is the actual, more detailed behavior of this endpoint. This is the service's own OpenAPI reflection being less precise than this repo's hand-written documentation, not a real behavioral difference this repo needs to walk back. Keyed on the exact current published 400 description so a real future change to the service's generated shape still surfaces as drift rather than being silently re-exempted.",
+    "justification": "The service's own generated 400 response for this operation is a single, coarser schema ($ref Error) with a shorter description; openapi.yaml documents a oneOf of the WAVE error envelope AND the RFC 8628 \u00a73.5 device-flow error passthrough (authorization_pending / slow_down / expired_token / access_denied / invalid_grant) verbatim, which is the actual, more detailed behavior of this endpoint. This is the service's own OpenAPI reflection being less precise than this repo's hand-written documentation, not a real behavioral difference this repo needs to walk back. Keyed on the exact current published 400 description so a real future change to the service's generated shape still surfaces as drift rather than being silently re-exempted.",
     "expect": {
       "responses.400.description": "Invalid grant_type, missing credential for the grant, or the upstream polling protocol error passed through verbatim"
     }
@@ -66,7 +66,7 @@
     "path": "/videos/{videoId}/chapters/{chapterId}",
     "method": "DELETE",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-06: this repo declares the operation (no x-schema-status: draft — marking it draft would be a FALSE claim) and the published /openapi.json document does not list it, but the live-behaviour probe tier confirms the gateway genuinely answers for it (not the ROUTE_NOT_MAPPED an absent route returns). The route is live; only the SERVICE's published spec generation has not yet registered it. This is the mirror image of the operations whose real repo descriptions the service overwrites — a gap in what the service publishes, not in what this repo declares. Lapses (and should be deleted) the moment the published document lists this operation."
+    "justification": "Measured live 2026-09-06: this repo declares the operation (no x-schema-status: draft \u2014 marking it draft would be a FALSE claim) and the published /openapi.json document does not list it, but the live-behaviour probe tier confirms the gateway genuinely answers for it (not the ROUTE_NOT_MAPPED an absent route returns). The route is live; only the SERVICE's published spec generation has not yet registered it. This is the mirror image of the operations whose real repo descriptions the service overwrites \u2014 a gap in what the service publishes, not in what this repo declares. Lapses (and should be deleted) the moment the published document lists this operation."
   },
   {
     "path": "/videos/{videoId}/chapters/detect/{jobId}",
@@ -78,7 +78,7 @@
     "path": "/enhance",
     "method": "POST",
     "direction": "shared-drift",
-    "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real.",
+    "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here) (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real.",
     "expect": {
       "x-schema-status": "draft"
     }
@@ -87,7 +87,7 @@
     "path": "/identity/resolve",
     "method": "GET",
     "direction": "shared-drift",
-    "justification": "This PR's own not-yet-deployed wording change (summary and the `agent` query parameter's description: 'agent id' -> 'fleet agent id') has not shipped to the live gateway yet, since the PR that carries it has not merged. Keyed on the exact current PUBLISHED (old) wording, so this lapses the moment the gateway serves the new wording — at which point the two sides agree and there is nothing left to exempt.",
+    "justification": "This PR's own not-yet-deployed wording change (summary and the `agent` query parameter's description: 'agent id' -> 'fleet agent id') has not shipped to the live gateway yet, since the PR that carries it has not merged. Keyed on the exact current PUBLISHED (old) wording, so this lapses the moment the gateway serves the new wording \u2014 at which point the two sides agree and there is nothing left to exempt.",
     "expect": {
       "parameters.0.description": "Agent id (lowercase, e.g. `opencode`, `claude`, `telephony`)"
     }
@@ -96,7 +96,7 @@
     "path": "/insights",
     "method": "GET",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (usage:read; GET/HEAD only), so the route is genuinely served, but the published /openapi.json does not list it — the service's spec generation is scope-derived and misses this gateway-native route. Hand-documented from the serving handler, not draft. Lapses (delete it) the moment the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (usage:read; GET/HEAD only), so the route is genuinely served, but the published /openapi.json does not list it \u2014 the service's spec generation is scope-derived and misses this gateway-native route. Hand-documented from the serving handler, not draft. Lapses (delete it) the moment the published document lists this operation."
   },
   {
     "path": "/meter/ledger",
@@ -156,7 +156,7 @@
     "path": "/billing/checkout",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers 401 AUTH_REQUIRED — first-party key validation ahead of the paywall, not ROUTE_NOT_MAPPED — so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler (body { price }, 200 { ok, url, session_id, customer }, the 4xx/5xx codes). Lapses the moment the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers 401 AUTH_REQUIRED \u2014 first-party key validation ahead of the paywall, not ROUTE_NOT_MAPPED \u2014 so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler (body { price }, 200 { ok, url, session_id, customer }, the 4xx/5xx codes). Lapses the moment the published document lists this operation."
   },
   {
     "path": "/billing/portal",
@@ -174,25 +174,25 @@
     "path": "/inference/models",
     "method": "GET",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (dispatch:read), so the route is served, but the published /openapi.json does not list it — it is an exact-path alias of GET /dispatch/models and the service's generation only sees the canonical path. Documented from the alias handler. Lapses the moment the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (dispatch:read), so the route is served, but the published /openapi.json does not list it \u2014 it is an exact-path alias of GET /dispatch/models and the service's generation only sees the canonical path. Documented from the alias handler. Lapses the moment the published document lists this operation."
   },
   {
     "path": "/inference/chat/completions",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (dispatch:write), so the route is served, but the published /openapi.json does not list it — an exact-path alias of POST /dispatch/chat/completions. Documented from the alias handler (OpenAI-compatible body, the 400/413 codes). Lapses the moment the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (dispatch:write), so the route is served, but the published /openapi.json does not list it \u2014 an exact-path alias of POST /dispatch/chat/completions. Documented from the alias handler (OpenAI-compatible body, the 400/413 codes). Lapses the moment the published document lists this operation."
   },
   {
     "path": "/pulse",
     "method": "GET",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated GET /v1/pulse answers 200 (pre-auth public route), so the route is served, but the published /openapi.json lists only the POST open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) for this path. Documented from the serving handler (scope=org + org needs the service token, PULSE_UNAVAILABLE, no-store). Lapses the moment the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated GET /v1/pulse answers 200 (pre-auth public route), so the route is served, but the published /openapi.json lists only the POST open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here) for this path. Documented from the serving handler (scope=org + org needs the service token, PULSE_UNAVAILABLE, no-store). Lapses the moment the published document lists this operation."
   },
   {
     "path": "/network/surface",
     "method": "GET",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated GET answers 200 (pre-auth public route, cache public max-age=3600), so the route is served, but the published /openapi.json does not list it — pre-auth routes sit outside the scope-derived generation. Documented from the surface contract builder. Lapses the moment the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers 200 (pre-auth public route, cache public max-age=3600), so the route is served, but the published /openapi.json does not list it \u2014 pre-auth routes sit outside the scope-derived generation. Documented from the surface contract builder. Lapses the moment the published document lists this operation."
   },
   {
     "path": "/samples/clips",
@@ -216,96 +216,420 @@
     "path": "/billing/invoices",
     "method": "GET",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated GET answers 401 AUTH_REQUIRED (first-party key validation ahead of the paywall) — the route is served and the auth contract is documented, but the invoice list's field shape is owned by the billing module and could not be derived from the gateway, so the 200 body is an honest open placeholder shape — deliberately NOT x-schema-status: draft, because in this repo draft means 'not observed live' and this route was. Lapses (delete it) the moment the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers 401 AUTH_REQUIRED (first-party key validation ahead of the paywall) \u2014 the route is served and the auth contract is documented, but the invoice list's field shape is owned by the billing module and could not be derived from the gateway, so the 200 body is an honest open placeholder shape \u2014 deliberately NOT x-schema-status: draft, because in this repo draft means 'not observed live' and this route was. Lapses (delete it) the moment the published document lists this operation."
   },
   {
     "path": "/comms/tenants",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (comms:write) — the route is served and the request contract (client_id must equal the caller org; TENANT_FORBIDDEN) is documented, but the success body is passed through from the tenant provisioner and could not be derived, so the 200 body is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the shape is pinned or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (comms:write) \u2014 the route is served and the request contract (client_id must equal the caller org; TENANT_FORBIDDEN) is documented, but the success body is passed through from the tenant provisioner and could not be derived, so the 200 body is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the shape is pinned or the published document lists this operation."
   },
   {
     "path": "/mlvc/status",
     "method": "GET",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (mlvc:read) — the route is served, but the status body is owned by the codec spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (mlvc:read) \u2014 the route is served, but the status body is owned by the codec spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
   },
   {
     "path": "/mlvc/bench",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (mlvc:write) — the route is served, but the benchmark shapes are owned by the codec spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (mlvc:write) \u2014 the route is served, but the benchmark shapes are owned by the codec spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
   },
   {
     "path": "/codec/status",
     "method": "GET",
     "direction": "unpublished-repo",
-    "justification": "Exact-path alias of GET /mlvc/status (measured live 2026-09-11: 402 x402 challenge, mlvc:read). Same spoke-owned, unpublished shape, so the same open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+    "justification": "Exact-path alias of GET /mlvc/status (measured live 2026-09-11: 402 x402 challenge, mlvc:read). Same spoke-owned, unpublished shape, so the same open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
   },
   {
     "path": "/codec/bench",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Exact-path alias of POST /mlvc/bench (measured live 2026-09-11: 402 x402 challenge, mlvc:write). Same spoke-owned, unpublished shape, so the same open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+    "justification": "Exact-path alias of POST /mlvc/bench (measured live 2026-09-11: 402 x402 challenge, mlvc:write). Same spoke-owned, unpublished shape, so the same open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
   },
   {
     "path": "/crest/control",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge quoting 2000 atomic USDC (crest:control) — the route is served and priced, but the command shape is owned by the Crest spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge quoting 2000 atomic USDC (crest:control) \u2014 the route is served and priced, but the command shape is owned by the Crest spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
   },
   {
     "path": "/crest/state",
     "method": "GET",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge quoting 2000 atomic USDC (crest:control) — served and priced, but the state shape is owned by the Crest spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge quoting 2000 atomic USDC (crest:control) \u2014 served and priced, but the state shape is owned by the Crest spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
   },
   {
     "path": "/dante/observe",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge quoting 3000 atomic USDC (counted on wave_dante_observe_ingests) — served and priced, but the OTLP payload shape is owned by the Dante observe spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge quoting 3000 atomic USDC (counted on wave_dante_observe_ingests) \u2014 served and priced, but the OTLP payload shape is owned by the Dante observe spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
   },
   {
     "path": "/dante/observe/state",
     "method": "GET",
     "direction": "unpublished-repo",
-    "justification": "Sibling of POST /dante/observe on the same spoke route table (same paywall); the state shape is spoke-owned and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+    "justification": "Sibling of POST /dante/observe on the same spoke route table (same paywall); the state shape is spoke-owned and not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
   },
   {
     "path": "/dante/observe/alerts",
     "method": "GET",
     "direction": "unpublished-repo",
-    "justification": "Sibling of POST /dante/observe on the same spoke route table (same paywall); the alert shape is spoke-owned and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+    "justification": "Sibling of POST /dante/observe on the same spoke route table (same paywall); the alert shape is spoke-owned and not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
   },
   {
     "path": "/ingest/srt",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (srt:write) — the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (srt:write) \u2014 the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
   },
   {
     "path": "/ingest/rist",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (rist:write) — the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (rist:write) \u2014 the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
   },
   {
     "path": "/ingest/rtmp",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (rtmp:write) — the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (rtmp:write) \u2014 the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
   },
   {
     "path": "/ingest/moq",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (moq:write) — the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (moq:write) \u2014 the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
   },
   {
     "path": "/render/still",
     "method": "POST",
     "direction": "unpublished-repo",
-    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge quoting 600000 atomic USDC (the same quote as POST /render) — served and priced, but the gateway holds no validation, quote key or meter specific to this path (it is forwarded to the render spoke), so the shape could not be derived and the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge quoting 600000 atomic USDC (the same quote as POST /render) \u2014 served and priced, but the gateway holds no validation, quote key or meter specific to this path (it is forwarded to the render spoke), so the shape could not be derived and the operation is a open placeholder shape (not x-schema-status: draft \u2014 that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/collab/rooms/{roomId}",
+    "method": "DELETE",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/editor/projects/{projectId}",
+    "method": "DELETE",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/cameras",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/collab/rooms",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/collab/rooms/{roomId}",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/editor/projects",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/editor/projects/{projectId}",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/phone/calls",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/phone/lines",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/podcast/shows",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/podcast/shows/{showId}/episodes",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/productions",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/productions/{productionId}",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/streams/{streamId}",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/streams/{streamId}/analytics",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/streams/{streamId}/highlights",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/streams/{streamId}/status",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/studio-ai/enhancements",
+    "method": "GET",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/editor/projects/{projectId}",
+    "method": "PATCH",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/cameras",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/cameras/{cameraId}/control",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/collab/rooms",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/editor/projects",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/editor/projects/{projectId}/export",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/phone/calls",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/phone/lines",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/podcast/shows",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/podcast/shows/{showId}/episodes",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/productions",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/productions/{productionId}/camera",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/productions/{productionId}/overlay",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/streams/{streamId}/highlights",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/streams/{streamId}/start",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/streams/{streamId}/stop",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/studio-ai/enhancements",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
+  },
+  {
+    "path": "/studio-ai/preview",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "One of the 9 dead path families with no destination this PR deprecates in openapi.yaml (wave-gateway#1912, \"8 advertised path families have no destination\"): live-probed 2026-09-28, the gateway answers 404 ROUTE_NOT_FOUND for this path on every method, so the operation is marked deprecated: true / x-status: unrouted here, its 402 (where declared) replaced with a documented 404, and its summary gets a (unrouted) suffix. The published /openapi.json document has not been regenerated to match yet (its own contract generation does not check for a destination either -- the same root cause #1912 fixes on the gateway side) and still shows this operation as though it were live. Keyed on the published side's deprecated field being absent, exactly as this repo declared it before this PR: the moment the service's own generation starts marking the operation deprecated too, this predicate fails and the two shapes get compared for real.",
+    "expect": {
+      "deprecated": null
+    }
   }
 ]
