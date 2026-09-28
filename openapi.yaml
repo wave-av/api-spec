@@ -128,6 +128,8 @@ tags:
     description: >-
       Agent directory — resolve a WAVE agent id to its public channel map (email, credential key
       name, org, channels). Read-only; public-directory data only, never secret material.
+      Public-directory resolve / gate checks are free forever ($0): no priced meter and no x402
+      billing; rate limits and daily request quota may still apply.
 
   - name: Accessibility Studio
     description: >-
@@ -4231,6 +4233,10 @@ paths:
         that must match the principal (a mismatch is a 400 ORG_MISMATCH). Requires the
         `directory:read` scope (separately grantable; DISTINCT from the compliance `identity:read`
         scope that gates Stripe verification sessions).
+
+        Public-directory resolve and gate checks are free forever ($0). Same doctrine as the free
+        VRFY check: no priced Stripe/KWH meter event and no x402 charge. Rate limits and the
+        gateway daily request quota may still apply. Do not invent a paid price for this path.
 
         The one documented response variation is the `telephony` service entry, whose identity
         carries `org`/`channels`/`numbers`/`keys` (plural credential key names + E.164 numbers)
