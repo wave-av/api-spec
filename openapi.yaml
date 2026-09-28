@@ -1138,7 +1138,10 @@ paths:
       summary: List streams
       description: >-
         List the caller's streams, newest first. Requires the `streams:read` scope.
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: listStreams
+      x-schema-status: preview
+      x-wave-availability: preview
       parameters:
         - name: limit
           in: query
@@ -1191,7 +1194,10 @@ paths:
       description: >-
         Create a stream. Provisions a Cloudflare Stream live input and returns its
         ingest/playback URLs. Requires the `streams:write` scope.
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: createStream
+      x-schema-status: preview
+      x-wave-availability: preview
       requestBody:
         required: true
         content:
@@ -1218,8 +1224,12 @@ paths:
     get:
       tags: [Streams]
       summary: Get a stream
-      description: Requires the `streams:read` scope.
+      description: >-
+        Requires the `streams:read` scope.
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: getStream
+      x-schema-status: preview
+      x-wave-availability: preview
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
       responses:
@@ -1245,7 +1255,10 @@ paths:
       description: >-
         Transition a stream to `live` and open a stream session. Requires the
         `streams:write` scope.
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: startStream
+      x-schema-status: preview
+      x-wave-availability: preview
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
       responses:
@@ -1292,7 +1305,10 @@ paths:
       description: >-
         Close the active stream session and transition the stream to `ended`.
         Requires the `streams:write` scope.
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: stopStream
+      x-schema-status: preview
+      x-wave-availability: preview
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
       responses:
@@ -1341,7 +1357,10 @@ paths:
       description: >-
         Lightweight status document (connection state, current viewer count).
         Requires the `streams:read` scope.
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: getStreamStatus
+      x-schema-status: preview
+      x-wave-availability: preview
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
       responses:
@@ -1383,7 +1402,10 @@ paths:
       description: >-
         Aggregated viewer/quality metrics for one stream's sessions. Requires the
         `streams:read` scope.
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: getStreamAnalytics
+      x-schema-status: preview
+      x-wave-availability: preview
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
         - name: from
@@ -1444,8 +1466,12 @@ paths:
     get:
       tags: [Streams]
       summary: List a stream's highlights
-      description: Requires the `streams:read` scope.
+      description: >-
+        Requires the `streams:read` scope.
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: listStreamHighlights
+      x-schema-status: preview
+      x-wave-availability: preview
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
         - name: limit
@@ -1485,7 +1511,10 @@ paths:
       description: >-
         Mark a moment in a stream as a highlight for later clipping. Requires the
         `streams:write` scope.
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: markStreamHighlight
+      x-schema-status: preview
+      x-wave-availability: preview
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
       requestBody:
@@ -3062,7 +3091,11 @@ paths:
     get:
       tags: [Phone]
       summary: List phone lines
+      description: >-
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: listPhoneLines
+      x-schema-status: preview
+      x-wave-availability: preview
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PerPageParam'
@@ -3083,7 +3116,11 @@ paths:
     post:
       tags: [Phone]
       summary: Provision a phone line
+      description: >-
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: provisionPhoneLine
+      x-schema-status: preview
+      x-wave-availability: preview
       requestBody:
         content:
           application/json:
@@ -3101,7 +3138,11 @@ paths:
     get:
       tags: [Phone]
       summary: List calls
+      description: >-
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: listCalls
+      x-schema-status: preview
+      x-wave-availability: preview
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PerPageParam'
@@ -3131,7 +3172,11 @@ paths:
     post:
       tags: [Phone]
       summary: Make a call
+      description: >-
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       operationId: makeCall
+      x-schema-status: preview
+      x-wave-availability: preview
       requestBody:
         required: true
         content:
@@ -4630,7 +4675,8 @@ paths:
       tags: [AES67]
       operationId: aes67
       summary: WAVE aes67 API
-      x-schema-status: draft
+      x-schema-status: preview
+      x-wave-availability: preview
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/aes67.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -4638,6 +4684,8 @@ paths:
         draft placeholder (`additionalProperties: true`) pending the product team's
         schema. Method is POST, inferred from the `aes67:write` scope; the
         gateway's paywall is a flat per-product gate, so other verbs may also be live.
+
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
         meter: null
@@ -4645,7 +4693,6 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on aes67; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [aes67:write]
       requestBody:
@@ -5305,7 +5352,8 @@ paths:
       tags: [Bridge]
       operationId: bridge
       summary: WAVE bridge API
-      x-schema-status: draft
+      x-schema-status: preview
+      x-wave-availability: preview
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/bridge.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -5313,6 +5361,8 @@ paths:
         draft placeholder (`additionalProperties: true`) pending the product team's
         schema. Method is POST, inferred from the `bridge:write` scope; the
         gateway's paywall is a flat per-product gate, so other verbs may also be live.
+
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
         meter: wave_bridge_minutes
@@ -5320,7 +5370,6 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on bridge; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [bridge:write]
       requestBody:
@@ -6149,6 +6198,7 @@ paths:
       operationId: crest
       summary: WAVE crest API
       x-schema-status: draft
+      x-wave-availability: ga
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/crest.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -6161,9 +6211,9 @@ paths:
         meter: wave_crest_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "2000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on crest; a flat per-call gate, not necessarily the metered rate.
+        x-price-note: GA route confirmed live at the gateway; interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       security:
         - bearerWithScopes: [crest:write]
       requestBody:
@@ -6238,7 +6288,8 @@ paths:
       tags: [Dante]
       operationId: dante
       summary: WAVE dante API
-      x-schema-status: draft
+      x-schema-status: preview
+      x-wave-availability: preview
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/dante.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -6246,6 +6297,8 @@ paths:
         draft placeholder (`additionalProperties: true`) pending the product team's
         schema. Method is POST, inferred from the `dante:write` scope; the
         gateway's paywall is a flat per-product gate, so other verbs may also be live.
+
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
         meter: wave_dante_observe_ingests
@@ -6253,7 +6306,6 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on dante; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [dante:write]
       requestBody:
@@ -7273,6 +7325,7 @@ paths:
       operationId: listen
       summary: WAVE listen API
       x-schema-status: draft
+      x-wave-availability: ga
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/listen.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -7285,9 +7338,9 @@ paths:
         meter: wave_listen_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "2000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on listen; a flat per-call gate, not necessarily the metered rate.
+        x-price-note: GA route confirmed live at the gateway; interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       security:
         - bearerWithScopes: [listen:write]
       requestBody:
@@ -7588,6 +7641,7 @@ paths:
       operationId: mesh
       summary: WAVE mesh API
       x-schema-status: draft
+      x-wave-availability: ga
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/mesh.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -7602,7 +7656,7 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on mesh; a flat per-call gate, not necessarily the metered rate.
+        x-price-note: GA route confirmed live at the gateway; interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       security:
         - bearerWithScopes: [mesh:write]
       requestBody:
@@ -7902,7 +7956,8 @@ paths:
       tags: [MXL]
       operationId: mxl
       summary: WAVE mxl API
-      x-schema-status: draft
+      x-schema-status: preview
+      x-wave-availability: preview
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/mxl.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -7910,6 +7965,8 @@ paths:
         draft placeholder (`additionalProperties: true`) pending the product team's
         schema. Method is POST, inferred from the `mxl:write` scope; the
         gateway's paywall is a flat per-product gate, so other verbs may also be live.
+
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
         meter: null
@@ -7917,7 +7974,6 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on mxl; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [mxl:write]
       requestBody:
@@ -7947,7 +8003,8 @@ paths:
       tags: [NDI]
       operationId: ndi
       summary: WAVE ndi API
-      x-schema-status: draft
+      x-schema-status: preview
+      x-wave-availability: preview
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/ndi.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -7955,6 +8012,8 @@ paths:
         draft placeholder (`additionalProperties: true`) pending the product team's
         schema. Method is POST, inferred from the `ndi:write` scope; the
         gateway's paywall is a flat per-product gate, so other verbs may also be live.
+
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
         meter: null
@@ -7962,7 +8021,6 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on ndi; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [ndi:write]
       requestBody:
@@ -8037,7 +8095,8 @@ paths:
       tags: [OMT]
       operationId: omt
       summary: WAVE omt API
-      x-schema-status: draft
+      x-schema-status: preview
+      x-wave-availability: preview
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/omt.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -8045,6 +8104,8 @@ paths:
         draft placeholder (`additionalProperties: true`) pending the product team's
         schema. Method is POST, inferred from the `omt:write` scope; the
         gateway's paywall is a flat per-product gate, so other verbs may also be live.
+
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
         meter: null
@@ -8052,7 +8113,6 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on omt; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [omt:write]
       requestBody:
@@ -9160,7 +9220,8 @@ paths:
       tags: [RIST]
       operationId: rist
       summary: WAVE rist API
-      x-schema-status: draft
+      x-schema-status: preview
+      x-wave-availability: preview
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/rist.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -9168,6 +9229,8 @@ paths:
         draft placeholder (`additionalProperties: true`) pending the product team's
         schema. Method is POST, inferred from the `rist:write` scope; the
         gateway's paywall is a flat per-product gate, so other verbs may also be live.
+
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
         meter: null
@@ -9175,7 +9238,6 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on rist; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [rist:write]
       requestBody:
@@ -9295,7 +9357,8 @@ paths:
       tags: [Rtmp]
       operationId: rtmp
       summary: WAVE rtmp API
-      x-schema-status: draft
+      x-schema-status: preview
+      x-wave-availability: preview
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/rtmp.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -9303,6 +9366,8 @@ paths:
         draft placeholder (`additionalProperties: true`) pending the product team's
         schema. Method is POST, inferred from the `rtmp:write` scope; the
         gateway's paywall is a flat per-product gate, so other verbs may also be live.
+
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
         meter: null
@@ -9310,7 +9375,6 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on rtmp; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [rtmp:write]
       requestBody:
@@ -9746,6 +9810,7 @@ paths:
       operationId: srt
       summary: WAVE srt API
       x-schema-status: draft
+      x-wave-availability: ga
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/srt.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -9760,7 +9825,7 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on srt; a flat per-call gate, not necessarily the metered rate.
+        x-price-note: GA route confirmed live at the gateway; interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       security:
         - bearerWithScopes: [srt:write]
       requestBody:
@@ -9790,7 +9855,8 @@ paths:
       tags: [ST2110]
       operationId: st2110
       summary: WAVE st2110 API
-      x-schema-status: draft
+      x-schema-status: preview
+      x-wave-availability: preview
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/st2110.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -9798,6 +9864,8 @@ paths:
         draft placeholder (`additionalProperties: true`) pending the product team's
         schema. Method is POST, inferred from the `st2110:write` scope; the
         gateway's paywall is a flat per-product gate, so other verbs may also be live.
+
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
         meter: null
@@ -9805,7 +9873,6 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on st2110; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [st2110:write]
       requestBody:
@@ -9835,7 +9902,8 @@ paths:
       tags: [Stream]
       operationId: stream
       summary: WAVE stream API
-      x-schema-status: draft
+      x-schema-status: preview
+      x-wave-availability: preview
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/stream.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -9843,6 +9911,8 @@ paths:
         draft placeholder (`additionalProperties: true`) pending the product team's
         schema. Method is POST, inferred from the `stream:write` scope; the
         gateway's paywall is a flat per-product gate, so other verbs may also be live.
+
+        Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
         meter: wave_stream_bridge_minutes
@@ -9850,7 +9920,6 @@ paths:
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on stream; a flat per-call gate, not necessarily the metered rate.
       security:
         - bearerWithScopes: [stream:write]
       requestBody:
@@ -11006,6 +11075,7 @@ paths:
       operationId: whep
       summary: WAVE whep API
       x-schema-status: draft
+      x-wave-availability: ga
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/whep.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -11018,9 +11088,9 @@ paths:
         meter: wave_whep_egress_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "3000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on whep; a flat per-call gate, not necessarily the metered rate.
+        x-price-note: GA route confirmed live at the gateway; interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       security:
         - bearerWithScopes: [whep:write]
       requestBody:
@@ -11051,6 +11121,7 @@ paths:
       operationId: whip
       summary: WAVE whip API
       x-schema-status: draft
+      x-wave-availability: ga
       x-skill-url: https://gateway.wave.online/.well-known/wave-skills/whip.json
       description: >
         Generated from the live gateway skills index (not yet hand-documented). The
@@ -11063,9 +11134,9 @@ paths:
         meter: wave_whip_ingest_minutes
         currency: USDC
         network: base
-        atomicAmount: "1000"
+        atomicAmount: "5000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        x-price-note: Observed live via an unauthenticated x402 402 challenge on whip; a flat per-call gate, not necessarily the metered rate.
+        x-price-note: GA route confirmed live at the gateway; interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       security:
         - bearerWithScopes: [whip:write]
       requestBody:

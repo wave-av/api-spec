@@ -159,13 +159,13 @@ export interface paths {
         };
         /**
          * List streams
-         * @description List the caller's streams, newest first. Requires the `streams:read` scope.
+         * @description List the caller's streams, newest first. Requires the `streams:read` scope. Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         get: operations["listStreams"];
         put?: never;
         /**
          * Create a stream
-         * @description Create a stream. Provisions a Cloudflare Stream live input and returns its ingest/playback URLs. Requires the `streams:write` scope.
+         * @description Create a stream. Provisions a Cloudflare Stream live input and returns its ingest/playback URLs. Requires the `streams:write` scope. Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["createStream"];
         delete?: never;
@@ -183,7 +183,7 @@ export interface paths {
         };
         /**
          * Get a stream
-         * @description Requires the `streams:read` scope.
+         * @description Requires the `streams:read` scope. Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         get: operations["getStream"];
         put?: never;
@@ -205,7 +205,7 @@ export interface paths {
         put?: never;
         /**
          * Start a stream
-         * @description Transition a stream to `live` and open a stream session. Requires the `streams:write` scope.
+         * @description Transition a stream to `live` and open a stream session. Requires the `streams:write` scope. Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["startStream"];
         delete?: never;
@@ -225,7 +225,7 @@ export interface paths {
         put?: never;
         /**
          * Stop a stream
-         * @description Close the active stream session and transition the stream to `ended`. Requires the `streams:write` scope.
+         * @description Close the active stream session and transition the stream to `ended`. Requires the `streams:write` scope. Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["stopStream"];
         delete?: never;
@@ -243,7 +243,7 @@ export interface paths {
         };
         /**
          * Get a stream's status
-         * @description Lightweight status document (connection state, current viewer count). Requires the `streams:read` scope.
+         * @description Lightweight status document (connection state, current viewer count). Requires the `streams:read` scope. Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         get: operations["getStreamStatus"];
         put?: never;
@@ -263,7 +263,7 @@ export interface paths {
         };
         /**
          * Get a stream's analytics
-         * @description Aggregated viewer/quality metrics for one stream's sessions. Requires the `streams:read` scope.
+         * @description Aggregated viewer/quality metrics for one stream's sessions. Requires the `streams:read` scope. Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         get: operations["getStreamAnalytics"];
         put?: never;
@@ -283,13 +283,13 @@ export interface paths {
         };
         /**
          * List a stream's highlights
-         * @description Requires the `streams:read` scope.
+         * @description Requires the `streams:read` scope. Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         get: operations["listStreamHighlights"];
         put?: never;
         /**
          * Mark a highlight
-         * @description Mark a moment in a stream as a highlight for later clipping. Requires the `streams:write` scope.
+         * @description Mark a moment in a stream as a highlight for later clipping. Requires the `streams:write` scope. Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["markStreamHighlight"];
         delete?: never;
@@ -952,10 +952,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List phone lines */
+        /**
+         * List phone lines
+         * @description Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
+         */
         get: operations["listPhoneLines"];
         put?: never;
-        /** Provision a phone line */
+        /**
+         * Provision a phone line
+         * @description Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
+         */
         post: operations["provisionPhoneLine"];
         delete?: never;
         options?: never;
@@ -970,10 +976,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List calls */
+        /**
+         * List calls
+         * @description Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
+         */
         get: operations["listCalls"];
         put?: never;
-        /** Make a call */
+        /**
+         * Make a call
+         * @description Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
+         */
         post: operations["makeCall"];
         delete?: never;
         options?: never;
@@ -1672,6 +1684,7 @@ export interface paths {
         /**
          * WAVE aes67 API
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `aes67:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         *     Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["aes67"];
         delete?: never;
@@ -1972,6 +1985,7 @@ export interface paths {
         /**
          * WAVE bridge API
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `bridge:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         *     Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["bridge"];
         delete?: never;
@@ -2412,6 +2426,7 @@ export interface paths {
         /**
          * WAVE dante API
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `dante:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         *     Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["dante"];
         delete?: never;
@@ -3152,6 +3167,7 @@ export interface paths {
         /**
          * WAVE mxl API
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `mxl:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         *     Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["mxl"];
         delete?: never;
@@ -3172,6 +3188,7 @@ export interface paths {
         /**
          * WAVE ndi API
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `ndi:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         *     Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["ndi"];
         delete?: never;
@@ -3212,6 +3229,7 @@ export interface paths {
         /**
          * WAVE omt API
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `omt:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         *     Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["omt"];
         delete?: never;
@@ -3712,6 +3730,7 @@ export interface paths {
         /**
          * WAVE rist API
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `rist:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         *     Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["rist"];
         delete?: never;
@@ -3772,6 +3791,7 @@ export interface paths {
         /**
          * WAVE rtmp API
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `rtmp:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         *     Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["rtmp"];
         delete?: never;
@@ -3992,6 +4012,7 @@ export interface paths {
         /**
          * WAVE st2110 API
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `st2110:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         *     Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["st2110"];
         delete?: never;
@@ -4012,6 +4033,7 @@ export interface paths {
         /**
          * WAVE stream API
          * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway; the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `stream:write` scope; the gateway's paywall is a flat per-product gate, so other verbs may also be live.
+         *     Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
          */
         post: operations["stream"];
         delete?: never;

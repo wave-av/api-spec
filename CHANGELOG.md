@@ -6,6 +6,53 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- **Media-engine transport paths — remove stale "Observed live via 402" notes, mark unserved
+  paths preview, add a live-probe gate** (`openapi.yaml`, `scripts/live-probe.mjs`,
+  `generated/api-types.d.ts` — ME-SPEC-transport-truth). The generic gateway-skills-index
+  generator had stamped every transport capability with the same heuristic
+  `x-price-note: "Observed live via an unauthenticated x402 402 challenge on <name>..."`
+  regardless of whether the route is actually GA or was never wired at the gateway — a live probe
+  against `https://api.wave.online/v1/*` (unauthenticated, this PR's receipt) shows 16 of the
+  media-engine transport routes really are live (srt, moq publish/subscribe, whip, whep,
+  realtime connect/publish/presence/history, listen, crest, braid/publish, mesh, av
+  remux/demux, engine/capabilities — all answer 402, never `ROUTE_NOT_FOUND`) while 23 more the
+  spec described as equally-real (aes67, bridge, dante, mxl, ndi, omt, rist, rtmp, st2110,
+  stream, the full `/streams*` family, `phone/lines`, `phone/calls`) answer 404
+  `ROUTE_NOT_FOUND` or (`/ndi`) an honest 503 `EGRESS_HOST_NOT_CONFIGURED`. Docs that call a 404
+  a GA capability are worse than no docs — an SDK/CLI/MCP consumer generated from this repo would
+  ship a method with no backing route.
+  - GA paths keep their `x-price-note` removed and get `x-wave-availability: ga`; six of them
+    (srt, whip, whep, listen, crest, mesh) had their draft-placeholder `x-price.atomicAmount`
+    corrected to the ops-ruled interim live amount (srt 1000, whip 5000, whep 3000, listen 2000,
+    crest 2000, mesh 1000 — unchanged where it already matched). `x-schema-status` stays `draft`
+    on these six: their bodies are still the generic `additionalProperties: true` placeholder, not
+    yet hand-documented to match the spoke, so promoting to `stable` would be a false claim, not a
+    fix. `moq/publish`, `moq/subscribe`, `realtime/*`, `braid/publish*`, `av/remux`, `av/demux`
+    and `engine/capabilities` were already hand-documented (no generic note, no draft placeholder)
+    and are untouched. The D4 catalog-rate pricing ruling lands separately via ME-SHIP-GW-2, per
+    that lane's scope — this PR only removes the stale note and sets the interim live amount.
+  - Preview paths get `x-schema-status: preview`, `x-wave-availability: preview`, their stale
+    `x-price-note` removed, and a `Preview: not yet served on the public API; returns 404
+    ROUTE_NOT_FOUND or 503.` sentence appended to every operation's description — including the
+    `/streams*` and `/phone/*` families, which are fully hand-documented (real schemas, real
+    response shapes) but the live gateway 404s them today; a rich schema is not evidence of
+    liveness.
+  - `/dante`'s single documented path carries a `wave_dante_observe_ingests` meter name that
+    reads like the GA "dante/observe" capability the go-live spec calls out separately from
+    preview "dante (control)" — but the live probe shows `/v1/dante` itself 404s
+    `ROUTE_NOT_FOUND` today, so it is marked preview per the literal item-1 list; no
+    `/dante/observe` path exists yet in this spec to promote (documented as a gap below, not
+    invented).
+  - Adds `scripts/live-probe.mjs` (+ `scripts/live-probe.test.mjs`, 26 hermetic/offline unit
+    tests, `npm run test:live-probe`): an unauthenticated GET/POST probe over every non-preview
+    operation in `openapi.yaml`, failing only on `ROUTE_NOT_FOUND`/`ROUTE_NOT_MAPPED` (a route the
+    gateway's forward table has never heard of) — narrow on purpose, since 401/402/400/426/a
+    route-specific 503 all prove the route IS served. `--strict-preview` flips the assertion the
+    other way (a preview route must answer 404/503, catching an undocumented-GA route hiding
+    behind a stale preview label). `npm run live-probe -- --only <prefix,...>` scopes a run.
+
 ### Added
 
 - **Composer surface** (`openapi.yaml`) — the gateway (build `d62760094`) serves three

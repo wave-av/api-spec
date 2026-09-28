@@ -7,7 +7,9 @@
   "scripts": {
     "lint": "redocly lint openapi.yaml",
     "gen:types": "openapi-typescript openapi.yaml -o generated/api-types.d.ts",
-    "test:ga": "node --test \"scripts/ga/**/*.test.mjs\""
+    "test:ga": "node --test \"scripts/ga/**/*.test.mjs\"",
+    "test:live-probe": "node --test scripts/live-probe.test.mjs",
+    "live-probe": "node scripts/live-probe.mjs"
   },
   "devDependencies": {
     "@redocly/cli": "2.40.0",
