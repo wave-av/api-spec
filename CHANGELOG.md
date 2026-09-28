@@ -8,6 +8,21 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **`npm run probe:live`** (`.github/scripts/probe-live.mjs`) — a direct, single-document
+  liveness check: probes every non-deprecated, GET-declaring, non-templated, non-host-overridden
+  path in `openapi.yaml` against the live gateway (unauthenticated, bodiless) and exits 1 on any
+  `ABSENT`. Deliberately narrower than `live-route-drift.mjs` (which unions five enumerators and
+  reasons about three documents): this is the one-document "does what I still promise still work"
+  gate the version bump below needed before it could claim anything. Reuses
+  `live-route-probe.mjs`'s classifier and `live-route-compare.mjs`'s `hasOwnServerOverride` /
+  `basePath` so it skips host-overridden operations (`/leaderboard`, `/platform`, the Realtime
+  API) exactly the way `live-route-drift.mjs` already does, rather than probing them at the wrong
+  origin. MEASURED 2026-09-28 against the live gateway after the changes below: 35 non-deprecated
+  GET-declaring paths checked, 2 `ABSENT` — `GET /inference/models` and `GET /codec/status`, both
+  documented (2026-09-11) as answering a live 402 and now answering 404 `ROUTE_NOT_FOUND`. Neither
+  is one of the 9 dead families this PR deprecates below; this is a genuine, separate regression
+  discovered as a side effect of building this gate, out of scope for this PR, and flagged for the
+  gateway/inference-funnel owners rather than silently masked.
 - **36 gateway-native operations that were served but unspecified** (`openapi.yaml`) —
   measured 2026-09-11 with unauthenticated, bodiless probes against the document's own origin,
   every one of these paths answered something other than `ROUTE_NOT_MAPPED` (a 402 x402
@@ -300,6 +315,29 @@ All notable changes to this project are documented here. The format is based on
 
 ### Deprecated
 
+- **9 advertised path families with no destination — 38 operations** (`openapi.yaml`) —
+  `/streams` (7 paths: list/create, get, start, stop, status, analytics, highlights),
+  `/productions` (4 paths), `/cameras` (2 paths), `/editor/projects` (3 paths), `/phone/lines`,
+  `/phone/calls`, `/collab/rooms` (2 paths), `/podcast/shows` (2 paths) and `/studio-ai`
+  (2 paths). Same defect class api-spec#102 closed for the 5 draft stubs, same fix, applied to
+  the gateway-side companion (wave-gateway#1912, "8 advertised path families have no
+  destination"): these are documented in the pinned spec, scope-mapped, and generate MCP tools /
+  skill-card route entries, but no product spoke and no gateway-native handler serves any of
+  them. Live-probed 2026-09-28 (unauthenticated and, on a sample, authenticated; GET and POST):
+  every path answers 404 `ROUTE_NOT_FOUND`. Root cause per #1912: `wave-workers#46` retired the
+  WSC core-origin fall-through that used to answer every scope-mapped-but-unspoken prefix with a
+  402 (right or wrong); since 2026-09-25 `forward()` answers these prefixes honestly with 404
+  `ROUTE_NOT_FOUND`, but nothing had pruned the contract to match. Each operation is marked
+  `deprecated: true` / `x-status: unrouted`, its `summary` gains a `(unrouted)` suffix, and its
+  documented `402` response (where one existed) is replaced with a documented `404` naming
+  `ROUTE_NOT_FOUND`; the 6 families that never declared an error response at all (`/editor/projects`,
+  `/phone/lines`, `/phone/calls`, `/collab/rooms`, `/podcast/shows`, `/studio-ai`) gain the same
+  404 rather than staying silent about the one status code they now actually return (this also
+  clears 24 pre-existing `operation-4xx-response` `redocly lint` warnings — net warning count
+  drops from 58 to 37, no new warnings introduced). None of the 9 families carried an `x-price`
+  block, so there was nothing to remove for them (unlike the 5 draft-stub precedent). Kept rather
+  than deleted, as with the chapters/mux precedents above, until each family is either wired up or
+  formally retired from the capability index.
 - **`POST /mux`, `/ops`, `/creator`, `/creator-economy` and `/creator-storefront`** — marked
   `deprecated: true` / `x-status: unrouted`. These were draft stubs generated from the gateway's
   capability index, each stating the route "is confirmed live at the gateway" and carrying an
@@ -327,6 +365,35 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- **`info.title` still said "WAVE Enterprise Streaming Platform API"** (`openapi.yaml`) — renamed
+  to `WAVE API` and `info.description`'s opening line rewritten to match (agent-native media and
+  communications platform, not "Enterprise Streaming Platform"). Bumped `info.version` to 1.2.0.
+- **Live-route probe classifier only recognized 1 of wave-gateway's 3 closed "not served" 404
+  codes** (`.github/scripts/live-route-probe.mjs`) — MEASURED against wave-gateway's own
+  `src/not-served-404-codes.ts` (#1910): `NOT_SERVED_404_CODES` is
+  `["ROUTE_NOT_MAPPED", "ROUTE_NOT_FOUND", "SPOKE_OPERATION_NOT_FOUND"]`, a documented, tested,
+  closed set of three — not one. `classifyProbe()` only classified `ROUTE_NOT_MAPPED` as
+  `ABSENT`; a probe landing on `ROUTE_NOT_FOUND` (scope-mapped prefix, no live spoke — exactly
+  the code the 9-family deprecation above measures) or `SPOKE_OPERATION_NOT_FOUND` (#1832 —
+  forwarded to a live destination that itself 404'd) fell into the bare-404 `INDETERMINATE`
+  branch: not a false green, but a genuine not-served signal went unclaimed and no gate could
+  fail on it. Both new codes are always HTTP 404 (neither has `ROUTE_NOT_MAPPED`'s legacy-403
+  history) and are now `ABSENT`; a 403 or 5xx carrying either stays `INDETERMINATE`/`MAPPED` per
+  the same reasoning already applied to a bare 403. New fixtures in
+  `live-route-drift-regressions.test.mjs`.
+- **`/leaderboard` and `/platform` re-verified, not changed** — the GA readiness census reported
+  both as part of the 137-138/175 "unserved" prefixes because it probed every advertised prefix
+  uniformly at `https://api.wave.online/v1/<prefix>`, ignoring each operation's own `servers`
+  override. Both operations already declare `servers: [{url: https://api.wave.online}]` (added
+  in the 1.1.0 entry below) and MEASURED live 2026-09-28 at that correct, already-declared URL:
+  `GET https://api.wave.online/leaderboard` → 401 `LEADERBOARD_AUTH_REQUIRED`; `GET
+  https://api.wave.online/platform` → 401 `TELEMETRY_AUTH_REQUIRED`. Both are genuinely served —
+  a 401 proves a route exists — and only the wrong, un-overridden `.../v1/leaderboard` /
+  `.../v1/platform` answer 404 `ROUTE_NOT_MAPPED`, which is the census's false-negative, not a
+  spec defect. No `openapi.yaml` change: marking a live, 401-auth-required operation
+  `x-status: unrouted` would be a false claim in a public contract. `probe-live.mjs` above
+  reproduces the correct, override-aware probe so this false negative cannot recur from this
+  repo's own tooling.
 - **Live-route drift classifier treated a 404 `ROUTE_NOT_MAPPED` as a served route**
   (`.github/scripts/live-route-probe.mjs`) — the gateway now answers an unmapped path with
   HTTP 404 and the body code `ROUTE_NOT_MAPPED` (earlier builds used 403; a few gateway-native

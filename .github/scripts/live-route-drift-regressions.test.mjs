@@ -14,6 +14,9 @@
 //   6. parseArgs must not mistake --out's value for the spec when the caller omits the spec.
 //   7. A bare 404 on a declared GET route must surface as INDETERMINATE and exit UNKNOWN — never
 //      read as MAPPED (false green) and never as a declared-not-live finding (fabricated).
+//   8. ROUTE_NOT_FOUND and SPOKE_OPERATION_NOT_FOUND (the other two members of wave-gateway's closed
+//      not-served set, #1910) must classify as ABSENT like ROUTE_NOT_MAPPED, and file a real
+//      declared-not-live finding — not fall into the bare-404 INDETERMINATE branch.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ABSENT, MAPPED, INDETERMINATE, classifyProbe } from './live-route-probe.mjs';
@@ -141,4 +144,31 @@ test('a bare 404 on a declared GET route is surfaced as INDETERMINATE and exits 
   assert.equal(r.findings.length, 0, 'a bare 404 must not fabricate a declared-not-live finding');
   assert.deepEqual(r.indeterminate, [{ path: '/v1/clips', reason: 'HTTP 404' }], 'and it must be surfaced by path');
   assert.equal(decideExit(r), EXIT_UNKNOWN, 'an unreadable declared route is not a clean run');
+});
+
+// ─── ROUTE_NOT_FOUND / SPOKE_OPERATION_NOT_FOUND — the other two closed-set codes. ─────────────────
+
+test('ROUTE_NOT_FOUND and SPOKE_OPERATION_NOT_FOUND classify ABSENT, same as ROUTE_NOT_MAPPED', () => {
+  // MEASURED against wave-gateway src/not-served-404-codes.ts (#1910): NOT_SERVED_404_CODES is
+  // ["ROUTE_NOT_MAPPED", "ROUTE_NOT_FOUND", "SPOKE_OPERATION_NOT_FOUND"] — a closed set of three, not
+  // one. Before this fix the other two fell into the bare-404 INDETERMINATE branch below.
+  assert.equal(classifyProbe({ status: 404, body: { error: { code: 'ROUTE_NOT_FOUND' } } }), ABSENT);
+  assert.equal(classifyProbe({ status: 404, body: { error: { code: 'SPOKE_OPERATION_NOT_FOUND' } } }), ABSENT);
+  // Neither code has ROUTE_NOT_MAPPED's legacy-403 history — a 403 carrying either is read the same
+  // way a bare 403 always is (an authorization failure PROVES the route exists), not inferred as
+  // absence from the code alone.
+  assert.equal(classifyProbe({ status: 403, body: { error: { code: 'ROUTE_NOT_FOUND' } } }), MAPPED);
+  assert.equal(classifyProbe({ status: 403, body: { error: { code: 'SPOKE_OPERATION_NOT_FOUND' } } }), MAPPED);
+  // A 500 carrying either code must stay INDETERMINATE, same guard as ROUTE_NOT_MAPPED.
+  assert.equal(classifyProbe({ status: 500, body: { error: { code: 'ROUTE_NOT_FOUND' } } }), INDETERMINATE);
+});
+
+test('a ROUTE_NOT_FOUND probe on a declared route files a real declared-not-live finding', () => {
+  const repo = { servers: SERVERS, paths: { '/streams': { get: { operationId: 'listStreams' } } } };
+  const probe = { path: '/v1/streams', ok: true, status: 404, body: { error: { code: 'ROUTE_NOT_FOUND' } } };
+  probe.state = classifyProbe(probe);
+  assert.equal(probe.state, ABSENT, 'unlike a bare 404, ROUTE_NOT_FOUND is a positive not-served claim');
+  const r = compareAgainstLive({ repoDoc: repo, publishedDoc: repo, probes: probeMap([probe]) });
+  assert.equal(r.headline.declaredNotLive, 1, 'a genuinely unrouted declared operation must surface, not go INDETERMINATE');
+  assert.equal(decideExit(r), EXIT_DRIFT);
 });

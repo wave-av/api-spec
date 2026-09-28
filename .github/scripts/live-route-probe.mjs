@@ -26,15 +26,34 @@
  * was something there to be unauthorized for. Requiring the code keeps "absent" a positive claim
  * read off the body rather than an inference from a status number.
  *
- * A BARE 404 — any 404 without that code, including one whose body is not JSON — is INDETERMINATE,
- * neither absent nor present. It is not absence, because only ROUTE_NOT_MAPPED is a route-level
- * refusal. It is not presence either: every probed path is parameterless (see `isProbeable`), so
- * the one 404 a mapped handler legitimately returns — "no such resource" for a missing or
- * unsubstituted id — cannot arise here, and what CAN arise is a mapped prefix forwarding to an
- * origin that does not serve this particular sub-path and says so with a 404 of its own. Reading
- * that as MAPPED would let a declared-but-unserved route go green on an unreadable body, which is
- * exactly the false-green this gate exists to catch. The sibling classifier in
- * `published-drift-live.mjs` makes the same call (a bare 404 is `unknown`).
+ * ── THE OTHER TWO MEMBERS OF THE CLOSED "NOT SERVED" SET (wave-gateway#1910) ────────────────────
+ * MEASURED 2026-09-28 against `wave-gateway` `src/not-served-404-codes.ts`: the gateway's own
+ * `NOT_SERVED_404_CODES` enum is `["ROUTE_NOT_MAPPED", "ROUTE_NOT_FOUND", "SPOKE_OPERATION_NOT_FOUND"]`
+ * — a documented, tested, CLOSED set of exactly three codes for "nothing is served here", not one.
+ * `ROUTE_NOT_FOUND` (`forward-target.ts`) fires when a path IS scope-mapped but has no live spoke or
+ * override behind it — the prefix is real, nothing answers it. `SPOKE_OPERATION_NOT_FOUND` (#1832,
+ * `upstream-4xx-sanitize.ts`) fires when the gateway DID forward and the live destination itself
+ * answered its own 404 for this exact path+method. Both are ALWAYS status 404 — unlike
+ * `ROUTE_NOT_MAPPED`, neither has 403 legacy-build history, so neither is added to
+ * `ROUTE_NOT_MAPPED_STATUSES`.
+ *
+ *   Before this fix, a probe landing on either code fell into the bare-404 branch below and read as
+ *   INDETERMINATE — not a false green, but a genuine "not served" signal went unclaimed and
+ *   `npm run probe:live` could not fail on it. Every probed path here is parameterless (see
+ *   `isProbeable`), so a `SPOKE_OPERATION_NOT_FOUND` response to one of these paths cannot be a
+ *   handler reporting a missing id; it means the declared operation truly is not implemented at the
+ *   destination the gateway forwarded to.
+ *
+ * A BARE 404 — any 404 without one of these three codes, including one whose body is not JSON — is
+ * INDETERMINATE, neither absent nor present. It is not absence, because only this closed set is a
+ * route-level "not served" refusal. It is not presence either: every probed path is parameterless
+ * (see `isProbeable`), so the one 404 a mapped handler legitimately returns — "no such resource" for
+ * a missing or unsubstituted id — cannot arise here, and what CAN arise is a mapped prefix
+ * forwarding to an origin that does not serve this particular sub-path and says so with a 404 of its
+ * own, carrying neither of the two documented codes above. Reading that as MAPPED would let a
+ * declared-but-unserved route go green on an unreadable body, which is exactly the false-green this
+ * gate exists to catch. The sibling classifier in `published-drift-live.mjs` makes the same call (a
+ * bare 404 is `unknown`).
  *
  * A 5xx, a timeout or a transport error is INDETERMINATE, never absent. An origin having a bad
  * minute must not be recorded as "this route does not exist", because that would silently clear a
@@ -60,7 +79,15 @@ export const INDETERMINATE = 'indeterminate';
 /** Statuses the gateway has been observed to pair with ROUTE_NOT_MAPPED. 404 is current; 403 is retained for older builds and the gateway-native paths that still use it. */
 export const ROUTE_NOT_MAPPED_STATUSES = new Set([403, 404]);
 
-/** Classify one probe response. See the header — 402 is MAPPED, and only ROUTE_NOT_MAPPED is ABSENT. */
+/**
+ * The other two members of wave-gateway's closed "not served" set (`src/not-served-404-codes.ts`,
+ * wave-gateway#1910): `ROUTE_NOT_FOUND` (scope-mapped, no live spoke) and `SPOKE_OPERATION_NOT_FOUND`
+ * (#1832 — forwarded to a live destination that itself 404'd). Both are always HTTP 404; neither has
+ * ROUTE_NOT_MAPPED's legacy-403 history, so they are not added to `ROUTE_NOT_MAPPED_STATUSES`.
+ */
+export const OTHER_NOT_SERVED_404_CODES = new Set(['ROUTE_NOT_FOUND', 'SPOKE_OPERATION_NOT_FOUND']);
+
+/** Classify one probe response. See the header — 402 is MAPPED, and only the closed not-served set is ABSENT. */
 export function classifyProbe({ status, body }) {
   if (status >= 500) return INDETERMINATE;
   // A redirect conveys nothing about whether a route exists: `probePath` uses `redirect: 'manual'`,
@@ -68,14 +95,18 @@ export function classifyProbe({ status, body }) {
   // in both directions — it can hide a genuinely withdrawn/redirected route (false green) and it can
   // fabricate a live-undeclared finding for a redirecting undeclared path (false red).
   if (status >= 300 && status < 400) return INDETERMINATE;
+  const code = body?.error?.code;
   // Require one of the statuses the documented contract pairs with the code (404 today, 403 on
   // earlier builds). Checking the body code alone would let a gateway error at some other status
   // that happens to carry the same code hide a real live-route finding — the 5xx guard above is the
   // concrete case: a 500 carrying ROUTE_NOT_MAPPED must stay INDETERMINATE.
-  if (ROUTE_NOT_MAPPED_STATUSES.has(status) && body?.error?.code === 'ROUTE_NOT_MAPPED') return ABSENT;
-  // A 404 without the code is evidence of nothing (see the header): the path is parameterless, so
-  // this is not a handler reporting a missing id — it may be an origin behind a mapped prefix that
-  // does not serve this sub-path, or a body the probe could not read. Neither fabricates presence.
+  if (ROUTE_NOT_MAPPED_STATUSES.has(status) && code === 'ROUTE_NOT_MAPPED') return ABSENT;
+  // ROUTE_NOT_FOUND and SPOKE_OPERATION_NOT_FOUND are always 404 (no legacy-403 form to accept).
+  if (status === 404 && OTHER_NOT_SERVED_404_CODES.has(code)) return ABSENT;
+  // A 404 without one of the three codes is evidence of nothing (see the header): the path is
+  // parameterless, so this is not a handler reporting a missing id — it may be an origin behind a
+  // mapped prefix that does not serve this sub-path, or a body the probe could not read. Neither
+  // fabricates presence.
   if (status === 404) return INDETERMINATE;
   return MAPPED;
 }

@@ -1,8 +1,10 @@
 openapi: 3.1.0
 info:
-  title: WAVE Enterprise Streaming Platform API
+  title: WAVE API
   description: |
-    Complete API reference for WAVE Enterprise Streaming Platform.
+    Complete API reference for WAVE, the agent-native media and communications platform
+    (streaming, rendering, transcode/encode, voice, captions, realtime, and metered
+    agent capabilities).
 
     ## Authentication
     All API requests require a Bearer token in the Authorization header:
@@ -21,7 +23,7 @@ info:
     ## Errors
     All errors return the normalized WAVE envelope `{ "error": { "code", "message" } }`,
     optionally enriched with `details`, `suggestions`, `did_you_mean`, and `doc_url`.
-  version: 1.1.0
+  version: 1.2.0
   contact:
     name: WAVE Developer Support
     url: https://wave.online/developers
@@ -1155,10 +1157,12 @@ paths:
   /streams:
     get:
       tags: [Streams]
-      summary: List streams
+      summary: List streams (unrouted)
       description: >-
         List the caller's streams, newest first. Requires the `streams:read` scope.
       operationId: listStreams
+      deprecated: true
+      x-status: unrouted
       parameters:
         - name: limit
           in: query
@@ -1201,17 +1205,23 @@ paths:
                     type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Streams]
-      summary: Create a stream
+      summary: Create a stream (unrouted)
       description: >-
         Create a stream. Provisions a Cloudflare Stream live input and returns its
         ingest/playback URLs. Requires the `streams:write` scope.
       operationId: createStream
+      deprecated: true
+      x-status: unrouted
       requestBody:
         required: true
         content:
@@ -1229,17 +1239,23 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /streams/{streamId}:
     get:
       tags: [Streams]
-      summary: Get a stream
+      summary: Get a stream (unrouted)
       description: Requires the `streams:read` scope.
       operationId: getStream
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
       responses:
@@ -1251,21 +1267,24 @@ paths:
                 $ref: '#/components/schemas/Stream'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
-
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /streams/{streamId}/start:
     post:
       tags: [Streams]
-      summary: Start a stream
+      summary: Start a stream (unrouted)
       description: >-
         Transition a stream to `live` and open a stream session. Requires the
         `streams:write` scope.
       operationId: startStream
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
       responses:
@@ -1292,12 +1311,14 @@ paths:
                     type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Stream is already live.
           content:
@@ -1308,11 +1329,13 @@ paths:
   /streams/{streamId}/stop:
     post:
       tags: [Streams]
-      summary: Stop a stream
+      summary: Stop a stream (unrouted)
       description: >-
         Close the active stream session and transition the stream to `ended`.
         Requires the `streams:write` scope.
       operationId: stopStream
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
       responses:
@@ -1341,12 +1364,14 @@ paths:
                     type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Stream is not currently live.
           content:
@@ -1357,11 +1382,13 @@ paths:
   /streams/{streamId}/status:
     get:
       tags: [Streams]
-      summary: Get a stream's status
+      summary: Get a stream's status (unrouted)
       description: >-
         Lightweight status document (connection state, current viewer count).
         Requires the `streams:read` scope.
       operationId: getStreamStatus
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
       responses:
@@ -1389,21 +1416,24 @@ paths:
                     format: date-time
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
-
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /streams/{streamId}/analytics:
     get:
       tags: [Streams]
-      summary: Get a stream's analytics
+      summary: Get a stream's analytics (unrouted)
       description: >-
         Aggregated viewer/quality metrics for one stream's sessions. Requires the
         `streams:read` scope.
       operationId: getStreamAnalytics
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
         - name: from
@@ -1453,19 +1483,22 @@ paths:
                           type: [number, 'null']
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
-
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /streams/{streamId}/highlights:
     get:
       tags: [Streams]
-      summary: List a stream's highlights
+      summary: List a stream's highlights (unrouted)
       description: Requires the `streams:read` scope.
       operationId: listStreamHighlights
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
         - name: limit
@@ -1493,19 +1526,23 @@ paths:
                     type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Streams]
-      summary: Mark a highlight
+      summary: Mark a highlight (unrouted)
       description: >-
         Mark a moment in a stream as a highlight for later clipping. Requires the
         `streams:write` scope.
       operationId: markStreamHighlight
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/StreamIdParam'
       requestBody:
@@ -1539,13 +1576,14 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
-
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   # Moderation
   /moderate:
     post:
@@ -1784,9 +1822,11 @@ paths:
   /productions:
     get:
       tags: [Productions]
-      summary: List productions
+      summary: List productions (unrouted)
       description: Requires the `productions:read` scope.
       operationId: listProductions
+      deprecated: true
+      x-status: unrouted
       parameters:
         - name: limit
           in: query
@@ -1826,15 +1866,21 @@ paths:
                     type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Productions]
-      summary: Create a production
+      summary: Create a production (unrouted)
       description: Requires the `productions:write` scope.
       operationId: createProduction
+      deprecated: true
+      x-status: unrouted
       requestBody:
         required: true
         content:
@@ -1852,17 +1898,23 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /productions/{productionId}:
     get:
       tags: [Productions]
-      summary: Get a production
+      summary: Get a production (unrouted)
       description: Requires the `productions:read` scope.
       operationId: getProduction
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/ProductionIdParam'
       responses:
@@ -1874,21 +1926,24 @@ paths:
                 $ref: '#/components/schemas/Production'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
-
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /productions/{productionId}/camera:
     post:
       tags: [Productions]
-      summary: Switch a production's camera
+      summary: Switch a production's camera (unrouted)
       description: >-
         Switch the program or preview bus to a camera index; persisted on the
         production row. Requires the `productions:write` scope.
       operationId: switchProductionCamera
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/ProductionIdParam'
       requestBody:
@@ -1922,21 +1977,24 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
-
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /productions/{productionId}/overlay:
     post:
       tags: [Productions]
-      summary: Show, hide, or update a production's graphic overlay
+      summary: Show, hide, or update a production's graphic overlay (unrouted)
       description: >-
         Persists overlay state into the production's `overlays` map, keyed by
         `graphic_id`. Requires the `productions:write` scope.
       operationId: setProductionOverlay
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/ProductionIdParam'
       requestBody:
@@ -1987,20 +2045,23 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
-
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   # Cameras
   /cameras:
     get:
       tags: [Cameras]
-      summary: List registered cameras
+      summary: List registered cameras (unrouted)
       description: Requires the `cameras:read` scope.
       operationId: listCameras
+      deprecated: true
+      x-status: unrouted
       responses:
         '200':
           description: List of registered cameras
@@ -2017,15 +2078,21 @@ paths:
                     type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Cameras]
-      summary: Register a camera
+      summary: Register a camera (unrouted)
       description: Requires the `cameras:write` scope.
       operationId: registerCamera
+      deprecated: true
+      x-status: unrouted
       requestBody:
         required: true
         content:
@@ -2043,15 +2110,19 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /cameras/{cameraId}/control:
     post:
       tags: [Cameras]
-      summary: Send a control command to a camera
+      summary: Send a control command to a camera (unrouted)
       description: >-
         Queues a control command for a registered camera (`camera_commands`, status
         `queued`). There is no protocol-general hardware dispatcher at this layer
@@ -2059,6 +2130,8 @@ paths:
         call never fabricates an `acked` status for a command not yet delivered.
         Requires the `cameras:write` scope.
       operationId: controlCamera
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/CameraIdParam'
       requestBody:
@@ -2092,13 +2165,14 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/components/responses/NotFoundError'
-
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   # Billing
   /billing:
     get:
@@ -2962,8 +3036,10 @@ paths:
   /editor/projects:
     get:
       tags: [Editor]
-      summary: List editor projects
+      summary: List editor projects (unrouted)
       operationId: listProjects
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PerPageParam'
@@ -2985,10 +3061,18 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/EditorProject'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Editor]
-      summary: Create an editor project
+      summary: Create an editor project (unrouted)
       operationId: createProject
+      deprecated: true
+      x-status: unrouted
       requestBody:
         required: true
         content:
@@ -3003,11 +3087,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/EditorProject'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /editor/projects/{projectId}:
     get:
       tags: [Editor]
-      summary: Get a project
+      summary: Get a project (unrouted)
       operationId: getProject
+      deprecated: true
+      x-status: unrouted
       parameters:
         - name: projectId
           in: path
@@ -3021,10 +3113,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EditorProject'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     patch:
       tags: [Editor]
-      summary: Update a project
+      summary: Update a project (unrouted)
       operationId: updateProject
+      deprecated: true
+      x-status: unrouted
       parameters:
         - name: projectId
           in: path
@@ -3043,10 +3143,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EditorProject'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     delete:
       tags: [Editor]
-      summary: Delete a project
+      summary: Delete a project (unrouted)
       operationId: deleteProject
+      deprecated: true
+      x-status: unrouted
       parameters:
         - name: projectId
           in: path
@@ -3057,11 +3165,19 @@ paths:
         '204':
           description: Project deleted
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /editor/projects/{projectId}/export:
     post:
       tags: [Editor]
-      summary: Export a project
+      summary: Export a project (unrouted)
       operationId: exportProject
+      deprecated: true
+      x-status: unrouted
       parameters:
         - name: projectId
           in: path
@@ -3081,12 +3197,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExportJob'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   # Phone API
   /phone/lines:
     get:
       tags: [Phone]
-      summary: List phone lines
+      summary: List phone lines (unrouted)
       operationId: listPhoneLines
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PerPageParam'
@@ -3104,10 +3228,18 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/PhoneLine'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Phone]
-      summary: Provision a phone line
+      summary: Provision a phone line (unrouted)
       operationId: provisionPhoneLine
+      deprecated: true
+      x-status: unrouted
       requestBody:
         content:
           application/json:
@@ -3121,11 +3253,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/PhoneLine'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /phone/calls:
     get:
       tags: [Phone]
-      summary: List calls
+      summary: List calls (unrouted)
       operationId: listCalls
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PerPageParam'
@@ -3152,10 +3292,18 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Call'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Phone]
-      summary: Make a call
+      summary: Make a call (unrouted)
       operationId: makeCall
+      deprecated: true
+      x-status: unrouted
       requestBody:
         required: true
         content:
@@ -3170,12 +3318,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Call'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   # Collab API
   /collab/rooms:
     get:
       tags: [Collab]
-      summary: List collaboration rooms
+      summary: List collaboration rooms (unrouted)
       operationId: listCollabRooms
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PerPageParam'
@@ -3198,10 +3354,18 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/CollabRoom'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Collab]
-      summary: Create a collaboration room
+      summary: Create a collaboration room (unrouted)
       operationId: createCollabRoom
+      deprecated: true
+      x-status: unrouted
       requestBody:
         required: true
         content:
@@ -3216,11 +3380,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/CollabRoom'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /collab/rooms/{roomId}:
     get:
       tags: [Collab]
-      summary: Get a room
+      summary: Get a room (unrouted)
       operationId: getCollabRoom
+      deprecated: true
+      x-status: unrouted
       parameters:
         - name: roomId
           in: path
@@ -3234,10 +3406,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CollabRoom'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     delete:
       tags: [Collab]
-      summary: Delete a room
+      summary: Delete a room (unrouted)
       operationId: deleteCollabRoom
+      deprecated: true
+      x-status: unrouted
       parameters:
         - name: roomId
           in: path
@@ -3248,12 +3428,20 @@ paths:
         '204':
           description: Room deleted
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   # Podcast API
   /podcast/shows:
     get:
       tags: [Podcast]
-      summary: List podcast shows
+      summary: List podcast shows (unrouted)
       operationId: listPodcastShows
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PerPageParam'
@@ -3271,10 +3459,18 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/PodcastShow'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Podcast]
-      summary: Create a podcast show
+      summary: Create a podcast show (unrouted)
       operationId: createPodcastShow
+      deprecated: true
+      x-status: unrouted
       requestBody:
         required: true
         content:
@@ -3289,11 +3485,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/PodcastShow'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /podcast/shows/{showId}/episodes:
     get:
       tags: [Podcast]
-      summary: List episodes for a show
+      summary: List episodes for a show (unrouted)
       operationId: listPodcastEpisodes
+      deprecated: true
+      x-status: unrouted
       parameters:
         - name: showId
           in: path
@@ -3316,10 +3520,18 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/PodcastEpisode'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Podcast]
-      summary: Create an episode
+      summary: Create an episode (unrouted)
       operationId: createPodcastEpisode
+      deprecated: true
+      x-status: unrouted
       parameters:
         - name: showId
           in: path
@@ -3340,12 +3552,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/PodcastEpisode'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   # Studio AI API
   /studio-ai/enhancements:
     get:
       tags: [Studio AI]
-      summary: List enhancement jobs
+      summary: List enhancement jobs (unrouted)
       operationId: listEnhancements
+      deprecated: true
+      x-status: unrouted
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PerPageParam'
@@ -3372,10 +3592,18 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Enhancement'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags: [Studio AI]
-      summary: Create an enhancement job
+      summary: Create an enhancement job (unrouted)
       operationId: createEnhancement
+      deprecated: true
+      x-status: unrouted
       description: >-
         Creates an asynchronous, credit-billed enhancement job (including `upscale` and
         `super_resolution`) against a library video, returning a job envelope to poll. For
@@ -3395,11 +3623,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/Enhancement'
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /studio-ai/preview:
     post:
       tags: [Studio AI]
-      summary: Generate enhancement preview
+      summary: Generate enhancement preview (unrouted)
       operationId: previewEnhancement
+      deprecated: true
+      x-status: unrouted
       requestBody:
         required: true
         content:
@@ -3421,6 +3657,12 @@ paths:
                     type: string
                     format: uri
 
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   # Transcribe API
   /transcribe:
     get:
