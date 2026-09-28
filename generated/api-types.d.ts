@@ -1159,7 +1159,7 @@ export interface paths {
         };
         /**
          * Subscribe to a channel (WebSocket)
-         * @description Open a WebSocket to subscribe to a channel. This is a WebSocket upgrade (HTTP 101), not a normal GET — clients send `Upgrade: websocket`. Browser/SDK clients that cannot set headers may pass the key as `?access_token=`. On connect the server sends a `welcome` frame (current presence + recent history), then live frames: `message` (a published event), `join`/`leave` (presence), `presence` (full list). The real path is `/v1/connect?channel=<id>`.
+         * @description Open a WebSocket to subscribe to a channel. This is a WebSocket upgrade (HTTP 101), not a normal GET — clients send `Upgrade: websocket`. Browser/SDK clients that cannot set headers may pass the key as `?access_token=`. On connect the server sends a `welcome` frame (current presence + recent history), then live frames: `message` (a published event), `join`/`leave` (presence), `presence` (full list).
          */
         get: operations["realtimeConnect"];
         put?: never;
@@ -1181,7 +1181,7 @@ export interface paths {
         put?: never;
         /**
          * Publish an event to a channel
-         * @description Producer endpoint — publish one event to every subscriber of a channel. The real path is `/v1/channels/{channel}/publish`.
+         * @description Producer endpoint — publish one event to every subscriber of a channel.
          */
         post: operations["realtimePublish"];
         delete?: never;
@@ -1199,7 +1199,7 @@ export interface paths {
         };
         /**
          * Current presence for a channel
-         * @description The real path is `/v1/channels/{channel}/presence`.
+         * @description Current presence membership for a channel.
          */
         get: operations["realtimePresence"];
         put?: never;
@@ -1219,7 +1219,7 @@ export interface paths {
         };
         /**
          * Recent event history for a channel
-         * @description Last-N events (≤50). The real path is `/v1/channels/{channel}/history`.
+         * @description Last-N events (≤50).
          */
         get: operations["realtimeHistory"];
         put?: never;
