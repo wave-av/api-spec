@@ -2937,6 +2937,7 @@ paths:
   # Editor API
   /editor/projects:
     get:
+      x-lifecycle: preview
       tags: [Editor]
       summary: List editor projects
       operationId: listProjects
@@ -2962,6 +2963,7 @@ paths:
                         items:
                           $ref: '#/components/schemas/EditorProject'
     post:
+      x-lifecycle: preview
       tags: [Editor]
       summary: Create an editor project
       operationId: createProject
@@ -2981,6 +2983,7 @@ paths:
 
   /editor/projects/{projectId}:
     get:
+      x-lifecycle: preview
       tags: [Editor]
       summary: Get a project
       operationId: getProject
@@ -2998,6 +3001,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/EditorProject'
     patch:
+      x-lifecycle: preview
       tags: [Editor]
       summary: Update a project
       operationId: updateProject
@@ -3020,6 +3024,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/EditorProject'
     delete:
+      x-lifecycle: preview
       tags: [Editor]
       summary: Delete a project
       operationId: deleteProject
@@ -3035,6 +3040,7 @@ paths:
 
   /editor/projects/{projectId}/export:
     post:
+      x-lifecycle: preview
       tags: [Editor]
       summary: Export a project
       operationId: exportProject
@@ -3149,6 +3155,7 @@ paths:
   # Collab API
   /collab/rooms:
     get:
+      x-lifecycle: preview
       tags: [Collab]
       summary: List collaboration rooms
       operationId: listCollabRooms
@@ -3175,6 +3182,7 @@ paths:
                         items:
                           $ref: '#/components/schemas/CollabRoom'
     post:
+      x-lifecycle: preview
       tags: [Collab]
       summary: Create a collaboration room
       operationId: createCollabRoom
@@ -3194,6 +3202,7 @@ paths:
 
   /collab/rooms/{roomId}:
     get:
+      x-lifecycle: preview
       tags: [Collab]
       summary: Get a room
       operationId: getCollabRoom
@@ -3211,6 +3220,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CollabRoom'
     delete:
+      x-lifecycle: preview
       tags: [Collab]
       summary: Delete a room
       operationId: deleteCollabRoom
@@ -3227,6 +3237,7 @@ paths:
   # Podcast API
   /podcast/shows:
     get:
+      x-lifecycle: preview
       tags: [Podcast]
       summary: List podcast shows
       operationId: listPodcastShows
@@ -3248,6 +3259,7 @@ paths:
                         items:
                           $ref: '#/components/schemas/PodcastShow'
     post:
+      x-lifecycle: preview
       tags: [Podcast]
       summary: Create a podcast show
       operationId: createPodcastShow
@@ -3267,6 +3279,7 @@ paths:
 
   /podcast/shows/{showId}/episodes:
     get:
+      x-lifecycle: preview
       tags: [Podcast]
       summary: List episodes for a show
       operationId: listPodcastEpisodes
@@ -3293,6 +3306,7 @@ paths:
                         items:
                           $ref: '#/components/schemas/PodcastEpisode'
     post:
+      x-lifecycle: preview
       tags: [Podcast]
       summary: Create an episode
       operationId: createPodcastEpisode
@@ -3319,6 +3333,7 @@ paths:
   # Studio AI API
   /studio-ai/enhancements:
     get:
+      x-lifecycle: preview
       tags: [Studio AI]
       summary: List enhancement jobs
       operationId: listEnhancements
@@ -3349,6 +3364,7 @@ paths:
                         items:
                           $ref: '#/components/schemas/Enhancement'
     post:
+      x-lifecycle: preview
       tags: [Studio AI]
       summary: Create an enhancement job
       operationId: createEnhancement
@@ -3373,6 +3389,7 @@ paths:
 
   /studio-ai/preview:
     post:
+      x-lifecycle: preview
       tags: [Studio AI]
       summary: Generate enhancement preview
       operationId: previewEnhancement
@@ -3477,6 +3494,7 @@ paths:
   # Sentiment API
   /sentiment:
     get:
+      x-lifecycle: preview
       tags: [Sentiment]
       summary: List sentiment analyses
       operationId: listSentimentAnalyses
@@ -3502,6 +3520,7 @@ paths:
                         items:
                           $ref: '#/components/schemas/SentimentAnalysis'
     post:
+      x-lifecycle: preview
       tags: [Sentiment]
       summary: Create a sentiment analysis
       operationId: createSentimentAnalysis
@@ -3521,6 +3540,7 @@ paths:
 
   /sentiment/analyze:
     post:
+      x-lifecycle: preview
       tags: [Sentiment]
       summary: Analyze text directly
       operationId: analyzeText
@@ -3653,6 +3673,7 @@ paths:
   # is documented descriptively (OpenAPI has no native WS); REST publish/presence/history are first-class.
   /realtime/connect:
     get:
+      x-lifecycle: preview
       tags: [Realtime]
       summary: Subscribe to a channel (WebSocket)
       operationId: realtimeConnect
@@ -3683,6 +3704,7 @@ paths:
         '426': { description: Upgrade required (not a WebSocket request) }
   /realtime/channels/{channel}/publish:
     post:
+      x-lifecycle: preview
       tags: [Realtime]
       summary: Publish an event to a channel
       operationId: realtimePublish
@@ -3721,6 +3743,7 @@ paths:
         '401': { description: Authentication required }
   /realtime/channels/{channel}/presence:
     get:
+      x-lifecycle: preview
       tags: [Realtime]
       summary: Current presence for a channel
       operationId: realtimePresence
@@ -3750,6 +3773,7 @@ paths:
                         id: { type: string }
   /realtime/channels/{channel}/history:
     get:
+      x-lifecycle: preview
       tags: [Realtime]
       summary: Recent event history for a channel
       operationId: realtimeHistory
@@ -4379,6 +4403,7 @@ paths:
 
   /engine/capabilities:
     get:
+      x-lifecycle: preview
       tags: [Engine]
       summary: The media-engine capability contract
       operationId: engineCapabilities
@@ -4400,6 +4425,7 @@ paths:
 
   /gpu/infer:
     post:
+      x-lifecycle: preview
       tags: [Gpu]
       summary: Dispatch a GPU inference job on the WAVE-hosted GPU plane
       operationId: gpuInfer
@@ -4428,6 +4454,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     get:
+      x-lifecycle: preview
       tags: [Gpu]
       summary: GPU plane status
       operationId: gpuStatus
@@ -4627,6 +4654,7 @@ paths:
 
   /aes67:
     post:
+      x-lifecycle: preview
       tags: [AES67]
       operationId: aes67
       summary: WAVE aes67 API
@@ -4717,6 +4745,7 @@ paths:
 
   /agents:
     post:
+      x-lifecycle: preview
       tags: [Agents]
       operationId: agents
       summary: WAVE agents API
@@ -5302,6 +5331,7 @@ paths:
 
   /bridge:
     post:
+      x-lifecycle: preview
       tags: [Bridge]
       operationId: bridge
       summary: WAVE bridge API
@@ -6145,6 +6175,7 @@ paths:
 
   /crest:
     post:
+      x-lifecycle: preview
       tags: [Crest]
       operationId: crest
       summary: WAVE crest API
@@ -7944,6 +7975,7 @@ paths:
 
   /ndi:
     post:
+      x-lifecycle: preview
       tags: [NDI]
       operationId: ndi
       summary: WAVE ndi API
@@ -8034,6 +8066,7 @@ paths:
 
   /omt:
     post:
+      x-lifecycle: preview
       tags: [OMT]
       operationId: omt
       summary: WAVE omt API
@@ -9742,6 +9775,7 @@ paths:
 
   /srt:
     post:
+      x-lifecycle: preview
       tags: [SRT]
       operationId: srt
       summary: WAVE srt API
@@ -9787,6 +9821,7 @@ paths:
 
   /st2110:
     post:
+      x-lifecycle: preview
       tags: [ST2110]
       operationId: st2110
       summary: WAVE st2110 API
@@ -10552,6 +10587,7 @@ paths:
 
   /vision:
     post:
+      x-lifecycle: preview
       tags: [Vision]
       operationId: vision
       summary: WAVE vision API
