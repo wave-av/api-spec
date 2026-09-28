@@ -2435,6 +2435,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dante/observe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WAVE dante-observe API
+         * @description Generated from the live gateway skills index (not yet hand-documented). The route is confirmed live at the gateway (unauthenticated 402, resource `/v1/dante/observe`); the request/response shape below is a draft placeholder (`additionalProperties: true`) pending the product team's schema. Method is POST, inferred from the `dante:write` scope.
+         */
+        post: operations["danteObserve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/data-exchange": {
         parameters: {
             query?: never;
@@ -9806,6 +9826,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
             403: components["responses"]["Forbidden"];
         };
     };
@@ -11115,6 +11136,37 @@ export interface operations {
         };
     };
     dante: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Capability response (draft — shape not yet published). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimitError"];
+        };
+    };
+    danteObserve: {
         parameters: {
             query?: never;
             header?: never;

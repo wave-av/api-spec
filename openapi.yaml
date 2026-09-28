@@ -3830,11 +3830,20 @@ paths:
       tags: [Braided Audio]
       summary: Publish a braided audio track
       operationId: publishBraidAudio
+      x-wave-availability: ga
       description: >-
         Starts (or replaces) an on-demand braid publisher for `ns`, mixing `sources` into one
         interleaved multichannel MoQ track. Requires the `moq:write` entitlement. If a machine is
         already live for this `org`/`ns`, it is torn down and replaced. Subject to per-org
         concurrency and creation-rate limits (429 `QUOTA_EXCEEDED` when exceeded).
+      x-price:
+        model: x402
+        meter: null
+        currency: USDC
+        network: base
+        atomicAmount: "1000"
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        x-price-note: GA route confirmed live at the gateway (unauthenticated 402, resource `/v1/braid/publish`); interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       requestBody:
         required: true
         content:
@@ -4164,6 +4173,7 @@ paths:
       tags: [MoQ]
       summary: Mint a MoQ publish join-token
       operationId: mintMoqPublishToken
+      x-wave-availability: ga
       description: >-
         Authorizes the caller to PUBLISH to `ns`/`track` and returns a short-lived signed join-token
         (`role: publish`, `scope: moq:write`) plus the `relayWsUrl` to connect to. Requires the
@@ -4175,6 +4185,14 @@ paths:
         declaration is only honoured on this publish leg, only for a recognized protocol, and only
         for orgs the operator has allowlisted; an unrecognized or unauthorized value is silently
         ignored and the session bills as plain `moq` — it never fails the mint.
+      x-price:
+        model: x402
+        meter: null
+        currency: USDC
+        network: base
+        atomicAmount: "4000"
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        x-price-note: GA route confirmed live at the gateway (unauthenticated 402, resource `/v1/moq/publish`); interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       parameters:
         - $ref: '#/components/parameters/MoqNamespaceParam'
         - $ref: '#/components/parameters/MoqTrackParam'
@@ -4222,12 +4240,21 @@ paths:
       tags: [MoQ]
       summary: Mint a MoQ subscribe join-token
       operationId: mintMoqSubscribeToken
+      x-wave-availability: ga
       description: >-
         Authorizes the caller to SUBSCRIBE to `ns`/`track` and returns a short-lived signed
         join-token (`role: subscribe`, `scope: moq:read`) plus the `relayWsUrl` to connect to.
         Requires the `moq:read` scope. Least-privilege: a subscribe token grants read only — it
         cannot be replayed to publish, and the relay re-checks the signed `ns`/`track` against the
         session it is actually opening, so a token is bound to exactly one resource.
+      x-price:
+        model: x402
+        meter: null
+        currency: USDC
+        network: base
+        atomicAmount: "4000"
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        x-price-note: GA route confirmed live at the gateway (unauthenticated 402, resource `/v1/moq/subscribe`); interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       parameters:
         - $ref: '#/components/parameters/MoqNamespaceParam'
         - $ref: '#/components/parameters/MoqTrackParam'
@@ -4427,9 +4454,18 @@ paths:
       tags: [Engine]
       summary: The media-engine capability contract
       operationId: engineCapabilities
+      x-wave-availability: ga
       description: |
         Served through the WAVE gateway (engine:read). Returns the engine's capability
         JSON — the codecs/operations this deployment accepts.
+      x-price:
+        model: x402
+        meter: null
+        currency: USDC
+        network: base
+        atomicAmount: "1000"
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        x-price-note: GA route confirmed live at the gateway (unauthenticated 402, resource `/v1/engine/capabilities`); interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       responses:
         '200':
           description: The capability contract
@@ -4440,6 +4476,8 @@ paths:
                 additionalProperties: true
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
 
@@ -6301,11 +6339,62 @@ paths:
         Preview: not yet served on the public API; returns 404 ROUTE_NOT_FOUND or 503.
       x-price:
         model: x402
-        meter: wave_dante_observe_ingests
+        meter: null
         currency: USDC
         network: base
         atomicAmount: "1000"
         asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+      security:
+        - bearerWithScopes: [dante:write]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Capability response (draft — shape not yet published).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  # NOTE (ME-SPEC-transport-truth): the bare /dante path above 404s ROUTE_NOT_FOUND live — it
+  # documents the not-yet-wired "dante control" capability the go-live spec calls out separately.
+  # /dante/observe is the real, distinct, live GA route: a direct unauthenticated probe returns 402
+  # with `resource: /v1/dante/observe`, matching this operation's meter (wave_dante_observe_ingests)
+  # exactly — the meter name is the tell that the generic gateway-skills-index generator originally
+  # captured this product's shape but filed it under the wrong (bare) path.
+  /dante/observe:
+    post:
+      tags: [Dante]
+      operationId: danteObserve
+      summary: WAVE dante-observe API
+      x-schema-status: draft
+      x-wave-availability: ga
+      x-skill-url: https://gateway.wave.online/.well-known/wave-skills/dante.json
+      description: >
+        Generated from the live gateway skills index (not yet hand-documented). The route is
+        confirmed live at the gateway (unauthenticated 402, resource `/v1/dante/observe`); the
+        request/response shape below is a draft placeholder (`additionalProperties: true`)
+        pending the product team's schema. Method is POST, inferred from the `dante:write` scope.
+      x-price:
+        model: x402
+        meter: wave_dante_observe_ingests
+        currency: USDC
+        network: base
+        atomicAmount: "3000"
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        x-price-note: GA route confirmed live at the gateway (unauthenticated 402, resource `/v1/dante/observe`); interim ruled price pending the D4 catalog rate (lands via ME-SHIP-GW-2).
       security:
         - bearerWithScopes: [dante:write]
       requestBody:

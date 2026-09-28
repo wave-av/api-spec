@@ -14,10 +14,11 @@ All notable changes to this project are documented here. The format is based on
   generator had stamped every transport capability with the same heuristic
   `x-price-note: "Observed live via an unauthenticated x402 402 challenge on <name>..."`
   regardless of whether the route is actually GA or was never wired at the gateway — a live probe
-  against `https://api.wave.online/v1/*` (unauthenticated, this PR's receipt) shows 16 of the
+  against `https://api.wave.online/v1/*` (unauthenticated, this PR's receipt) shows 17 of the
   media-engine transport routes really are live (srt, moq publish/subscribe, whip, whep,
   realtime connect/publish/presence/history, listen, crest, braid/publish, mesh, av
-  remux/demux, engine/capabilities — all answer 402, never `ROUTE_NOT_FOUND`) while 23 more the
+  remux/demux, engine/capabilities, dante/observe — all answer 402, never `ROUTE_NOT_FOUND`)
+  while 23 more the
   spec described as equally-real (aes67, bridge, dante, mxl, ndi, omt, rist, rtmp, st2110,
   stream, the full `/streams*` family, `phone/lines`, `phone/calls`) answer 404
   `ROUTE_NOT_FOUND` or (`/ndi`) an honest 503 `EGRESS_HOST_NOT_CONFIGURED`. Docs that call a 404
@@ -29,10 +30,33 @@ All notable changes to this project are documented here. The format is based on
     crest 2000, mesh 1000 — unchanged where it already matched). `x-schema-status` stays `draft`
     on these six: their bodies are still the generic `additionalProperties: true` placeholder, not
     yet hand-documented to match the spoke, so promoting to `stable` would be a false claim, not a
-    fix. `moq/publish`, `moq/subscribe`, `realtime/*`, `braid/publish*`, `av/remux`, `av/demux`
-    and `engine/capabilities` were already hand-documented (no generic note, no draft placeholder)
-    and are untouched. The D4 catalog-rate pricing ruling lands separately via ME-SHIP-GW-2, per
-    that lane's scope — this PR only removes the stale note and sets the interim live amount.
+    fix. `moq/publish`, `moq/subscribe`, `braid/publish` and `engine/capabilities` were already
+    hand-documented with real schemas (no generic note, no draft placeholder) but had no
+    `x-price` block at all — a direct unauthenticated probe confirms all four ARE gateway-paywalled
+    (402, matching the ops-ruled amounts: moq 4000, braid 1000, engine/capabilities 1000), so this
+    PR adds the missing `x-price` + `x-wave-availability: ga` to each rather than leave a real
+    paywall undocumented. `realtime/connect` and its siblings carry their own `servers:` override
+    to `realtime.wave.online` (owned by #110) and are deliberately left untouched — the 402 the
+    adversarial verifier measured was on a *different*, gateway-proxied `/v1/realtime/connect`
+    path at `api.wave.online`, not the direct-edge operation this repo documents; attaching that
+    price to the wrong host would misattribute it. `av/remux`/`av/demux` are also left untouched:
+    the verifier found a live, priced `/v1/av/transform` (50000) that has no counterpart in this
+    spec at all — a genuine gap, noted here rather than invented, for a follow-up lane to add.
+  - **`/dante` was mislabeled.** The spec's one `/dante` path carried a `wave_dante_observe_ingests`
+    meter name — the tell that it was meant to be the GA "dante observe" capability the go-live
+    spec names separately from preview "dante control" — but a live probe shows bare `POST
+    /v1/dante` answers 404 `ROUTE_NOT_FOUND` (confirmed independently by both this PR's own probe
+    and the adversarial verifier's spot-check), while `POST /v1/dante/observe` is a distinct, live,
+    402-priced (3000) route the spec never had an entry for. `/dante` stays preview (its meter
+    reset to `null` — it no longer owns that meter); a new `/dante/observe` GA path is added,
+    carrying the meter and the confirmed price. This is the literal "dante/observe" GA target named
+    in this lane's brief, not a new capability invented by this PR.
+  - The D4 catalog-rate pricing ruling for all of the above lands separately via ME-SHIP-GW-2, per
+    that lane's scope — this PR only removes the stale note and sets/corrects the interim live
+    amount, using amounts independently confirmed by both this PR's own unauthenticated probe and
+    the adversarial verifier's spot-check (`verifs["WAVE Media Engine: live transport, protocol
+    bridges, mesh and delivery"].notes`, "Unauthenticated gateway 402 amounts" — same numbers,
+    same routes).
   - Preview paths get `x-schema-status: preview`, `x-wave-availability: preview`, their stale
     `x-price-note` removed, and a `Preview: not yet served on the public API; returns 404
     ROUTE_NOT_FOUND or 503.` sentence appended to every operation's description — including the
