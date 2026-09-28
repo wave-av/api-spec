@@ -81,8 +81,12 @@ tags:
   - name: Realtime
     description: >-
       Live control & event plane — presence, pub/sub broadcast, and the streaming-event bus the WAVE
-      AI products push into. Served at realtime.wave.online (not the api host); subscribe over one
-      WebSocket, producers publish over REST. Auth federates to the gateway.
+      AI products push into. Served THROUGH the gateway at https://api.wave.online/v1/realtime/* (the
+      gateway authenticates + meters, then forwards to the internal wave-realtime-edge worker); subscribe
+      over one WebSocket, producers publish over REST. GA-CONTRACT-001 (2026-09-28): these four
+      operations previously carried a per-operation `servers` override to the bare host
+      `realtime.wave.online`, which does not resolve (NXDOMAIN) — removed below; the live route is
+      /v1/realtime/*, not a separate host.
   - name: AV Mux/Demux
     description: >-
       Synchronous container-transform for local IP video + Dante/AES67 audio: mux separate RTP H.264
@@ -3649,8 +3653,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/SearchAnalyticsResponse'
 
-  # Realtime API — served at realtime.wave.online (per-operation server override). WebSocket subscribe
-  # is documented descriptively (OpenAPI has no native WS); REST publish/presence/history are first-class.
+  # Realtime API — GA-CONTRACT-001 (2026-09-28): served THROUGH the gateway at
+  # https://api.wave.online/v1/realtime/* (no per-operation server override — these four operations use
+  # the document's default server like every other /v1 route). The four operations below previously
+  # carried a `servers` override to the bare host `realtime.wave.online`, which does not resolve
+  # (NXDOMAIN, confirmed via dig against 1.1.1.1 and 8.8.8.8 2026-09-28) — removed. The gateway itself
+  # authenticates, meters, then forwards to the internal wave-realtime-edge worker
+  # (wave-gateway/src/realtime-channel.ts); that internal edge path is NOT this contract's concern and
+  # is no longer named in these descriptions, which previously read "the real path is /v1/connect..." —
+  # true of the internal forward target, misleading as advice to a caller of this API, who must call the
+  # documented /v1/realtime/* path exactly as declared. WebSocket subscribe is documented descriptively
+  # (OpenAPI has no native WS); REST publish/presence/history are first-class.
   /realtime/connect:
     get:
       tags: [Realtime]
@@ -3661,10 +3674,7 @@ paths:
         GET — clients send `Upgrade: websocket`. Browser/SDK clients that cannot set headers may pass the
         key as `?access_token=`. On connect the server sends a `welcome` frame (current presence +
         recent history), then live frames: `message` (a published event), `join`/`leave` (presence),
-        `presence` (full list). The real path is `/v1/connect?channel=<id>`.
-      servers:
-        - url: https://realtime.wave.online
-          description: WAVE Realtime edge
+        `presence` (full list).
       parameters:
         - name: channel
           in: query
@@ -3686,10 +3696,7 @@ paths:
       tags: [Realtime]
       summary: Publish an event to a channel
       operationId: realtimePublish
-      description: Producer endpoint — publish one event to every subscriber of a channel. The real path is `/v1/channels/{channel}/publish`.
-      servers:
-        - url: https://realtime.wave.online
-          description: WAVE Realtime edge
+      description: Producer endpoint — publish one event to every subscriber of a channel.
       parameters:
         - name: channel
           in: path
@@ -3724,10 +3731,7 @@ paths:
       tags: [Realtime]
       summary: Current presence for a channel
       operationId: realtimePresence
-      description: The real path is `/v1/channels/{channel}/presence`.
-      servers:
-        - url: https://realtime.wave.online
-          description: WAVE Realtime edge
+      description: Current presence membership for a channel.
       parameters:
         - name: channel
           in: path
@@ -3753,10 +3757,7 @@ paths:
       tags: [Realtime]
       summary: Recent event history for a channel
       operationId: realtimeHistory
-      description: Last-N events (≤50). The real path is `/v1/channels/{channel}/history`.
-      servers:
-        - url: https://realtime.wave.online
-          description: WAVE Realtime edge
+      description: Last-N events (≤50).
       parameters:
         - name: channel
           in: path
