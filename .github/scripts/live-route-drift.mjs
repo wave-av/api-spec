@@ -23,8 +23,9 @@
  * from the route->scope map, so a route that never consults a scope cannot appear in a
  * scope-derived index. Every pre-auth route is invisible to every artifact-based check we have.
  * Only a probe sees it. Positive control run the same way at the same time: `/v1/clips` and
- * `/v1/render` are present in all three and answer 402, and a path that does not exist answers 403
- * ROUTE_NOT_MAPPED — so the method discriminates rather than reporting everything as missing.
+ * `/v1/render` are present in all three and answer 402, and a path that does not exist answers 404
+ * ROUTE_NOT_MAPPED (403 on earlier gateway builds; both are accepted, only with that exact code) —
+ * so the method discriminates rather than reporting everything as missing.
  *
  * ── ENUMERATION ─────────────────────────────────────────────────────────────────────────────────
  * Candidates come from five public sources, unioned, then every one is probed:

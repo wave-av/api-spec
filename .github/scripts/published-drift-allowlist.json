@@ -30,7 +30,7 @@
     "path": "/streams",
     "method": "GET",
     "direction": "shared-drift",
-    "justification": "The gateway still serves the auto-generated skills-index draft placeholder for this operation (lowercase tag, no operationId, a summary that says 'draft — see api-spec for the full shape' and literally defers to this repo). openapi.yaml has since promoted this to a fully hand-documented /v1 operation (real params, description, Streams tag, operationId listStreams) ahead of the gateway shipping the matching handler. Exempt only while the published operation still has no operationId — the moment the gateway ships the real handler and starts publishing one, this predicate fails and the exemption lapses so the two shapes get compared for real.",
+    "justification": "The gateway still serves the auto-generated skills-index open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) for this operation (lowercase tag, no operationId, a summary that says 'draft — see api-spec for the full shape' and literally defers to this repo). openapi.yaml has since promoted this to a fully hand-documented /v1 operation (real params, description, Streams tag, operationId listStreams) ahead of the gateway shipping the matching handler. Exempt only while the published operation still has no operationId — the moment the gateway ships the real handler and starts publishing one, this predicate fails and the exemption lapses so the two shapes get compared for real.",
     "expect": {
       "operationId": null
     }
@@ -39,7 +39,7 @@
     "path": "/streams",
     "method": "POST",
     "direction": "shared-drift",
-    "justification": "Same shape and same reasoning as GET /streams: the published operation is still the auto-generated draft placeholder (no operationId), while openapi.yaml documents the real, hand-specified /v1 operation (operationId createStream) ahead of the gateway shipping it. Lapses the moment the published operation gains an operationId.",
+    "justification": "Same shape and same reasoning as GET /streams: the published operation is still the auto-generated open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) (no operationId), while openapi.yaml documents the real, hand-specified /v1 operation (operationId createStream) ahead of the gateway shipping it. Lapses the moment the published operation gains an operationId.",
     "expect": {
       "operationId": null
     }
@@ -78,7 +78,7 @@
     "path": "/enhance",
     "method": "POST",
     "direction": "shared-drift",
-    "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index draft placeholder (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real.",
+    "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real.",
     "expect": {
       "x-schema-status": "draft"
     }
@@ -91,5 +91,221 @@
     "expect": {
       "parameters.0.description": "Agent id (lowercase, e.g. `opencode`, `claude`, `telephony`)"
     }
+  },
+  {
+    "path": "/insights",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (usage:read; GET/HEAD only), so the route is genuinely served, but the published /openapi.json does not list it — the service's spec generation is scope-derived and misses this gateway-native route. Hand-documented from the serving handler, not draft. Lapses (delete it) the moment the published document lists this operation."
+  },
+  {
+    "path": "/meter/ledger",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (meter:read), so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler (channel / from / to query, ledger shape). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/meter/ledger/rollup",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (meter:read), so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler (format json|csv, period, from / to). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/usage/cap",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (usage:read), so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler ({ capUsd, usedUsd }). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/usage/cap",
+    "method": "PUT",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated PUT answers a 402 x402 challenge (usage:write), so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler (body { capUsd >= 0 }; INVALID_BODY / INVALID_CAP). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/webhook-subscriptions",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (webhooks:write), so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler (https-only url, events, mode; 201 carries the one-time secret). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/webhook-subscriptions",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (webhooks:read), so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler (redacted list). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/webhook-subscriptions/{id}",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Sibling of GET /webhook-subscriptions on the same gateway-native handler (webhooks:read; BAD_ID / UNKNOWN_SUBSCRIPTION / REGISTRY_CORRUPT), documented from that handler. Absent from the published /openapi.json for the same reason as its parent. Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/webhook-subscriptions/{id}",
+    "method": "DELETE",
+    "direction": "unpublished-repo",
+    "justification": "Sibling of POST /webhook-subscriptions on the same gateway-native handler (webhooks:write; { ok, id, deleted }), documented from that handler. Absent from the published /openapi.json for the same reason as its parent. Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/audit",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (audit:read; GET only), so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler ({ rows[] }, <= 1000, always 200). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/billing/checkout",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers 401 AUTH_REQUIRED — first-party key validation ahead of the paywall, not ROUTE_NOT_MAPPED — so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler (body { price }, 200 { ok, url, session_id, customer }, the 4xx/5xx codes). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/billing/portal",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers 401 AUTH_REQUIRED (first-party key validation ahead of the paywall), so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler (optional return_url, 200 { ok, url, customer }). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/comms/tenants",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (comms:read), so the route is served, but the published /openapi.json does not list it. Hand-documented from the serving handler ({ org, tenants[{ client_id, pod_id, key_id, created_at }] }). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/inference/models",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (dispatch:read), so the route is served, but the published /openapi.json does not list it — it is an exact-path alias of GET /dispatch/models and the service's generation only sees the canonical path. Documented from the alias handler. Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/inference/chat/completions",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (dispatch:write), so the route is served, but the published /openapi.json does not list it — an exact-path alias of POST /dispatch/chat/completions. Documented from the alias handler (OpenAI-compatible body, the 400/413 codes). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/pulse",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET /v1/pulse answers 200 (pre-auth public route), so the route is served, but the published /openapi.json lists only the POST open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) for this path. Documented from the serving handler (scope=org + org needs the service token, PULSE_UNAVAILABLE, no-store). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/network/surface",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers 200 (pre-auth public route, cache public max-age=3600), so the route is served, but the published /openapi.json does not list it — pre-auth routes sit outside the scope-derived generation. Documented from the surface contract builder. Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/samples/clips",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers 200 with x-wave-sample: true (public sample route, per-IP rate limited), so the route is served, but the published /openapi.json does not list it. Documented from the serving handler (Clip[] + pagination). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/mpp/facilitator/supported",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers 200 (pre-auth discovery route), so the route is served, but the published /openapi.json does not list it. Documented from the discovery handler (supportedNetworks[{ networkId, version, asset }] + endpoints). Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/x402/facilitator/supported",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers 200 (pre-auth discovery route; a distinct body from the MPP twin), so the route is served, but the published /openapi.json does not list it. Documented from the discovery handler. Lapses the moment the published document lists this operation."
+  },
+  {
+    "path": "/billing/invoices",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers 401 AUTH_REQUIRED (first-party key validation ahead of the paywall) — the route is served and the auth contract is documented, but the invoice list's field shape is owned by the billing module and could not be derived from the gateway, so the 200 body is an honest open placeholder shape — deliberately NOT x-schema-status: draft, because in this repo draft means 'not observed live' and this route was. Lapses (delete it) the moment the published document lists this operation."
+  },
+  {
+    "path": "/comms/tenants",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (comms:write) — the route is served and the request contract (client_id must equal the caller org; TENANT_FORBIDDEN) is documented, but the success body is passed through from the tenant provisioner and could not be derived, so the 200 body is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the shape is pinned or the published document lists this operation."
+  },
+  {
+    "path": "/mlvc/status",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge (mlvc:read) — the route is served, but the status body is owned by the codec spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/mlvc/bench",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (mlvc:write) — the route is served, but the benchmark shapes are owned by the codec spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/codec/status",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Exact-path alias of GET /mlvc/status (measured live 2026-09-11: 402 x402 challenge, mlvc:read). Same spoke-owned, unpublished shape, so the same open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/codec/bench",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Exact-path alias of POST /mlvc/bench (measured live 2026-09-11: 402 x402 challenge, mlvc:write). Same spoke-owned, unpublished shape, so the same open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/crest/control",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge quoting 2000 atomic USDC (crest:control) — the route is served and priced, but the command shape is owned by the Crest spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/crest/state",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated GET answers a 402 x402 challenge quoting 2000 atomic USDC (crest:control) — served and priced, but the state shape is owned by the Crest spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/dante/observe",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge quoting 3000 atomic USDC (counted on wave_dante_observe_ingests) — served and priced, but the OTLP payload shape is owned by the Dante observe spoke and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/dante/observe/state",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Sibling of POST /dante/observe on the same spoke route table (same paywall); the state shape is spoke-owned and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/dante/observe/alerts",
+    "method": "GET",
+    "direction": "unpublished-repo",
+    "justification": "Sibling of POST /dante/observe on the same spoke route table (same paywall); the alert shape is spoke-owned and not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the spoke publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/ingest/srt",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (srt:write) — the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/ingest/rist",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (rist:write) — the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/ingest/rtmp",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (rtmp:write) — the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/ingest/moq",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge (moq:write) — the prefix route is served and reverse-proxied verbatim to the ingest edge, whose shapes are not published, so the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here). Lapses when the edge publishes its shape or the published document lists this operation."
+  },
+  {
+    "path": "/render/still",
+    "method": "POST",
+    "direction": "unpublished-repo",
+    "justification": "Measured live 2026-09-11: an unauthenticated POST answers a 402 x402 challenge quoting 600000 atomic USDC (the same quote as POST /render) — served and priced, but the gateway holds no validation, quote key or meter specific to this path (it is forwarded to the render spoke), so the shape could not be derived and the operation is a open placeholder shape (not x-schema-status: draft — that means 'not observed live' here) carrying the measured quote. Lapses when the spoke publishes its shape or the published document lists this operation."
   }
 ]

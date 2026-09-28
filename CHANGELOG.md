@@ -8,6 +8,35 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **36 gateway-native operations that were served but unspecified** (`openapi.yaml`) —
+  measured 2026-09-11 with unauthenticated, bodiless probes against the document's own origin,
+  every one of these paths answered something other than `ROUTE_NOT_MAPPED` (a 402 x402
+  challenge, a 401 first-party `AUTH_REQUIRED`, or a 200 on the pre-auth public routes) yet had
+  no spec entry, so no SDK, CLI or MCP method could be generated for them. Twenty are
+  hand-documented from the serving handlers: `GET /insights`, `GET /meter/ledger`,
+  `GET /meter/ledger/rollup`, `GET`+`PUT /usage/cap`, `POST`+`GET /webhook-subscriptions`,
+  `GET`+`DELETE /webhook-subscriptions/{id}`, `GET /audit`, `POST /billing/checkout`,
+  `POST /billing/portal`, `GET /comms/tenants`, `GET /inference/models`,
+  `POST /inference/chat/completions`, `GET /pulse` (beside the existing POST draft),
+  `GET /network/surface`, `GET /samples/clips`, `GET /mpp/facilitator/supported` and
+  `GET /x402/facilitator/supported`. Sixteen carry an open placeholder shape
+  (`additionalProperties: true`) because the shape is spoke- or module-owned and not yet
+  published, and each says so — deliberately not `x-schema-status: draft`, which this repo's
+  drift gates define as "not observed live" (a 402 is not a draft, and the committed allowlist
+  refuses a `draft-but-live` exemption by test): `GET /billing/invoices`, `POST /comms/tenants`,
+  `GET /mlvc/status`, `POST /mlvc/bench`, their exact-path aliases `GET /codec/status` and
+  `POST /codec/bench`, `POST /crest/control`, `GET /crest/state`, `POST /dante/observe`,
+  `GET /dante/observe/state`, `GET /dante/observe/alerts`, `POST /ingest/{srt,rist,rtmp,moq}`
+  and `POST /render/still`. Every operation declares its scope through `bearerWithScopes`; the
+  five pre-auth public routes declare `security: []` like the existing public operations, and
+  `POST /render/still` mirrors its sibling `POST /render` (x402 gate, no key). Priced
+  placeholders carry the atomic quote the live 402 returned. Adds the `Webhooks`, `Audit`,
+  `Comms`, `Network` and `Ingest` tags and the `UsageCap`, `WebhookSubscriptionCreate`,
+  `WebhookSubscription` and `FacilitatorSupported` component schemas. Each new operation has a
+  matching `published-drift-allowlist.json` entry (all `unpublished-repo`, the direction for
+  "declared here from live evidence, not yet in the published document"), each written to lapse
+  the moment the published `/openapi.json` lists the operation — these are gaps in the service's own
+  scope-derived spec generation, which never sees bespoke, alias or pre-auth routes.
 - **Composer surface** (`openapi.yaml`) — the gateway (build `d62760094`) serves three
   `composer:*`-scoped operations that had no spec entry, so no SDK, CLI or MCP method could be
   generated for them and the published contract's `operation-parity` check (CONTRACT-001) failed
@@ -271,6 +300,17 @@ All notable changes to this project are documented here. The format is based on
 
 ### Deprecated
 
+- **`POST /mux`, `/ops`, `/creator`, `/creator-economy` and `/creator-storefront`** — marked
+  `deprecated: true` / `x-status: unrouted`. These were draft stubs generated from the gateway's
+  capability index, each stating the route "is confirmed live at the gateway" and carrying an
+  `x-price` block that claimed an observed 402 challenge. Measured live 2026-09-11: every one
+  answers `ROUTE_NOT_MAPPED` (HTTP 404) on both GET and POST — the gateway deliberately does
+  not serve them. The `x-price` blocks are removed (their note asserted an observation that is
+  no longer true; a price on an unrouted path would make every generated client expect a
+  paywall where there is only a 404) and the documented 402 response becomes a documented 404.
+  `x-schema-status: draft` is kept so the offline drift gates still treat them as draft stubs.
+  Kept rather than deleted, as with the chapters precedent below, until the routes are either
+  wired up or retired from the capability index.
 - **`GET/POST /videos/{videoId}/chapters` and `POST /videos/{videoId}/chapters/detect`** —
   marked `deprecated: true` / `x-status: unrouted`. Verified live 2026-09-02: the gateway
   returns `403 ROUTE_NOT_MAPPED` ("this path and method are not part of the WAVE API") for
@@ -287,6 +327,32 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- **Live-route drift classifier treated a 404 `ROUTE_NOT_MAPPED` as a served route**
+  (`.github/scripts/live-route-probe.mjs`) — the gateway now answers an unmapped path with
+  HTTP 404 and the body code `ROUTE_NOT_MAPPED` (earlier builds used 403; a few gateway-native
+  paths still do). `classifyProbe()` keyed absence on 403 alone, so every absent route read as
+  `MAPPED` and the `declared-not-live` direction went silently empty — a gate that could no
+  longer fail. Absence is now keyed on the exact body code with a small set of accepted
+  statuses (403, 404); a 5xx carrying the code stays `INDETERMINATE`. A bare 404 without the
+  code — including one whose body is not JSON — is `INDETERMINATE` too, never `MAPPED`: every
+  probed path is parameterless, so it cannot be a handler reporting a missing id, and what it can
+  be is an origin behind a mapped prefix not serving that sub-path, which read as `MAPPED` would
+  let a declared-but-unserved route go green on an unreadable body (the sibling
+  `published-drift-live.mjs` classifier already reads a bare 404 as `unknown`). Surfaced by path
+  and exits `UNKNOWN`, not `OK`. Measured against the live origin on 2026-09-12 across all 226
+  candidate paths: zero bare 404s, so nothing in the current run changes state. Fixtures and the
+  regression test move to 404, with 404+code ⇒ `ABSENT`, bare-404 ⇒ `INDETERMINATE` and a
+  compare-level bare-404 ⇒ surfaced-and-`UNKNOWN` case added so a classifier softened in either
+  direction fails a test that says so. The four unrouted chapters operations' descriptions now
+  state the 404.
+- **18 `x-price.atomicAmount` values corrected to the live 402 quote** (`openapi.yaml`) —
+  eighteen draft stubs carried the generator's `"1000"` placeholder while their `x-price-note`
+  claimed the amount was observed live. Measured 2026-09-11, the gateway's 402 quotes a
+  different amount for each, and every measured amount matches the gateway's own per-product
+  quote defaults exactly (USDC, 6 decimals): acuity 10000, bridge 5000, crest 2000, dante 3000,
+  decode 10000, edge 10000, encode 20000, listen 2000, renders 600000, review 50000,
+  runtime 2000, stream 5000, transcode 15000, vision 50000, visual-qa 100000, vod 100000,
+  whep 3000, whip 5000. Only the `atomicAmount` string changes on each operation.
 - **`X402PaymentRequired.error_detail` nesting** (`openapi.yaml`): `error_detail` referenced the
   `Error` envelope (`{ error: { code, ... } }`), but the gateway nests the bare error object
   directly under `error_detail` (`{ code, message, ... }`), with no inner `error` wrapper —
