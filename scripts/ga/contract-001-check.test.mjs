@@ -81,14 +81,19 @@ test('collectReachableRefs: a self-referential (cyclic) ref does not infinite-lo
 
 // ── run() end-to-end against hermetic fixtures ─────────────────────────────────────────────────
 
-function writeFixture(name, repoYaml, liveDoc) {
+function writeFixture(name, repoYaml, liveDoc, allowlist) {
   const dir = mkdtempSync(join(tmpdir(), `ga-contract-test-${name}-`));
   mkdirSync(dir, { recursive: true });
   const repoSpecPath = join(dir, 'openapi.yaml');
   const liveFile = join(dir, 'live.json');
   writeFileSync(repoSpecPath, repoYaml);
   writeFileSync(liveFile, JSON.stringify(liveDoc, null, 2));
-  return { dir, repoSpecPath, liveFile };
+  let allowlistPath;
+  if (allowlist) {
+    allowlistPath = join(dir, 'allowlist.json');
+    writeFileSync(allowlistPath, JSON.stringify(allowlist, null, 2));
+  }
+  return { dir, repoSpecPath, liveFile, allowlistPath };
 }
 
 function checkByName(result, name) {
@@ -208,6 +213,188 @@ paths:
     assert.equal(checkByName(result, 'operation-parity').ok, false);
     assert.match(checkByName(result, 'operation-parity').detail, /undocumented-live/);
     assert.equal(checkByName(result, 'content-digest').ok, true, '/beta is unmatched, so it never enters the shared-operation digest loop');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ── content-digest honours the same `shared-drift` allowlist operation-parity does ──────────────
+//
+// BOTH DIRECTIONS ARE PINNED HERE ON PURPOSE. Subtracting an exemption from a digest is exactly the
+// shape of change that can quietly become a way to switch a criterion off, so it is not enough to
+// show that an allowlisted difference stops failing: the tests below also hold that a NON-allowlisted
+// difference, a difference sitting alongside an allowlisted one, and an allowlist entry whose lapsing
+// predicate no longer matches the live document all still fail. An exemption may only ever remove an
+// operation from the comparison; it may never turn a real mismatch into a pass.
+
+const TWO_OP_REPO_YAML = `
+openapi: 3.1.0
+info: {title: t, version: 1.0.0}
+paths:
+  /alpha:
+    get:
+      operationId: getAlpha
+      summary: Alpha as this repo documents it
+      responses:
+        '200':
+          description: OK
+  /beta:
+    get:
+      operationId: getBeta
+      summary: Beta
+      responses:
+        '200':
+          description: OK
+`;
+
+/** /alpha diverges (a different summary); /beta is byte-identical to the repo's declaration. */
+function twoOpLiveDoc(extraPaths = {}) {
+  return {
+    openapi: '3.1.0',
+    info: { title: 't', version: '1.0.0' },
+    paths: {
+      '/alpha': { get: { operationId: 'getAlpha', summary: 'Alpha as the gateway generates it', responses: { 200: { description: 'OK' } } } },
+      '/beta': { get: { operationId: 'getBeta', summary: 'Beta', responses: { 200: { description: 'OK' } } } },
+      ...extraPaths,
+    },
+  };
+}
+
+const ALPHA_EXEMPTION = {
+  path: '/alpha',
+  method: 'GET',
+  direction: 'shared-drift',
+  justification: 'Editorial-only summary divergence between the hand-written declaration and the generated one; keyed on the published operationId so the exemption lapses if this operation is ever renamed or regenerated.',
+  expect: { operationId: 'getAlpha' },
+};
+
+test('content-digest: WITHOUT the exemption, the allowlistable difference fails the digest (fail-before)', async () => {
+  const { dir, repoSpecPath, liveFile, allowlistPath } = writeFixture('al-before', TWO_OP_REPO_YAML, twoOpLiveDoc(), []);
+  try {
+    const result = await run({ repoSpecPath, liveFile, allowlistPath });
+    assert.equal(result.couldNotRun, false);
+    assert.equal(checkByName(result, 'content-digest').ok, false, 'an empty allowlist must leave /alpha in the digest');
+    assert.equal(result.exemptedCount, 0);
+    assert.equal(result.digestedCount, 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('content-digest: WITH the exemption honoured, the same difference does not trip the digest (pass-after)', async () => {
+  const { dir, repoSpecPath, liveFile, allowlistPath } = writeFixture('al-after', TWO_OP_REPO_YAML, twoOpLiveDoc(), [ALPHA_EXEMPTION]);
+  try {
+    const result = await run({ repoSpecPath, liveFile, allowlistPath });
+    assert.equal(result.couldNotRun, false);
+    assert.equal(checkByName(result, 'operation-parity').ok, true);
+    assert.equal(checkByName(result, 'content-digest').ok, true, 'a still-live shared-drift exemption must be subtracted from the digest, as operation-parity already subtracts it');
+    assert.equal(result.exemptedCount, 1, 'exactly the one exempted operation is excluded');
+    assert.equal(result.digestedCount, 1, '/beta is still compared');
+    assert.equal(result.sharedCount, 2, 'the shared count still reports the true total');
+    assert.match(checkByName(result, 'content-digest').detail, /1 allowlisted shared-drift exemption\(s\) excluded/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('content-digest: an exemption does NOT silence a different, non-allowlisted operation', async () => {
+  // /gamma is served with a summary the repo never declared and carries no exemption. Its presence
+  // alongside an honoured /alpha exemption must still fail the digest — this is the half of the
+  // behaviour that stops the allowlist becoming a way to switch the criterion off.
+  const repoYaml = `${TWO_OP_REPO_YAML}  /gamma:
+    get:
+      operationId: getGamma
+      summary: Gamma as this repo documents it
+      responses:
+        '200':
+          description: OK
+`;
+  const live = twoOpLiveDoc({
+    '/gamma': { get: { operationId: 'getGamma', summary: 'Gamma as the gateway serves it', responses: { 200: { description: 'OK' } } } },
+  });
+  const { dir, repoSpecPath, liveFile, allowlistPath } = writeFixture('al-nonexempt', repoYaml, live, [ALPHA_EXEMPTION]);
+  try {
+    const result = await run({ repoSpecPath, liveFile, allowlistPath });
+    assert.equal(result.couldNotRun, false);
+    assert.equal(checkByName(result, 'content-digest').ok, false, 'a non-allowlisted content difference must still fail even when a sibling operation is exempted');
+    assert.equal(result.exemptedCount, 1, 'the exemption applies to /alpha only — it never widens to cover /gamma');
+    assert.equal(result.digestedCount, 2, '/beta and /gamma are both still compared');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('content-digest: a non-allowlisted $ref-only change still fails while a sibling exemption stands', async () => {
+  // The reachable-$ref fold must survive the subtraction: /delta's own operation object is
+  // byte-identical on both sides and only its referenced component schema moved.
+  const repoYaml = `${TWO_OP_REPO_YAML}  /delta:
+    get:
+      operationId: getDelta
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeltaBody'
+components:
+  schemas:
+    DeltaBody:
+      type: object
+      properties:
+        id:
+          type: string
+`;
+  const deltaOp = {
+    operationId: 'getDelta',
+    responses: { 200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/DeltaBody' } } } } },
+  };
+  const live = twoOpLiveDoc({ '/delta': { get: deltaOp } });
+  live.components = { schemas: { DeltaBody: { type: 'object', properties: { id: { type: 'string' }, extra: { type: 'integer' } } } } };
+  const { dir, repoSpecPath, liveFile, allowlistPath } = writeFixture('al-refs', repoYaml, live, [ALPHA_EXEMPTION]);
+  try {
+    const result = await run({ repoSpecPath, liveFile, allowlistPath });
+    assert.equal(result.couldNotRun, false);
+    assert.equal(checkByName(result, 'content-digest').ok, false, 'a referenced-schema change on a non-exempt operation must still flip the digest');
+    assert.equal(result.exemptedCount, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('content-digest: an exemption whose lapsing predicate no longer matches is NOT subtracted', async () => {
+  // The published operationId moved, so the entry's `expect` no longer holds. compare() reports it
+  // as lapsed rather than honoured, and the operation must fall straight back into the digest —
+  // otherwise an exemption would outlive the justification it was granted under.
+  const lapsed = { ...ALPHA_EXEMPTION, expect: { operationId: 'getAlphaRenamedSinceThisEntryWasWritten' } };
+  const { dir, repoSpecPath, liveFile, allowlistPath } = writeFixture('al-lapsed', TWO_OP_REPO_YAML, twoOpLiveDoc(), [lapsed]);
+  try {
+    const result = await run({ repoSpecPath, liveFile, allowlistPath });
+    assert.equal(result.couldNotRun, false);
+    assert.equal(checkByName(result, 'content-digest').ok, false, 'a lapsed exemption must not be subtracted from the digest');
+    assert.equal(result.exemptedCount, 0);
+    assert.equal(result.digestedCount, 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('content-digest: an exemption for a DIFFERENT direction never subtracts a shared operation', async () => {
+  // Only `shared-drift` describes an accepted difference between two operations that both exist.
+  // An entry in any other direction must not remove an operation from the digest.
+  const wrongDirection = {
+    path: '/alpha',
+    method: 'GET',
+    direction: 'undocumented-live',
+    justification: 'A deliberately mis-directed entry used to prove the subtraction is keyed on the shared-drift direction and not on path+method alone.',
+    expect: { operationId: 'getAlpha' },
+  };
+  const { dir, repoSpecPath, liveFile, allowlistPath } = writeFixture('al-direction', TWO_OP_REPO_YAML, twoOpLiveDoc(), [wrongDirection]);
+  try {
+    const result = await run({ repoSpecPath, liveFile, allowlistPath });
+    assert.equal(result.couldNotRun, false);
+    assert.equal(result.exemptedCount, 0, 'an undocumented-live entry must not exempt a shared operation from the content digest');
+    assert.equal(checkByName(result, 'content-digest').ok, false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
