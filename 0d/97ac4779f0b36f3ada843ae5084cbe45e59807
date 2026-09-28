@@ -1,0 +1,27 @@
+CHANGELOG.md
+  s_418f585ff58cb5::t_f6493ba4c5a49e 54-82
+scripts/ga/contract-001-check.test.mjs
+  s_418f585ff58cb5::t_c814c59ce6c6da 84,91-96
+  s_418f585ff58cb5::t_7bafcdabf6ce5b 220-401
+scripts/ga/contract-001-check.mjs
+  s_418f585ff58cb5::t_25e9a862ccb6d1 249-260,263
+  s_418f585ff58cb5::t_4582e8a768c7c6 297-299,301-304,317-318
+  s_418f585ff58cb5::t_cc43a9461c985d 21-27,33-62
+  s_418f585ff58cb5::t_e3cc3186998e11 201-204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "0d97ac4779f0b36f3ada843ae5084cbe45e59807",
+  "prompts": {},
+  "sessions": {
+    "s_418f585ff58cb5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e5b410ce-aa9a-48d6-be5d-09400395b1b6",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}

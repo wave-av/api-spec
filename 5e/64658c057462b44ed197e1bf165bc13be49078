@@ -1,0 +1,19 @@
+generated/api-types.d.ts
+  s_3c7b3ef700013e::t_a6c4925f7e6e29 2183-2242,6107-6220,10776-10845
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "5e64658c057462b44ed197e1bf165bc13be49078",
+  "prompts": {},
+  "sessions": {
+    "s_3c7b3ef700013e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "996fb707-e2e4-45af-8ec6-8dd33f300698",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}

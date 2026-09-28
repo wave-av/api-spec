@@ -1,0 +1,23 @@
+CHANGELOG.md
+  s_418f585ff58cb5::t_7ec63c15e907cb 54-80
+contract-drift.json
+  s_418f585ff58cb5::t_b43fc86cf542df 3,13,17-18,20-22
+openapi.yaml
+  s_418f585ff58cb5::t_4b9b27328c9c1b 2940,2966,2986,3004,3027,3043,3158,3185,3205,3223,3240,3262,3282,3309,3336,3367,3392,3497,3523,3543,3676,3707,3746,3776,4406,4428,4457,4657,4748,5334,6178,7978,8069,9778,9824,10590
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "1f875d37eca52f637eb43e6ced82eb67636f7269",
+  "prompts": {},
+  "sessions": {
+    "s_418f585ff58cb5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e5b410ce-aa9a-48d6-be5d-09400395b1b6",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}

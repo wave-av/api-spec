@@ -1,0 +1,26 @@
+docs/ga-public-reproductions/API-001.md
+  s_efe86faf2558e9::t_4341921d487c0b 87
+  s_efe86faf2558e9::t_3a5d5103642bd1 106-110,112-113
+  s_efe86faf2558e9::t_b889a99fce1a3d 32
+  s_efe86faf2558e9::t_f442194ba78bf7 3
+  s_efe86faf2558e9::t_20b7bae0859a57 36-38
+docs/ga-public-reproductions/PROTO-001.md
+  s_efe86faf2558e9::t_5dafc35d0eaa1f 3
+  s_efe86faf2558e9::t_0252050a6e96de 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "54ba5750affc6a1cb58e5d456ca6e48096124803",
+  "prompts": {},
+  "sessions": {
+    "s_efe86faf2558e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2b6e2e9-ab55-4d57-9d9f-d57a588ae688",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}

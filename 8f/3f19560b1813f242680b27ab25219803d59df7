@@ -1,0 +1,36 @@
+openapi.yaml
+  s_efe86faf2558e9::t_23d44af974de8c 4580
+  s_efe86faf2558e9::t_a3a99ae39785c7 6817
+  s_efe86faf2558e9::t_1ad5c0c2543064 6367
+  s_efe86faf2558e9::t_7c6ae8cd13a8e5 6277
+  s_efe86faf2558e9::t_434394fc18ba96 11091
+  s_efe86faf2558e9::t_9233aa680d3a14 11136
+  s_efe86faf2558e9::t_8d18f6cb053211 5345
+  s_efe86faf2558e9::t_068ae485b834ad 10731
+  s_efe86faf2558e9::t_bd76ccf5602a95 9426
+  s_efe86faf2558e9::t_ed971052b3f244 10776
+  s_efe86faf2558e9::t_36c6df8a018c62 10641
+  s_efe86faf2558e9::t_68759da03ac721 6187
+  s_efe86faf2558e9::t_d4409065e8d10e 6727
+  s_efe86faf2558e9::t_f944949f0bb73a 9066
+  s_efe86faf2558e9::t_700c80e7afa5cd 9201
+  s_efe86faf2558e9::t_382042f4df8c30 10281
+  s_efe86faf2558e9::t_8db508c3418646 7311
+  s_efe86faf2558e9::t_58d6efe1cdf93a 9921
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "8f3f19560b1813f242680b27ab25219803d59df7",
+  "prompts": {},
+  "sessions": {
+    "s_efe86faf2558e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2b6e2e9-ab55-4d57-9d9f-d57a588ae688",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
