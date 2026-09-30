@@ -88,8 +88,9 @@ this port exists in the first place.
 
 - **linux x86_64.** The pinned gitleaks and ripgrep releases are amd64.
 - `bash`, `git`, `grep`, `wc` (gate-checks); `curl`, `tar`, `sha256sum`, `install` (secrets-content-policy, to fetch and verify the pinned tool releases).
-- **Egress:** `github.com` releases for the pinned gitleaks/ripgrep downloads, only when neither is
-  pre-baked on the agent image. `gate-checks` needs no network at all.
+- **Egress:** `github.com` releases for the pinned gitleaks/ripgrep downloads. `secrets-content-policy`
+  always re-downloads gitleaks -- there is no pre-baked-tool check for it -- and skips only the ripgrep
+  download, when an `rg` with PCRE2 support is already on `PATH`. `gate-checks` needs no network at all.
 - No secrets, no Node, no npm, no sudo, no services. Both steps run over the checked-out working
   tree only.
 
@@ -129,20 +130,24 @@ this port exists in the first place.
 
 ## Run locally
 
-From the repo root, on linux x86_64 or macOS with `bash`, `git`, `curl`, `tar`, `sha256sum` on PATH:
+From the repo root, on linux x86_64 with `bash`, `git`, `curl`, `tar`, `sha256sum` on PATH:
 
 ```sh
 .buildkite/scripts/gate-checks.sh
 .buildkite/scripts/secrets-content-policy.sh
 ```
 
-`gate-checks.sh` needs nothing else and passes clean on `origin/main`.
-`secrets-content-policy.sh`'s gitleaks/ripgrep install steps fetch the linux-x64/x86_64-musl release
-tarballs; on a non-x86_64-linux workstation, install matching `gitleaks` 8.30.1 and `rg` (PCRE2
-build) 14.1.1 on PATH first and the script's own `command -v` checks will use those instead of
-downloading. Set `GUARD_PRIVATE_REPOS` to match the GH org variable for parity (unset runs the same
-as GH's own "variable not configured" case: that one rule is skipped, loudly, by
-`content-policy.sh` itself).
+`gate-checks.sh` needs nothing else, runs on any platform, and passes clean on `origin/main`.
+
+`secrets-content-policy.sh`'s gitleaks install step is **not** portable: it always fetches the pinned
+linux-x64 tarball with no `command -v gitleaks` bypass, and `TOOLS_DIR` is placed first on `PATH`, so
+even a native `gitleaks` already on `PATH` is shadowed once the download completes. Running the full
+script therefore requires linux x86_64 (or an emulation layer that can execute that binary) -- it is
+not a byte-faithful local repro on macOS or other non-x86_64-linux workstations. The ripgrep install
+step, by contrast, does check `command -v rg` first: a native `rg` 14.1.1 (PCRE2 build) already on
+PATH is used as-is and its download is skipped. Set `GUARD_PRIVATE_REPOS` to match the GH org variable
+for parity (unset runs the same as GH's own "variable not configured" case: that one rule is skipped,
+loudly, by `content-policy.sh` itself).
 
 ## Operator steps needed
 
