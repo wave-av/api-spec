@@ -1,0 +1,27 @@
+CHANGELOG.md
+  s_13ccc7d9001218::t_ae798b6ee853f8 9-35
+.github/scripts/published-drift-allowlist.json
+  s_13ccc7d9001218::t_efe75c0eabe4df 14-22,24,26
+openapi.yaml
+  s_13ccc7d9001218::t_cd70cbbbb80cd6 1559-1564
+  s_13ccc7d9001218::t_29e58bda1fc353 1536
+  s_13ccc7d9001218::t_c4cba08e0b3715 2184-2185
+  s_13ccc7d9001218::t_0dcf20c24036c2 2210
+  s_13ccc7d9001218::t_ac5840a7cbe0d7 1528,1538-1539
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "475dd6dd1d8603365cd9c9763ca8b70c9e33b85d",
+  "prompts": {},
+  "sessions": {
+    "s_13ccc7d9001218": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "11229abc-f617-4541-b5d7-d693c6ae4d9d",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
