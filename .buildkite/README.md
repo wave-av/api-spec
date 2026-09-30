@@ -61,9 +61,12 @@ org-level Actions *variable* (`env: GUARD_PRIVATE_REPOS: ${{ vars.GUARD_PRIVATE_
 secret) and `content-policy.sh` treats an unset value as "this one rule is skipped" (its own
 documented behavior, unchanged here). This pipeline does the same: the script reads
 `GUARD_PRIVATE_REPOS` from its own environment and passes it through unmodified -- it never sets,
-defaults, or widens it. For parity with GH, an operator must add a Buildkite pipeline (or org)
-environment variable of the same name, with the same value as the GH org variable, in pipeline
-settings (see "Operator steps needed").
+defaults, or widens it. On Buildkite, the `secrets-content-policy` step's
+`secrets: [GUARD_PRIVATE_REPOS]` attribute in `pipeline.yml` exports the Buildkite cluster secret of
+that name (org `wave`, cluster "WAVE self-hosted CI") as the `GUARD_PRIVATE_REPOS` env var for that
+step only, and Buildkite redacts the value from build logs if it is ever printed. For parity with GH,
+an operator must create that cluster secret with the same value as the GH org variable (see "Operator
+steps needed").
 
 ### Known pre-existing gap (not introduced here, not fixed here)
 
@@ -116,8 +119,9 @@ this port exists in the first place.
     `secrets-content-policy`) as the GitHub context instead of its emoji label. Requires the two
     settings above to both be `true` first.
 - **Cancel intermediate builds** and **skip intermediate builds** on `!main`.
-- **`GUARD_PRIVATE_REPOS`** pipeline (or org) environment variable, matching the GH org Actions
-  variable of the same name (see above).
+- **`GUARD_PRIVATE_REPOS`** Buildkite cluster secret (org `wave`, cluster "WAVE self-hosted CI"),
+  matching the GH org Actions variable of the same name (see above), exported to the
+  `secrets-content-policy` step via its `secrets:` attribute in `pipeline.yml`.
 
 ## Caps (checked by caps-lint before upload)
 
@@ -145,9 +149,10 @@ even a native `gitleaks` already on `PATH` is shadowed once the download complet
 script therefore requires linux x86_64 (or an emulation layer that can execute that binary) -- it is
 not a byte-faithful local repro on macOS or other non-x86_64-linux workstations. The ripgrep install
 step, by contrast, does check `command -v rg` first: a native `rg` 14.1.1 (PCRE2 build) already on
-PATH is used as-is and its download is skipped. Set `GUARD_PRIVATE_REPOS` to match the GH org variable
-for parity (unset runs the same as GH's own "variable not configured" case: that one rule is skipped,
-loudly, by `content-policy.sh` itself).
+PATH is used as-is and its download is skipped. Running `secrets-content-policy.sh` directly (outside
+Buildkite) will not have `GUARD_PRIVATE_REPOS` injected by the step's `secrets:` attribute, so export it
+by hand to match the GH org variable for parity (unset runs the same as GH's own "variable not
+configured" case: that one rule is skipped, loudly, by `content-policy.sh` itself).
 
 ## Operator steps needed
 
@@ -159,7 +164,10 @@ separate, operator-gated action:
    `use_step_key_as_commit_status` in the pipeline's GitHub provider settings -- without all three,
    GitHub never sees `gate / checks` or `Secrets + content policy`'s Buildkite counterparts at all,
    only one undifferentiated pipeline-level status.
-3. Set the `GUARD_PRIVATE_REPOS` pipeline/org environment variable to match GH's.
+3. Create the `GUARD_PRIVATE_REPOS` Buildkite cluster secret (org `wave`, cluster "WAVE self-hosted
+   CI") to match GH's org Actions variable. The `secrets-content-policy` step already declares
+   `secrets: [GUARD_PRIVATE_REPOS]` in `pipeline.yml`, so once the cluster secret exists it is
+   exported to that step automatically -- no further pipeline config needed.
 4. Watch both steps run green (or identify and fix real failures -- `secrets-content-policy` is
    expected to be red on `main` today; see "Known pre-existing gap" above) for a soak period before
    considering any change to branch protection's required contexts.

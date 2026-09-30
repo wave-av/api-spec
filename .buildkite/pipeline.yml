@@ -37,6 +37,8 @@ steps:
   - label: ":lock: secrets + content policy (gitleaks + trade-secret gate)"
     key: secrets-content-policy
     command: .buildkite/scripts/secrets-content-policy.sh
+    secrets:
+      - GUARD_PRIVATE_REPOS
     # gitleaks/ripgrep pinned-download install adds ~15-30s to the scan itself on a cold guest.
     timeout_in_minutes: 10
     retry:
