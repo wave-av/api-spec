@@ -1,0 +1,50 @@
+# api-spec required checks on Buildkite (SHADOW mode). See .buildkite/README.md.
+#
+# Uploaded only by the UI bootstrap step, which runs caps-lint first and uploads with `&&`.
+# Every GH workflow stays untouched and remains the gate until this pipeline is green for 7 days.
+# Nothing under .github/ changes, and branch protection's required contexts are not touched by this
+# change -- both are separate, operator-gated decisions (see the README's "Operator steps needed").
+#
+# Rules for every step here (enforced by caps-lint):
+#   - command is one checked-in script (compatible with agent no-command-eval)
+#   - explicit timeout_in_minutes (<= 30 here; org cap 60)
+#   - automatic retry only for infra loss (-1 agent lost, 255 guest died), limit 1 each; a real gate
+#     failure is never retried automatically, so a real red stays visible
+#   - no plugins, no secret values in env
+# Steps have no depends_on: each runs in its own disposable guest, in parallel.
+
+agents:
+  queue: fpc-isolated
+
+env:
+  BK_REPO_SLUG: "wave-av/api-spec"
+
+steps:
+  - label: ":closed_lock_with_key: gate / checks (secret scan + file-size gate)"
+    key: gate-checks
+    command: .buildkite/scripts/gate-checks.sh
+    timeout_in_minutes: 10
+    retry:
+      automatic:
+        - exit_status: -1
+          limit: 1
+        - exit_status: 255
+          limit: 1
+      manual:
+        allowed: true
+        permit_on_passed: false
+
+  - label: ":lock: secrets + content policy (gitleaks + trade-secret gate)"
+    key: secrets-content-policy
+    command: .buildkite/scripts/secrets-content-policy.sh
+    # gitleaks/ripgrep pinned-download install adds ~15-30s to the scan itself on a cold guest.
+    timeout_in_minutes: 10
+    retry:
+      automatic:
+        - exit_status: -1
+          limit: 1
+        - exit_status: 255
+          limit: 1
+      manual:
+        allowed: true
+        permit_on_passed: false
