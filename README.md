@@ -4,8 +4,8 @@
 
 **WAVE is media infrastructure for the agentic internet: one call shape moves live and on-demand
 media across every transport, and both kinds of user, people and agents, discover it, call it, and
-pay for it per call.** This repository is the OpenAPI 3.1 specification for that call shape — 229
-documented endpoint paths across 181 tag groups (streaming, production, analytics, voice, captions,
+pay for it per call.** This repository is the OpenAPI 3.1 specification for that call shape — 231
+documented endpoint paths across 182 tag groups (streaming, production, analytics, voice, captions,
 clips, and more), plus generators for client SDKs.
 
 ![kind](https://img.shields.io/badge/kind-openapi--spec-555?style=flat-square) ![domain](https://img.shields.io/badge/domain-api-0a7?style=flat-square) ![format](https://img.shields.io/badge/format-OpenAPI%203.1-85ea2d?style=flat-square) ![visibility](https://img.shields.io/badge/visibility-public-brightgreen?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)
@@ -19,9 +19,23 @@ clips, and more), plus generators for client SDKs.
 ## What this is
 
 A single-file OpenAPI 3.1 document (`openapi.yaml`) describing the WAVE Enterprise Streaming Platform
-API: 229 endpoint paths grouped under 181 tags. It is the source of truth other WAVE packages generate
-from — the [`@wave-av/sdk`](https://www.npmjs.com/package/@wave-av/sdk) TypeScript client is built from
-this spec.
+API: 231 endpoint paths (256 operations) grouped under 182 tags. It is the source of truth for the
+contract the gateway publishes at [`api.wave.online/openapi.json`](https://api.wave.online/openapi.json).
+
+**What is callable today.** Not every operation here is served yet:
+
+- 151 operations carry `x-schema-status: draft`. They are placeholders for priced capability
+  families whose request/response shape is not published. They are not a promise to consumers:
+  skip them when you generate a client.
+- Operations marked `deprecated: true` with `x-status: unrouted` have no destination on the live
+  gateway (it answers `404 ROUTE_NOT_FOUND`). Do not build against them.
+- Everything else is the callable contract.
+
+**About `@wave-av/sdk`.** The [`@wave-av/sdk`](https://www.npmjs.com/package/@wave-av/sdk) TypeScript
+client is **hand-written, not generated from this spec**, and its coverage does not match it: measured
+on 2026-09-30 against `@wave-av/sdk@2.1.3`, 44 of the 255 published operations are reachable from an SDK
+method, and most SDK calls target paths this contract does not declare. Treat this spec, not the SDK
+surface, as the authority on what the API accepts.
 
 ## Quick start
 
@@ -63,15 +77,15 @@ List endpoints support `page` / `perPage` pagination, and requests are subject t
 
 | Path | What it is |
 | --- | --- |
-| `openapi.yaml` | The spec itself — 14,039 lines, 229 paths, 181 tags |
-| `capabilities.json` | Machine-readable lifecycle metadata (this spec is tagged `ga`, version 3.0.0) |
+| `openapi.yaml` | The spec itself — about 14,500 lines, 231 paths, 256 operations, 182 tags; `info.version` 1.1.0 |
+| `capabilities.json` | Machine-readable lifecycle metadata (lifecycle tag `ga`; its own `version` field, 3.0.0, versions that metadata file, not the API) |
 | `scripts/public-repo-guard` | CI check that keeps this public mirror free of internal-only content |
 
 ## Related packages
 
 | Package | Description |
 | --- | --- |
-| [@wave-av/sdk](https://www.npmjs.com/package/@wave-av/sdk) | TypeScript SDK generated against this spec |
+| [@wave-av/sdk](https://www.npmjs.com/package/@wave-av/sdk) | Hand-written TypeScript SDK (not generated from this spec; see "About `@wave-av/sdk`" above) |
 | [@wave-av/adk](https://www.npmjs.com/package/@wave-av/adk) | Agent Developer Kit |
 | [@wave-av/mcp-server](https://www.npmjs.com/package/@wave-av/mcp-server) | MCP server exposing WAVE APIs as tools |
 | [@wave-av/cli](https://www.npmjs.com/package/@wave-av/cli) | Command-line interface |
