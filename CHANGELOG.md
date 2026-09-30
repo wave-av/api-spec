@@ -6,6 +6,33 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- **`POST /moderate` deprecated as `x-status: unrouted`** (`openapi.yaml`). Live-probed 2026-09-30:
+  unauthenticated `POST https://api.wave.online/v1/moderate` answers `404 ROUTE_NOT_FOUND`, and
+  wave-gateway has no spoke or gateway-native handler for it (the only reference is the scope
+  vocabulary). Its `402` is replaced with a documented `404`, the same treatment api-spec#111 gives
+  the nine dead path families. No open PR covered it.
+- **`GET /leaderboard` documents `403 SCOPE_INSUFFICIENT`**, the code the gateway uses for every
+  other missing-scope refusal, instead of `SCOPE_DENIED` (companion wave-gateway change).
+
+### Removed
+
+- **`GET /platform`** and the now-unused `Operator` tag. It is operator-only telemetry that needs
+  the WAVE service bearer, so every customer call to it answers `401 TELEMETRY_AUTH_REQUIRED`, yet
+  the public contract listed it with customer bearer security. The companion wave-gateway change
+  stops publishing the `/usage` and `/platform` operator overlays, which also lets this spec's
+  customer `getUsage` (`/usage`, `usage:read`) show through in the served contract.
+
+### Fixed
+
+- **README accuracy.** It said `@wave-av/sdk` is "built from" and "generated against" this spec.
+  It is hand-written: measured against `@wave-av/sdk@2.1.3`, 44 of the 255 published operations have
+  an SDK method, and 477 of 543 SDK HTTP calls target paths this spec does not declare. The README
+  now says so, states which operations are callable (draft and unrouted ones are not), and corrects
+  the path/tag counts (229/181 → 231/182) and the version note (`capabilities.json` 3.0.0 versions
+  that file, not the API).
+
 ### Added
 
 - **Composer surface** (`openapi.yaml`) — the gateway (build `d62760094`) serves three

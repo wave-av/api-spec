@@ -11,10 +11,19 @@
   {
     "path": "/platform",
     "method": "GET",
-    "direction": "shared-drift",
-    "justification": "Same editorial-only reasoning as GET /leaderboard: an assigned operationId and a Title-Cased tag versus the gateway's unnamed, lowercase-tagged generated shape. Keyed on the exact published summary so a real content change still surfaces as drift.",
+    "direction": "undocumented-live",
+    "justification": "Operator-only telemetry (WAVE service bearer, WAVE_SERVICE_TOKEN; no customer key can call it) removed from openapi.yaml on 2026-09-30 because a public contract must not list an operation every customer call 401s on. The gateway stops publishing its /usage + /platform operator overlays in the companion wave-gateway change (branch fix/conn-api); until that build is deployed the published document still carries this operator shape. Keyed on the operator 'internal' tag: it can only ever exempt the operator shape, and once the gateway stops publishing the operation the entry matches nothing and should be deleted.",
     "expect": {
-      "summary": "Platform-wide live usage — OPERATOR ONLY (inference + voice + codec + storage + realtime + clips + captions)"
+      "tags.0": "internal"
+    }
+  },
+  {
+    "path": "/moderate",
+    "method": "POST",
+    "direction": "shared-drift",
+    "justification": "Deprecated here as x-status: unrouted on 2026-09-30, the same treatment api-spec#111 gives the 9 dead path families: the live gateway has no spoke and no gateway-native handler for /v1/moderate (unauthenticated POST answers 404 ROUTE_NOT_FOUND; the only reference in wave-gateway is the scope vocabulary). The published document still serves the operation undeprecated until the gateway re-pins this spec. Keyed on the published side's deprecated field being absent: the moment the published operation is marked deprecated too, this predicate fails and the two shapes are compared for real.",
+    "expect": {
+      "deprecated": null
     }
   },
   {

@@ -459,11 +459,6 @@ tags:
     description: >-
       WAVE omt API — priced capability surface documented from the live gateway
       skills index; the request/response shape is not yet published (draft).
-  - name: Operator
-    description: >-
-      Gateway-native, operator-authenticated root surfaces (the WAVE service bearer, not a
-      tenant API key) — platform-wide telemetry aggregated across every product, not a
-      tenant-scoped /v1 resource.
   - name: Ops
     description: >-
       WAVE ops API — priced capability surface documented from the live gateway
@@ -1530,7 +1525,7 @@ paths:
   /moderate:
     post:
       tags: [Moderate]
-      summary: Moderate content
+      summary: Moderate content (unrouted)
       description: >-
         Run AI-assisted moderation over a piece of text content (a chat message,
         title, description, comment, username, or bio) and get back an allow/flag/
@@ -1538,8 +1533,10 @@ paths:
         message, set `contentType` to `chat` and, optionally, `context.streamId` to
         the stream the message belongs to — this endpoint moderates arbitrary text
         content; it does not itself track a chat message id or apply an action to a
-        stored message.
+        stored message. Not served: the gateway answers 404 `ROUTE_NOT_FOUND`.
       operationId: moderateContent
+      deprecated: true
+      x-status: unrouted
       requestBody:
         required: true
         content:
@@ -1557,10 +1554,14 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # Live Pipeline
   /live/pipeline:
@@ -2180,11 +2181,8 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  # Gateway-native root surfaces — NOT /v1 operations. Each carries its own `servers` override to
-  # https://api.wave.online (no /v1 prefix) because the gateway serves these at the host root, now
-  # operator/tenant-authenticated. Both were previously exempted in published-drift-allowlist.json
-  # as undocumented-live while unauthenticated; that exemption's own justification names this the
-  # intended remedy once each operation gained a security requirement.
+  # Gateway-native root surface, NOT /v1: its `servers` override is the host root. GET /platform
+  # (operator-only, WAVE service bearer) was removed 2026-09-30: no customer key can call it.
   /leaderboard:
     get:
       tags: [Usage]
@@ -2209,25 +2207,7 @@ paths:
         '401':
           description: LEADERBOARD_AUTH_REQUIRED — no or invalid API key; body names the public board's URL
         '403':
-          description: SCOPE_DENIED — key lacks usage:read
-
-  /platform:
-    get:
-      tags: [Operator]
-      summary: Platform-wide live usage — OPERATOR ONLY (inference + voice + codec + storage + realtime + clips + captions)
-      description: >-
-        Operator-authenticated. Requires the WAVE service bearer; unauthenticated callers receive
-        401 TELEMETRY_AUTH_REQUIRED.
-      operationId: getPlatformUsage
-      servers:
-        - url: https://api.wave.online
-      security:
-        - bearerWithScopes: []
-      responses:
-        '200':
-          description: Every product's live usage, grounded-only
-        '401':
-          description: 'Operator authentication required: {"error":{"code":"TELEMETRY_AUTH_REQUIRED"}}'
+          description: SCOPE_INSUFFICIENT — key lacks usage:read (the body names required_scope)
 
   # Analytics
   /analytics/overview:
