@@ -26,7 +26,8 @@ informational until that decision is made.
 Each `command:` is a single checked-in script, so the pipeline is compatible with agent
 `no-command-eval`. Both required contexts resolve on Buildkite as
 `buildkite/<pipeline-slug>/gate-checks` and `buildkite/<pipeline-slug>/secrets-content-policy`
-(pipeline-slug is assigned when the pipeline is created; see "Operator steps needed").
+(pipeline-slug is assigned when the pipeline is created) -- **but only once the GitHub provider
+settings below are enabled; see "Operator steps needed"**.
 
 ### `gate-checks` (shadows `gate / checks`)
 
@@ -36,6 +37,14 @@ file-size gate (`.ts`/`.tsx`/`.js`/`.py`, 800-line ceiling, `.github/.filesize-a
 `.types.ts`/`.d.ts` excluded). `_checks.yml`'s other two jobs in this repo's call
 (`skill-validate`, `verify-routes`) are not part of the `gate / checks` required context and are not
 ported.
+
+**Difference from GH, on purpose:** `_checks.yml`'s secret-scan step echoes the full matched line
+(`path:line:match`) into the GH Actions log. This step's `gate_secret_scan` prints only `path:line`,
+with the matched text replaced by the same `«match redacted — open this location to view»` marker
+`content-policy.sh` already uses -- a matched credential must never be echoed into a build log. The
+detection regex, the `--exclude-dir` list and the allowlist files are unchanged. Proven locally: a
+planted `AKIA`-prefixed test value fails the gate, and the captured stdout+stderr of the run was
+grepped for the literal value afterward -- absent.
 
 ### `secrets-content-policy` (shadows `Secrets + content policy`)
 
@@ -93,6 +102,18 @@ this port exists in the first place.
   UI step), `timeout_in_minutes: 5`, `retry.manual: false`, `agents.queue: fpc-isolated`.
 - **GitHub:** trigger on push and pull_request. **Build PRs from forks: off** (the second fence is
   `bk_refuse_fork_build` in `lib/common.sh`, keyed on `BK_REPO_SLUG`).
+- **Per-step GitHub commit statuses -- required for the two contexts in "What is ported" to exist
+  at all.** Left at Buildkite's defaults, GitHub sees one pipeline-level status, not one per step,
+  and neither `buildkite/<pipeline-slug>/gate-checks` nor
+  `buildkite/<pipeline-slug>/secrets-content-policy` is ever posted. Per Buildkite's GitHub pipeline
+  provider settings (<https://buildkite.com/docs/pipelines/source-control/github> /
+  the REST API's `provider_settings`), enable all three, in order:
+  - `publish_commit_status` (UI: "Update commit statuses") -- posts any commit status at all.
+  - `publish_commit_status_per_step` (UI: "Create a status for each job") -- one status per job
+    instead of one for the whole build.
+  - `use_step_key_as_commit_status` -- uses each job's `key` (`gate-checks`,
+    `secrets-content-policy`) as the GitHub context instead of its emoji label. Requires the two
+    settings above to both be `true` first.
 - **Cancel intermediate builds** and **skip intermediate builds** on `!main`.
 - **`GUARD_PRIVATE_REPOS`** pipeline (or org) environment variable, matching the GH org Actions
   variable of the same name (see above).
@@ -129,9 +150,13 @@ This PR is code only. It does not, and cannot from inside a PR, do any of the fo
 separate, operator-gated action:
 
 1. Create the Buildkite pipeline, pointed at this repo, with the settings above.
-2. Set the `GUARD_PRIVATE_REPOS` pipeline/org environment variable to match GH's.
-3. Watch both steps run green (or identify and fix real failures -- `secrets-content-policy` is
+2. Enable `publish_commit_status`, `publish_commit_status_per_step` and
+   `use_step_key_as_commit_status` in the pipeline's GitHub provider settings -- without all three,
+   GitHub never sees `gate / checks` or `Secrets + content policy`'s Buildkite counterparts at all,
+   only one undifferentiated pipeline-level status.
+3. Set the `GUARD_PRIVATE_REPOS` pipeline/org environment variable to match GH's.
+4. Watch both steps run green (or identify and fix real failures -- `secrets-content-policy` is
    expected to be red on `main` today; see "Known pre-existing gap" above) for a soak period before
    considering any change to branch protection's required contexts.
-4. Any change to `main`'s required status checks, or to `.github/workflows/*`, stays a distinct,
+5. Any change to `main`'s required status checks, or to `.github/workflows/*`, stays a distinct,
    explicitly operator-approved change. This PR makes neither.

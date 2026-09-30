@@ -12,6 +12,12 @@
 # _checks.yml's `checks` job. They are wrapped in shell functions instead of inline `run:` blocks so
 # bk_gate can run both and report every failure (see lib/common.sh: DIFFERENCE FROM GH, on purpose --
 # a GH Actions job stops at its first failing step; every gate here still runs).
+#
+# ANOTHER DIFFERENCE FROM GH, on purpose: _checks.yml's secret-scan step echoes the full matched
+# line (path:line:match) into the GH Actions log. This step prints only path:line, the same
+# redaction convention content-policy.sh already uses ("match redacted — open this location to
+# view") -- a matched credential must never be echoed into a Buildkite build log. The detection
+# regex and allowlist logic are unchanged; only what gets printed on a hit differs.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
@@ -24,7 +30,11 @@ bk_preflight
 MAX="${MAX:-800}"
 
 # --- Secret scan (fail-closed, allowlist-aware) -------------------------------------------------
-# Byte-faithful copy of _checks.yml's "Secret scan (fail-closed, allowlist-aware)" step.
+# Detection logic is a byte-faithful copy of _checks.yml's "Secret scan (fail-closed,
+# allowlist-aware)" step (same regex, same --exclude-dir list, same allowlist files). What gets
+# PRINTED on a hit is not byte-faithful, deliberately: see the file header ("ANOTHER DIFFERENCE
+# FROM GH, on purpose"). $hits is grep -n output ("path:line:matched-text"); only "path:line" is
+# ever echoed, never the matched text.
 gate_secret_scan() {
   local hits
   hits=$(grep -rIEn '(sk-[A-Za-z0-9]{20}|sk_(live|test)_[A-Za-z0-9]{20}|npm_[A-Za-z0-9]{30}|sbp_[a-f0-9]{40}|github_pat_[A-Za-z0-9_]{40}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30}|AIzaSy[A-Za-z0-9_-]{20}|xai-[A-Za-z0-9]{40}|xoxb-[A-Za-z0-9-]+|-----BEGIN [A-Z ]*PRIVATE KEY)' \
@@ -32,7 +42,7 @@ gate_secret_scan() {
     | { [ -f .github/.secret-allowlist ] && grep -vFf .github/.secret-allowlist || cat; } || true)
   if [ -n "$hits" ]; then
     echo "::error::secret-like pattern found — do not commit credentials"
-    echo "$hits"
+    printf '%s\n' "$hits" | sed -E 's/^([^:]+:[0-9]+):.*/\1: «match redacted — open this location to view»/'
     return 1
   fi
   echo "secret-scan clean"
