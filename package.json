@@ -1,6 +1,6 @@
 {
   "name": "@wave-av/api-spec",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "OpenAPI 3.1 specification for WAVE, media infrastructure for the agentic internet: openapi.yaml plus the tooling that validates it and generates SDK types from it.",

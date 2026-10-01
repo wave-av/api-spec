@@ -1,6 +1,6 @@
 {
   "about": "Point-in-time operation-level diff between this repo's openapi.yaml and the contract the gateway publishes. It is a dated receipt, not a live view: regenerate with `node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json`. The published-contract-drift workflow uploads a fresh copy on every scheduled run. The PUBLISHED half of this receipt ages on the gateway's schedule and only the scheduled drift job can refresh it; the REPO half is pinned by sources.repoOperationsDigest, which the freshness job checks offline on every run so this file cannot quietly disagree with the openapi.yaml sitting next to it.",
-  "generatedAt": "2026-09-06T05:15:13.584Z",
+  "generatedAt": "2026-10-01T19:04:07.995Z",
   "criterion": [
     "CONTRACT-001",
     "COMPAT-001",
@@ -10,28 +10,544 @@
     "repoSpec": "openapi.yaml",
     "repoCommit": null,
     "publishedSpec": "https://api.wave.online/openapi.json",
-    "repoOperationsDigest": "c444b8649ef29f806ee2a0a178ed1fca487582e7e10ddd5e7f4fa651b1c98c8a"
+    "repoOperationsDigest": "fb83eb46dbfcbefdb7793ea9355b564d25e0eb4e3846271029eef9bfe67f6590"
   },
   "headline": {
     "repoVersion": "1.1.0",
-    "repoPaths": 229,
-    "repoOperations": 254,
+    "repoPaths": 231,
+    "repoOperations": 256,
     "publishedVersion": "1.1.0",
-    "publishedPaths": 227,
-    "publishedOperations": 252,
-    "sharedOperations": 252,
+    "publishedPaths": 224,
+    "publishedOperations": 249,
+    "sharedOperations": 248,
     "undocumentedLive": 0,
     "unpublishedRepo": 0,
     "draftButLive": 0,
-    "liveProbed": 0,
-    "sharedDrift": 0,
+    "liveProbed": 2,
+    "sharedDrift": 36,
     "draftNotYetPublished": 0,
-    "allowlisted": 11,
+    "pausedNotPublished": 6,
+    "allowlisted": 9,
     "lapsedAllowlistEntries": 0,
-    "unmatchedAllowlistEntries": 0
+    "unmatchedAllowlistEntries": 3
   },
-  "findings": [],
+  "findings": [
+    {
+      "path": "/aes67",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/agents",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/bridge",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/collab/rooms",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/collab/rooms",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/collab/rooms/{roomId}",
+      "method": "DELETE",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/collab/rooms/{roomId}",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/crest",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/editor/projects",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/editor/projects",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/editor/projects/{projectId}",
+      "method": "DELETE",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/editor/projects/{projectId}",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/editor/projects/{projectId}",
+      "method": "PATCH",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/editor/projects/{projectId}/export",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/engine/capabilities",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/gpu/infer",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/gpu/infer",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/ndi",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/omt",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/podcast/shows",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/podcast/shows",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/podcast/shows/{showId}/episodes",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/podcast/shows/{showId}/episodes",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/realtime/channels/{channel}/history",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "servers",
+          "repo": [
+            {
+              "url": "https://realtime.wave.online",
+              "description": "WAVE Realtime edge"
+            }
+          ],
+          "published": null
+        },
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/realtime/channels/{channel}/presence",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "servers",
+          "repo": [
+            {
+              "url": "https://realtime.wave.online",
+              "description": "WAVE Realtime edge"
+            }
+          ],
+          "published": null
+        },
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/realtime/channels/{channel}/publish",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "servers",
+          "repo": [
+            {
+              "url": "https://realtime.wave.online",
+              "description": "WAVE Realtime edge"
+            }
+          ],
+          "published": null
+        },
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/realtime/connect",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "servers",
+          "repo": [
+            {
+              "url": "https://realtime.wave.online",
+              "description": "WAVE Realtime edge"
+            }
+          ],
+          "published": null
+        },
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/sentiment",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/sentiment",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/sentiment/analyze",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/srt",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/st2110",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/studio-ai/enhancements",
+      "method": "GET",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/studio-ai/enhancements",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/studio-ai/preview",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    },
+    {
+      "path": "/vision",
+      "method": "POST",
+      "direction": "shared-drift",
+      "severity": "contract-mismatch",
+      "differences": [
+        {
+          "field": "x-lifecycle",
+          "repo": null,
+          "published": "preview"
+        }
+      ]
+    }
+  ],
   "allowlisted": [
+    {
+      "path": "/platform",
+      "method": "GET",
+      "direction": "undocumented-live",
+      "justification": "Operator-only telemetry (WAVE service bearer, WAVE_SERVICE_TOKEN; no customer key can call it) removed from openapi.yaml on 2026-09-30 because a public contract must not list an operation every customer call 401s on. The gateway stops publishing its /usage + /platform operator overlays in the companion wave-gateway change (branch fix/conn-api); until that build is deployed the published document still carries this operator shape. Keyed on the operator 'internal' tag: it can only ever exempt the operator shape, and once the gateway stops publishing the operation the entry matches nothing and should be deleted."
+    },
     {
       "path": "/videos/{videoId}/chapters/detect/{jobId}",
       "method": "GET",
@@ -59,16 +575,10 @@
       "justification": "The service's own generated 400 response for this operation is a single, coarser schema ($ref Error) with a shorter description; openapi.yaml documents a oneOf of the WAVE error envelope AND the RFC 8628 §3.5 device-flow error passthrough (authorization_pending / slow_down / expired_token / access_denied / invalid_grant) verbatim, which is the actual, more detailed behavior of this endpoint. This is the service's own OpenAPI reflection being less precise than this repo's hand-written documentation, not a real behavioral difference this repo needs to walk back. Keyed on the exact current published 400 description so a real future change to the service's generated shape still surfaces as drift rather than being silently re-exempted."
     },
     {
-      "path": "/streams",
-      "method": "GET",
-      "direction": "shared-drift",
-      "justification": "The gateway still serves the auto-generated skills-index draft placeholder for this operation (lowercase tag, no operationId, a summary that says 'draft — see api-spec for the full shape' and literally defers to this repo). openapi.yaml has since promoted this to a fully hand-documented /v1 operation (real params, description, Streams tag, operationId listStreams) ahead of the gateway shipping the matching handler. Exempt only while the published operation still has no operationId — the moment the gateway ships the real handler and starts publishing one, this predicate fails and the exemption lapses so the two shapes get compared for real."
-    },
-    {
-      "path": "/streams",
+      "path": "/moderate",
       "method": "POST",
       "direction": "shared-drift",
-      "justification": "Same shape and same reasoning as GET /streams: the published operation is still the auto-generated draft placeholder (no operationId), while openapi.yaml documents the real, hand-specified /v1 operation (operationId createStream) ahead of the gateway shipping it. Lapses the moment the published operation gains an operationId."
+      "justification": "Deprecated here as x-status: unrouted on 2026-09-30, the same treatment api-spec#111 gives the 9 dead path families: the live gateway has no spoke and no gateway-native handler for /v1/moderate (unauthenticated POST answers 404 ROUTE_NOT_FOUND; the only reference in wave-gateway is the scope vocabulary). The published document still serves the operation undeprecated until the gateway re-pins this spec. Keyed on the published side's deprecated field being absent AND on the exact published shape being exempted (summary, operationId, request schema, the 200 description and the 402 response, as served on 2026-10-01 by build 06e4efce1050): the moment the published operation is marked deprecated, or any of those fields changes first, this predicate fails and the two shapes are compared for real."
     },
     {
       "path": "/usage",
@@ -83,22 +593,10 @@
       "justification": "Editorial-only difference, not a behavioral one. The gateway's own generated document never assigns an operationId to this gateway-native root route and tags it with the raw lowercase 'usage' slug; this repo assigns a real operationId (SDK codegen quality — an unnamed operation gets a synthesized name in every generated client) and Title-Cases the tag to match every other operation's documentation convention in this spec. Keyed on the exact published summary so a real content change to this operation still surfaces as drift."
     },
     {
-      "path": "/platform",
-      "method": "GET",
-      "direction": "shared-drift",
-      "justification": "Same editorial-only reasoning as GET /leaderboard: an assigned operationId and a Title-Cased tag versus the gateway's unnamed, lowercase-tagged generated shape. Keyed on the exact published summary so a real content change still surfaces as drift."
-    },
-    {
       "path": "/voice/generate",
       "method": "POST",
       "direction": "shared-drift",
       "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/voice/generate with { text } returns raw audio/mpeg bytes directly, not the JSON envelope. openapi.yaml's 200 description was rewritten to state that audio/mpeg is the default and the application/json shapes (VoiceSynthesisInline / VoiceGeneration) are returned only when the request opts out of it; the published document still carries the older, vaguer three-shapes description. This is a documentation-precision improvement grounded in live behavior, not a behavioral change this repo needs to walk back. Keyed on the exact current published 200 description so a real future change to the service's generated shape still surfaces as drift."
-    },
-    {
-      "path": "/enhance",
-      "method": "POST",
-      "direction": "shared-drift",
-      "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index draft placeholder (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real."
     },
     {
       "path": "/identity/resolve",
@@ -108,16 +606,90 @@
     }
   ],
   "lapsedAllowlist": [],
-  "unmatchedAllowlist": [],
+  "unmatchedAllowlist": [
+    {
+      "key": "shared-drift GET /streams",
+      "justification": "The gateway still serves the auto-generated skills-index draft placeholder for this operation (lowercase tag, no operationId, a summary that says 'draft — see api-spec for the full shape' and literally defers to this repo). openapi.yaml has since promoted this to a fully hand-documented /v1 operation (real params, description, Streams tag, operationId listStreams) ahead of the gateway shipping the matching handler. Exempt only while the published operation still has no operationId — the moment the gateway ships the real handler and starts publishing one, this predicate fails and the exemption lapses so the two shapes get compared for real."
+    },
+    {
+      "key": "shared-drift POST /enhance",
+      "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index draft placeholder (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real."
+    },
+    {
+      "key": "shared-drift POST /streams",
+      "justification": "Same shape and same reasoning as GET /streams: the published operation is still the auto-generated draft placeholder (no operationId), while openapi.yaml documents the real, hand-specified /v1 operation (operationId createStream) ahead of the gateway shipping it. Lapses the moment the published operation gains an operationId."
+    }
+  ],
   "draftNotYetPublished": [],
+  "pausedNotPublished": [
+    {
+      "path": "/render",
+      "method": "POST",
+      "operationId": "renderVideo",
+      "xSchemaStatus": null,
+      "xPriceModel": null,
+      "xSkillUrl": null,
+      "pausedProduct": "render",
+      "pausedSince": "2026-09-24"
+    },
+    {
+      "path": "/render/{jobId}",
+      "method": "GET",
+      "operationId": "renderPoll",
+      "xSchemaStatus": null,
+      "xPriceModel": null,
+      "xSkillUrl": null,
+      "pausedProduct": "render",
+      "pausedSince": "2026-09-24"
+    },
+    {
+      "path": "/render/{jobId}/events",
+      "method": "GET",
+      "operationId": "renderEvents",
+      "xSchemaStatus": null,
+      "xPriceModel": null,
+      "xSkillUrl": null,
+      "pausedProduct": "render",
+      "pausedSince": "2026-09-24"
+    },
+    {
+      "path": "/enhance",
+      "method": "POST",
+      "operationId": "enhanceVideo",
+      "xSchemaStatus": null,
+      "xPriceModel": null,
+      "xSkillUrl": null,
+      "pausedProduct": "enhance",
+      "pausedSince": "2026-09-24"
+    },
+    {
+      "path": "/renders",
+      "method": "POST",
+      "operationId": "renders",
+      "xSchemaStatus": "draft",
+      "xPriceModel": "x402",
+      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/renders.json",
+      "pausedProduct": "render",
+      "pausedSince": "2026-09-24"
+    },
+    {
+      "path": "/video-gen",
+      "method": "POST",
+      "operationId": "videoGen",
+      "xSchemaStatus": "draft",
+      "xPriceModel": "x402",
+      "xSkillUrl": "https://gateway.wave.online/.well-known/wave-skills/video-gen.json",
+      "pausedProduct": "video-gen",
+      "pausedSince": "2026-09-24"
+    }
+  ],
   "enrichmentObservations": {
     "descriptionsOverwritten": [
       "POST /agent/auth/device",
       "POST /agent/auth/token",
       "POST /batch",
-      "POST /render",
-      "GET /render/{jobId}",
-      "GET /render/{jobId}/events",
+      "GET /streams",
+      "POST /streams",
       "GET /streams/{streamId}",
       "POST /streams/{streamId}/start",
       "POST /streams/{streamId}/stop",
@@ -152,7 +724,6 @@
       "GET /realtime/channels/{channel}/history",
       "POST /braid/publish",
       "DELETE /braid/publish/{ns}",
-      "POST /enhance",
       "POST /av/remux",
       "POST /av/demux",
       "POST /moq/publish/{ns}/{track}",
@@ -263,7 +834,6 @@
       "POST /rate-limit",
       "POST /recommend",
       "POST /remotion",
-      "POST /renders",
       "POST /replay",
       "POST /replay-engine",
       "POST /review",
@@ -295,7 +865,6 @@
       "POST /unsubscribe",
       "POST /usb-relay",
       "POST /vault",
-      "POST /video-gen",
       "POST /viewer",
       "POST /virtual-studio",
       "POST /vision",
@@ -317,14 +886,14 @@
       "POST /zoom-integration"
     ],
     "operationIdsSynthesized": 0,
-    "errorResponsesInjected": 797,
+    "errorResponsesInjected": 785,
     "errorResponsesOverwritten": [
+      "POST /moderate (404)",
       "GET /videos/{videoId}/chapters (404)",
       "POST /videos/{videoId}/chapters (404)",
-      "POST /videos/{videoId}/chapters/detect (404)",
-      "POST /enhance (400, 401)"
+      "POST /videos/{videoId}/chapters/detect (404)"
     ],
-    "parametersStripped": 77
+    "parametersStripped": 76
   },
   "normalizationRules": [
     "strip op['x-version'] and op['x-deprecation-policy'], which the service assigns onto every operation",

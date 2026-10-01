@@ -243,7 +243,7 @@ export async function run(opts = {}) {
       name: 'operation-parity',
       ok: parityFindings.length === 0,
       detail: parityFindings.length === 0
-        ? `zero unexplained repo-only/live-only operations (${repoOps.size} declared, ${liveOps.size} live, ${sharedKeys.length} shared, ${result.allowlisted?.length ?? 0} allowlisted, ${result.draftNotYetPublished?.length ?? 0} draft)`
+        ? `zero unexplained repo-only/live-only operations (${repoOps.size} declared, ${liveOps.size} live, ${sharedKeys.length} shared, ${result.allowlisted?.length ?? 0} allowlisted, ${result.draftNotYetPublished?.length ?? 0} draft, ${result.pausedNotPublished?.length ?? 0} paused)`
         : `${parityFindings.length} unexplained repo-only/live-only operation finding(s): ${parityLabels.join('; ')}${parityFindings.length > parityLabels.length ? '; …' : ''}`,
     },
     {

@@ -6,6 +6,47 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- **`POST /moderate` deprecated as `x-status: unrouted`** (`openapi.yaml`). Live-probed 2026-09-30:
+  unauthenticated `POST https://api.wave.online/v1/moderate` answers `404 ROUTE_NOT_FOUND`, and
+  wave-gateway has no spoke or gateway-native handler for it (the only reference is the scope
+  vocabulary). Its `402` is replaced with a documented `404`, the same treatment api-spec#111 gives
+  the nine dead path families. No open PR covered it.
+- **`GET /leaderboard` documents `403 SCOPE_INSUFFICIENT`**, the code the gateway uses for every
+  other missing-scope refusal, instead of `SCOPE_DENIED` (companion wave-gateway change).
+
+### Removed
+
+- **`GET /platform`** and the now-unused `Operator` tag. It is operator-only telemetry that needs
+  the WAVE service bearer, so every customer call to it answers `401 TELEMETRY_AUTH_REQUIRED`, yet
+  the public contract listed it with customer bearer security. The companion wave-gateway change
+  stops publishing the `/usage` and `/platform` operator overlays, which also lets this spec's
+  customer `getUsage` (`/usage`, `usage:read`) show through in the served contract.
+
+### Fixed
+
+- **README accuracy.** It said `@wave-av/sdk` is "built from" and "generated against" this spec.
+  It is hand-written: measured against `@wave-av/sdk@2.1.3`, 44 of the 255 published operations have
+  an SDK method, and 477 of 543 SDK HTTP calls target paths this spec does not declare. The README
+  now says so, explains that `draft` describes the shape rather than whether a route is served
+  (probed 2026-10-01: 126 of 149 published drafts answer `404 ROUTE_NOT_FOUND`, 17 a `402`, 6 reach
+  a handler or the auth chain), names the refusal each unrouted operation records, and corrects
+  the path/tag counts (229/181 → 231/182) and the version note (`capabilities.json` 3.0.0 versions
+  that file, not the API).
+- **CONTRACT-001 reads the gateway's paused-products declaration.** The gateway omits every
+  operation of an operator-paused product from `/openapi.json` and declares it at the document
+  root (`x-wave-paused-products`). The compare ignored that, so `POST /enhance`, `POST /render`,
+  `GET /render/{jobId}` and `GET /render/{jobId}/events` were reported as unexplained
+  `unpublished-repo` findings on `main` (operation-parity FAIL on 2026-10-01). Operations absent
+  from the published document under a declared-paused prefix are now listed and counted as
+  `pausedNotPublished`, never silently dropped; operation-parity passes again (6 paused).
+- **The `POST /moderate` drift exemption is keyed on the exact published shape** (summary,
+  operationId, request schema, 200 and 402 responses), not on `deprecated` alone, so a change made
+  first on the published side still surfaces as drift.
+- **`generated/api-types.d.ts` and `contract-drift.json` regenerated** for the spec at this HEAD
+  (231 paths, 256 operations).
+
 ### Added
 
 - **Composer surface** (`openapi.yaml`) — the gateway (build `d62760094`) serves three

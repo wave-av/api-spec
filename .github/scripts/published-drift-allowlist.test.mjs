@@ -237,6 +237,38 @@ test('an allowlist entry that matches no operation is surfaced, not silently ign
   assert.equal(matched.headline.allowlisted, 1);
 });
 
+// Review api-spec#115 (greptile, cubic): `deprecated: null` alone exempted EVERY /moderate difference while
+// the published op stayed undeprecated, so a summary or response change made first would pass silently.
+test('the committed POST /moderate exemption is keyed on the exact published shape, not on deprecated alone', () => {
+  const committed = JSON.parse(readFileSync(join(__dirname, 'published-drift-allowlist.json'), 'utf8'));
+  const entry = committed.find((e) => e.path === '/moderate' && e.method === 'POST');
+  assert.ok(entry, 'the /moderate entry exists');
+  // The published operation as served on 2026-10-01 (build 06e4efce1050).
+  const published = {
+    summary: 'Moderate content',
+    operationId: 'moderateContent',
+    tags: ['Moderate'],
+    requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ModerateRequest' } } } },
+    responses: {
+      200: { description: 'Moderation verdict' },
+      402: { $ref: '#/components/responses/PaymentRequired' },
+    },
+  };
+  const d = doc({ '/moderate': { post: published } });
+  assert.equal(allowlistStillApplies(entry, published, d), true, 'the shape it was written for is exempt');
+  const variants = {
+    'deprecated upstream': { ...published, deprecated: true },
+    'summary changed': { ...published, summary: 'Moderate content (v2)' },
+    'operationId changed': { ...published, operationId: 'moderate' },
+    '200 changed': { ...published, responses: { ...published.responses, 200: { description: 'Verdict' } } },
+    '402 dropped': { ...published, responses: { 200: published.responses[200] } },
+    'request schema changed': { ...published, requestBody: { content: { 'application/json': { schema: { type: 'object' } } } } },
+  };
+  for (const [why, op] of Object.entries(variants)) {
+    assert.equal(allowlistStillApplies(entry, op, doc({ '/moderate': { post: op } })), false, `lapses when: ${why}`);
+  }
+});
+
 test('the COMMITTED allowlist is well-formed and every entry has a predicate that can actually lapse', () => {
   const committed = JSON.parse(readFileSync(join(__dirname, 'published-drift-allowlist.json'), 'utf8'));
   assert.equal(validateAllowlist(committed), null);
