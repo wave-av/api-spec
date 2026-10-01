@@ -308,8 +308,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Moderate content
-         * @description Run AI-assisted moderation over a piece of text content (a chat message, title, description, comment, username, or bio) and get back an allow/flag/ block/review verdict. Requires the `moderate:write` scope. To moderate a chat message, set `contentType` to `chat` and, optionally, `context.streamId` to the stream the message belongs to — this endpoint moderates arbitrary text content; it does not itself track a chat message id or apply an action to a stored message.
+         * Moderate content (unrouted)
+         * @deprecated
+         * @description Run AI-assisted moderation over a piece of text content (a chat message, title, description, comment, username, or bio) and get back an allow/flag/ block/review verdict. Requires the `moderate:write` scope. To moderate a chat message, set `contentType` to `chat` and, optionally, `context.streamId` to the stream the message belongs to — this endpoint moderates arbitrary text content; it does not itself track a chat message id or apply an action to a stored message. Not served: the gateway answers 404 `ROUTE_NOT_FOUND`.
          */
         post: operations["moderateContent"];
         delete?: never;
@@ -558,26 +559,6 @@ export interface paths {
          * @description Tenant-scoped: rows are the calling org's own metered dimensions, ranked by billed usage over the window (`from`/`to` as YYYYMMDD, default trailing 7 days). The org is taken from the API key, never from the query string. Unauthenticated callers receive 401 LEADERBOARD_AUTH_REQUIRED. The PUBLIC model-eval leaderboard is a different surface at https://leaderboard.wave.online/leaderboard (no key needed).
          */
         get: operations["getUsageLeaderboard"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/platform": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Platform-wide live usage — OPERATOR ONLY (inference + voice + codec + storage + realtime + clips + captions)
-         * @description Operator-authenticated. Requires the WAVE service bearer; unauthenticated callers receive 401 TELEMETRY_AUTH_REQUIRED.
-         */
-        get: operations["getPlatformUsage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7000,8 +6981,16 @@ export interface operations {
             };
             400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
-            402: components["responses"]["PaymentRequired"];
             403: components["responses"]["Forbidden"];
+            /** @description `ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     startLivePipeline: {
@@ -7561,33 +7550,8 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description SCOPE_DENIED — key lacks usage:read */
+            /** @description SCOPE_INSUFFICIENT — key lacks usage:read (the body names required_scope) */
             403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getPlatformUsage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Every product's live usage, grounded-only */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Operator authentication required: {"error":{"code":"TELEMETRY_AUTH_REQUIRED"}} */
-            401: {
                 headers: {
                     [name: string]: unknown;
                 };
