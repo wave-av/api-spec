@@ -21,7 +21,7 @@ informational until that decision is made.
 | step key | script | shadows (GH workflow / job) | required context | needs secret | timeout |
 |---|---|---|---|---|---|
 | `gate-checks` | `gate-checks.sh` | `.github/workflows/_checks.yml` job `checks` (called by `foundation-gate.yml` with `max_lines: 800`) | `gate / checks` | none | 10 |
-| `secrets-content-policy` | `secrets-content-policy.sh` | `.github/workflows/public-repo-guard.yml` job `guard` | `Secrets + content policy` | none | 10 |
+| `secrets-content-policy` | `secrets-content-policy.sh` | `.github/workflows/public-repo-guard.yml` job `guard` | `Secrets + content policy` | `GUARD_PRIVATE_REPOS` | 10 |
 
 Each `command:` is a single checked-in script, so the pipeline is compatible with agent
 `no-command-eval`. Both required contexts resolve on Buildkite as
@@ -68,6 +68,24 @@ step only, and Buildkite redacts the value from build logs if it is ever printed
 an operator must create that cluster secret with the same value as the GH org variable (see "Operator
 steps needed").
 
+**The cluster secret must exist, not merely be unset.** The Buildkite agent fetches every key named
+in a step's `secrets:` list before the step's command runs at all; a key that does not exist in the
+cluster fails that fetch and the job never starts -- `secrets-content-policy.sh` never runs, so its
+own "unset -> skip the rule" fallback never gets a chance to apply. That differs from the GH Actions
+variable, which really can be left undefined. To get the GH-equivalent behavior on Buildkite ("rule
+skipped"), the cluster secret must exist with an **empty string** value, not be absent.
+
+**Same-repo PR builds receive this secret.** This pipeline builds push and pull_request events with
+"Build PRs from forks" off (see "Pipeline settings" below); fork PRs never get a Buildkite agent at
+all, so only contributors who can push a branch in `wave-av/api-spec` can trigger a build that sees
+`GUARD_PRIVATE_REPOS`. That is the same trust boundary every other step on this queue already
+operates under -- this secret does not widen it. It is also a low-sensitivity value: GitHub itself
+stores the equivalent as a plain, unmasked Actions **variable**, not a secret, so step-scoped
+injection plus automatic log redaction here is already stricter than the GH baseline. Restricting the
+secret to protected-branch-only builds was considered and rejected: this step's job is to scan each
+PR's own content for policy violations, including a PR that edits the step itself -- running it only
+from a trusted ref would defeat that purpose.
+
 ### Known pre-existing gap (not introduced here, not fixed here)
 
 `scripts/public-repo-guard/content-policy.sh`'s private-repo rule is entirely configuration-driven:
@@ -94,8 +112,10 @@ this port exists in the first place.
 - **Egress:** `github.com` releases for the pinned gitleaks/ripgrep downloads. `secrets-content-policy`
   always re-downloads gitleaks -- there is no pre-baked-tool check for it -- and skips only the ripgrep
   download, when an `rg` with PCRE2 support is already on `PATH`. `gate-checks` needs no network at all.
-- No secrets, no Node, no npm, no sudo, no services. Both steps run over the checked-out working
-  tree only.
+- No Node, no npm, no sudo, no services. Both steps run over the checked-out working tree only.
+  `secrets-content-policy` is the one exception to "no secrets": it declares
+  `secrets: [GUARD_PRIVATE_REPOS]` in `pipeline.yml` (see "Known pre-existing gap" above), scoped to
+  that step alone and redacted from build logs; `gate-checks` still needs none.
 
 ## Pipeline settings (Buildkite UI, not YAML)
 
@@ -159,7 +179,10 @@ configured" case: that one rule is skipped, loudly, by `content-policy.sh` itsel
 This PR is code only. It does not, and cannot from inside a PR, do any of the following -- each is a
 separate, operator-gated action:
 
-1. Create the Buildkite pipeline, pointed at this repo, with the settings above.
+1. Create the Buildkite pipeline, pointed at this repo, with the settings above. The `fpc-isolated`
+   agents must run Buildkite agent v3.106.0 or later, the minimum version that supports the
+   pipeline-YAML `secrets:` attribute `secrets-content-policy` uses
+   (<https://buildkite.com/docs/pipelines/security/secrets/buildkite-secrets>).
 2. Enable `publish_commit_status`, `publish_commit_status_per_step` and
    `use_step_key_as_commit_status` in the pipeline's GitHub provider settings -- without all three,
    GitHub never sees `gate / checks` or `Secrets + content policy`'s Buildkite counterparts at all,
