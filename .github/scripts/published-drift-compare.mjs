@@ -42,6 +42,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import { NORMALIZATION_RULES, NO_OBSERVATIONS, normalizePair } from './published-drift-normalize.mjs';
 import { classifyLiveObservation, describeObservation } from './published-drift-live.mjs';
+import { pausedProductFor, pausedProducts } from './published-drift-paused.mjs';
 
 export const DIRECTIONS = ['undocumented-live', 'unpublished-repo', 'draft-but-live', 'shared-drift'];
 
@@ -183,6 +184,10 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, li
   const allowlisted = [];
   const lapsedAllowlist = [];
   const draftNotYetPublished = [];
+  // Operations the published document omits because it DECLARES their product paused (see
+  // published-drift-paused.mjs). Listed and counted, never silently dropped.
+  const paused = pausedProducts(liveDoc);
+  const pausedNotPublished = [];
   const enrichmentObservations = {
     descriptionsOverwritten: [],
     operationIdsSynthesized: 0,
@@ -249,6 +254,11 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, li
       xPriceModel: op['x-price']?.model ?? null,
       xSkillUrl: op['x-skill-url'] ?? null,
     };
+    const pausedBy = pausedProductFor(path, paused);
+    if (pausedBy) {
+      pausedNotPublished.push({ ...entry, pausedProduct: pausedBy.product, pausedSince: pausedBy.pausedSince });
+      continue;
+    }
     if (op['x-schema-status'] === 'draft') {
       // SUPPRESSION NOW REQUIRES TWO INDEPENDENT CONDITIONS, and an annotation can only ever
       // satisfy one of them. `draft` is a CLAIM that the operation is not yet a promise to
@@ -346,6 +356,7 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, li
       liveProbed: liveObservations ? liveObservations.size : null,
       sharedDrift: count('shared-drift'),
       draftNotYetPublished: draftNotYetPublished.length,
+      pausedNotPublished: pausedNotPublished.length,
       allowlisted: allowlisted.length,
       lapsedAllowlistEntries: lapsedAllowlist.length,
       unmatchedAllowlistEntries: unmatchedAllowlist.length,
@@ -355,6 +366,7 @@ export function compare({ repoDoc, liveDoc, allowlist = [], normalize = true, li
     lapsedAllowlist,
     unmatchedAllowlist,
     draftNotYetPublished,
+    pausedNotPublished,
     enrichmentObservations,
     normalizationRules: normalize ? NORMALIZATION_RULES : ['NORMALIZATION DISABLED (--no-normalize)'],
   };
