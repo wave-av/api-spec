@@ -21,9 +21,14 @@
     "path": "/moderate",
     "method": "POST",
     "direction": "shared-drift",
-    "justification": "Deprecated here as x-status: unrouted on 2026-09-30, the same treatment api-spec#111 gives the 9 dead path families: the live gateway has no spoke and no gateway-native handler for /v1/moderate (unauthenticated POST answers 404 ROUTE_NOT_FOUND; the only reference in wave-gateway is the scope vocabulary). The published document still serves the operation undeprecated until the gateway re-pins this spec. Keyed on the published side's deprecated field being absent: the moment the published operation is marked deprecated too, this predicate fails and the two shapes are compared for real.",
+    "justification": "Deprecated here as x-status: unrouted on 2026-09-30, the same treatment api-spec#111 gives the 9 dead path families: the live gateway has no spoke and no gateway-native handler for /v1/moderate (unauthenticated POST answers 404 ROUTE_NOT_FOUND; the only reference in wave-gateway is the scope vocabulary). The published document still serves the operation undeprecated until the gateway re-pins this spec. Keyed on the published side's deprecated field being absent AND on the exact published shape being exempted (summary, operationId, request schema, the 200 description and the 402 response, as served on 2026-10-01 by build 06e4efce1050): the moment the published operation is marked deprecated, or any of those fields changes first, this predicate fails and the two shapes are compared for real.",
     "expect": {
-      "deprecated": null
+      "deprecated": null,
+      "summary": "Moderate content",
+      "operationId": "moderateContent",
+      "requestBody.content.application/json.schema.$ref": "#/components/schemas/ModerateRequest",
+      "responses.200.description": "Moderation verdict",
+      "responses.402.$ref": "#/components/responses/PaymentRequired"
     }
   },
   {
