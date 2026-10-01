@@ -1,0 +1,21 @@
+.github/scripts/published-drift-allowlist.json
+  s_13ccc7d9001218::t_a67ec22dafcba5 24,26-31
+.github/scripts/published-drift-allowlist.test.mjs
+  s_13ccc7d9001218::t_e4e9806f50dff6 240-271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "c8c7dda09a4a062376f2aa7f05179de4fa0207b5",
+  "prompts": {},
+  "sessions": {
+    "s_13ccc7d9001218": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "11229abc-f617-4541-b5d7-d693c6ae4d9d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
