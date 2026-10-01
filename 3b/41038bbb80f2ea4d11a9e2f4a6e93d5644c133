@@ -1,0 +1,21 @@
+contract-drift.json
+  s_11f594d5e90e91::t_16345dfc77f163 3,13,17-18,20-22,26-27,29-30,32,34-543,545-550,578,581,609-622,624-685,691-692,889,891,894,896
+generated/api-types.d.ts
+  s_11f594d5e90e91::t_f1f44fdbb971b9 311-313,6985-6993,7553
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "3b41038bbb80f2ea4d11a9e2f4a6e93d5644c133",
+  "prompts": {},
+  "sessions": {
+    "s_11f594d5e90e91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a7ab09fc05162214b",
+        "model": "unknown"
+      },
+      "human_author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
