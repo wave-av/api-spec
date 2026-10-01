@@ -1530,8 +1530,14 @@ paths:
   /moderate:
     post:
       tags: [Moderate]
-      summary: Moderate content
+      summary: Moderate content (unrouted)
+      deprecated: true
+      x-status: unrouted
       description: >-
+        DEPRECATED — unrouted. Measured live 2026-09-30 and 2026-10-01: an unauthenticated
+        POST /v1/moderate answers 404 ROUTE_NOT_FOUND, and the live gateway routes
+        /moderate to no service. It is not part of the callable WAVE API. The text below
+        describes the intended contract.
         Run AI-assisted moderation over a piece of text content (a chat message,
         title, description, comment, username, or bio) and get back an allow/flag/
         block/review verdict. Requires the `moderate:write` scope. To moderate a chat
@@ -1557,10 +1563,14 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '402':
-          $ref: '#/components/responses/PaymentRequired'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          description: '`ROUTE_NOT_FOUND` — the live gateway has no spoke behind this path; it is not part of the callable WAVE API.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # Live Pipeline
   /live/pipeline:
@@ -3478,8 +3488,16 @@ paths:
   /sentiment:
     get:
       tags: [Sentiment]
-      summary: List sentiment analyses
+      summary: List sentiment analyses (unrouted)
       operationId: listSentimentAnalyses
+      deprecated: true
+      x-status: unrouted
+      description: >-
+        DEPRECATED — unrouted. The sentiment service serves only
+        POST /sentiment; it has no list operation. Measured live 2026-09-30 and 2026-10-01
+        with a key: GET /v1/sentiment answers 405 `method not allowed` with `Allow: POST`.
+        It is not part of the callable WAVE API. POST /sentiment and POST /sentiment/analyze
+        are not affected by this deprecation.
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PerPageParam'
@@ -3501,6 +3519,13 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/SentimentAnalysis'
+        '405':
+          description: '`method not allowed` with `Allow: POST` — the sentiment service serves only POST /sentiment; this list operation is not part of the callable WAVE API.'
+          headers:
+            Allow:
+              schema:
+                type: string
+                example: POST
     post:
       tags: [Sentiment]
       summary: Create a sentiment analysis
