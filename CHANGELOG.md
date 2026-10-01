@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Deprecated
+
+- **`POST /moderate` and `GET /sentiment` are marked unrouted** (`openapi.yaml`). Both are
+  `deprecated: true` with `x-status: unrouted`, the convention this file already uses for paths
+  the live gateway does not serve. The hosted MCP server builds tools from this contract, so each
+  one became a tool that can never succeed (`wave_moderate_content`, `wave_list_sentiment_analyses`).
+  Measured live 2026-10-01 against `api.wave.online`, with `GET /v1/network/surface` as the served
+  control (200, `d16f6963-498f-4bcd-9e97-9c368385df29`):
+  - `POST /v1/moderate` answers 404 `ROUTE_NOT_FOUND` (`6b07b51a-4ec4-4391-9249-fe06acc17298`).
+    The live gateway routes `/moderate` to no service. The `402` response is removed and a
+    `404 ROUTE_NOT_FOUND` response is documented.
+  - `GET /v1/sentiment` with a key answers 405 with `Allow: POST`
+    (`ff9073fb-7d05-4005-9e7b-c9bf9574f43b`). The sentiment service serves only `POST /sentiment`
+    and has no list operation. Without a key the same GET answers 402, which shows only that the
+    prefix is priced. `POST /sentiment` and `POST /sentiment/analyze` are unchanged.
+  - A companion gateway change stops generating MCP tools for both operations.
+
 ### Added
 
 - **Composer surface** (`openapi.yaml`) — the gateway (build `d62760094`) serves three
