@@ -29,9 +29,23 @@ All notable changes to this project are documented here. The format is based on
 - **README accuracy.** It said `@wave-av/sdk` is "built from" and "generated against" this spec.
   It is hand-written: measured against `@wave-av/sdk@2.1.3`, 44 of the 255 published operations have
   an SDK method, and 477 of 543 SDK HTTP calls target paths this spec does not declare. The README
-  now says so, states which operations are callable (draft and unrouted ones are not), and corrects
+  now says so, explains that `draft` describes the shape rather than whether a route is served
+  (probed 2026-10-01: 126 of 149 published drafts answer `404 ROUTE_NOT_FOUND`, 17 a `402`, 6 reach
+  a handler or the auth chain), names the refusal each unrouted operation records, and corrects
   the path/tag counts (229/181 → 231/182) and the version note (`capabilities.json` 3.0.0 versions
   that file, not the API).
+- **CONTRACT-001 reads the gateway's paused-products declaration.** The gateway omits every
+  operation of an operator-paused product from `/openapi.json` and declares it at the document
+  root (`x-wave-paused-products`). The compare ignored that, so `POST /enhance`, `POST /render`,
+  `GET /render/{jobId}` and `GET /render/{jobId}/events` were reported as unexplained
+  `unpublished-repo` findings on `main` (operation-parity FAIL on 2026-10-01). Operations absent
+  from the published document under a declared-paused prefix are now listed and counted as
+  `pausedNotPublished`, never silently dropped; operation-parity passes again (6 paused).
+- **The `POST /moderate` drift exemption is keyed on the exact published shape** (summary,
+  operationId, request schema, 200 and 402 responses), not on `deprecated` alone, so a change made
+  first on the published side still surfaces as drift.
+- **`generated/api-types.d.ts` and `contract-drift.json` regenerated** for the spec at this HEAD
+  (231 paths, 256 operations).
 
 ### Added
 

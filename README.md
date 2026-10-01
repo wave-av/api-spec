@@ -24,11 +24,18 @@ contract the gateway publishes at [`api.wave.online/openapi.json`](https://api.w
 
 **What is callable today.** Not every operation here is served yet:
 
-- 151 operations carry `x-schema-status: draft`. They are placeholders for priced capability
-  families whose request/response shape is not published. They are not a promise to consumers:
-  skip them when you generate a client.
+- 151 operations carry `x-schema-status: draft`. Draft describes the **shape**, not whether the
+  route is served: the request/response schema is a placeholder, so do not generate typed client
+  methods from it. Probed keyless on 2026-10-01, 126 of the 149 drafts in the published contract
+  answered the gateway's own `404 ROUTE_NOT_FOUND`, 17 answered a `402` (the path is priced, which
+  does not prove a service answers behind it), and 6 reached a handler or the auth chain (for
+  example `POST /embeddings` answers `401 AUTH_REQUIRED`). A served draft needs its real shape
+  documented here before it can drop the flag. Probe the live route before you rely on one.
 - Operations marked `deprecated: true` with `x-status: unrouted` have no destination on the live
-  gateway (it answers `404 ROUTE_NOT_FOUND`). Do not build against them.
+  gateway. Do not build against them. The refusal differs by path and is recorded on each
+  operation: `POST /moderate` answers `404 ROUTE_NOT_FOUND`, and the three
+  `/videos/{videoId}/chapters` operations were measured at `403 ROUTE_NOT_MAPPED` (keyless, a
+  priced prefix can answer `402` first).
 - Everything else is the callable contract.
 
 **About `@wave-av/sdk`.** The [`@wave-av/sdk`](https://www.npmjs.com/package/@wave-av/sdk) TypeScript
