@@ -1,0 +1,14 @@
+.github/scripts/skills-index-allowlist.json
+  h_af5ac1a9798224 9-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "52ff375bb894db24dc8adc5d0f5016bc022d8f22",
+  "prompts": {},
+  "humans": {
+    "h_af5ac1a9798224": {
+      "author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
