@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Removed
+
+- **Studio AI surface** (`openapi.yaml`) — deleted `GET /studio-ai/enhancements`
+  (`listEnhancements`), `POST /studio-ai/enhancements` (`createEnhancement`), `POST
+  /studio-ai/preview` (`previewEnhancement`), the `Studio AI` tag and the `Enhancement`,
+  `EnhancementCreate` and `EnhancementPreviewRequest` schemas. The published contract at
+  `https://api.wave.online/openapi.json` (fetched 2026-10-13) no longer serves any of them, so
+  they were three `unpublished-repo` drift findings. `POST /enhance` loses its cross-reference to
+  the removed surface. `generated/api-types.d.ts` and `contract-drift.json` regenerated
+  (receipt FRESH; drift 42 → 39, the remaining 39 predate this change). Breaking for any client
+  generated against these operations.
+
 ### Added
 
 - **Composer surface** (`openapi.yaml`) — the gateway (build `d62760094`) serves three

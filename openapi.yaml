@@ -70,8 +70,6 @@ tags:
     description: Real-time collaboration rooms
   - name: Podcast
     description: Podcast show and episode management
-  - name: Studio AI
-    description: Video enhancement and AI processing
   - name: Transcribe
     description: Speech-to-text transcription
   - name: Sentiment
@@ -3316,87 +3314,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/PodcastEpisode'
 
-  # Studio AI API
-  /studio-ai/enhancements:
-    get:
-      tags: [Studio AI]
-      summary: List enhancement jobs
-      operationId: listEnhancements
-      parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/PerPageParam'
-        - name: type
-          in: query
-          schema:
-            type: string
-            enum: [upscale, denoise, stabilize, color_correct, super_resolution]
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/JobStatus'
-      responses:
-        '200':
-          description: Paginated list of enhancements
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/PaginatedResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/Enhancement'
-    post:
-      tags: [Studio AI]
-      summary: Create an enhancement job
-      operationId: createEnhancement
-      description: >-
-        Creates an asynchronous, credit-billed enhancement job (including `upscale` and
-        `super_resolution`) against a library video, returning a job envelope to poll. For
-        synchronous, pay-per-call super-resolution of ad-hoc video bytes (billed against
-        `wave_enhance_minutes`), use `POST /enhance` instead.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EnhancementCreate'
-      responses:
-        '201':
-          description: Enhancement created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Enhancement'
-
-  /studio-ai/preview:
-    post:
-      tags: [Studio AI]
-      summary: Generate enhancement preview
-      operationId: previewEnhancement
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EnhancementPreviewRequest'
-      responses:
-        '200':
-          description: Preview generated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  beforeUrl:
-                    type: string
-                    format: uri
-                  afterUrl:
-                    type: string
-                    format: uri
-
   # Transcribe API
   /transcribe:
     get:
@@ -3876,14 +3793,6 @@ paths:
         and is served once paid (pay-per-call). Billed against the
         `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded
         up to the next whole minute.
-
-
-        Distinct from the Studio AI enhancement surface (`POST /studio-ai/enhancements`, which
-        also offers `upscale`/`super_resolution` job types): Studio AI runs asynchronous,
-        credit-billed jobs against library videos and returns a job envelope, whereas this
-        endpoint synchronously super-resolves ad-hoc video bytes (or an `https` source) and
-        streams the result back, billing `wave_enhance_minutes`. Use Studio AI for library
-        workflows; use this endpoint for direct, pay-per-call enhancement.
       security:
         - {}
         - BearerAuth: []
@@ -13297,70 +13206,6 @@ components:
         publishedAt:
           type: string
           format: date-time
-
-    # Studio AI schemas
-    Enhancement:
-      type: object
-      properties:
-        id:
-          type: string
-        videoId:
-          type: string
-        type:
-          type: string
-          enum: [upscale, denoise, stabilize, color_correct, super_resolution]
-        status:
-          $ref: '#/components/schemas/JobStatus'
-        progress:
-          type: integer
-        inputUrl:
-          type: string
-          format: uri
-        outputUrl:
-          type: string
-          format: uri
-        settings:
-          type: object
-        creditsUsed:
-          type: integer
-        organizationId:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    EnhancementCreate:
-      type: object
-      required: [videoId, type]
-      properties:
-        videoId:
-          type: string
-        type:
-          type: string
-          enum: [upscale, denoise, stabilize, color_correct, super_resolution]
-        settings:
-          type: object
-        priority:
-          type: string
-          enum: [low, normal, high]
-          default: normal
-
-    EnhancementPreviewRequest:
-      type: object
-      required: [videoId, type]
-      properties:
-        videoId:
-          type: string
-        type:
-          type: string
-        timestamp:
-          type: number
-          default: 0
-        settings:
-          type: object
 
     # Transcription schemas
     Transcription:
