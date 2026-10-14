@@ -15,8 +15,11 @@ All notable changes to this project are documented here. The format is based on
   `https://api.wave.online/openapi.json` (fetched 2026-10-13) no longer serves any of them, so
   they were three `unpublished-repo` drift findings. `POST /enhance` loses its cross-reference to
   the removed surface. `generated/api-types.d.ts` and `contract-drift.json` regenerated
-  (receipt FRESH; drift 42 → 39, the remaining 39 predate this change). Breaking for any client
-  generated against these operations.
+  (receipt FRESH; drift 42 → 38). Four findings are gone: the three studio-ai operations, and
+  `POST /enhance`, which is now explained by an `unpublished-repo` allowlist entry (espcn-only,
+  672x672, `x-status: paused`, not served by the published contract) that replaces the stale
+  `shared-drift POST /enhance` entry. All 38 remaining findings are also present on `main`, so none
+  are new. Breaking for any client generated against these operations.
 
 ### Added
 

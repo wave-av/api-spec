@@ -77,11 +77,8 @@
   {
     "path": "/enhance",
     "method": "POST",
-    "direction": "shared-drift",
-    "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index draft placeholder (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real.",
-    "expect": {
-      "x-schema-status": "draft"
-    }
+    "direction": "unpublished-repo",
+    "justification": "Checked 2026-10-13: the published https://api.wave.online/openapi.json does not list POST /enhance. openapi.yaml documents it on purpose as the one paused enhance operation (x-status: paused): model=espcn only (any other model value 400s), fixed 672x672 output. The studio-ai routes and the other enhance types were removed from openapi.yaml, so this is the only enhance surface left. Exempt while the operation stays paused and unpublished; once the gateway publishes it again, the finding disappears and this entry shows up as unmatched so it gets removed."
   },
   {
     "path": "/identity/resolve",

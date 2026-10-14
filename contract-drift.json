@@ -1,6 +1,6 @@
 {
   "about": "Point-in-time operation-level diff between this repo's openapi.yaml and the contract the gateway publishes. It is a dated receipt, not a live view: regenerate with `node .github/scripts/published-drift.mjs openapi.yaml --out contract-drift.json`. The published-contract-drift workflow uploads a fresh copy on every scheduled run. The PUBLISHED half of this receipt ages on the gateway's schedule and only the scheduled drift job can refresh it; the REPO half is pinned by sources.repoOperationsDigest, which the freshness job checks offline on every run so this file cannot quietly disagree with the openapi.yaml sitting next to it.",
-  "generatedAt": "2026-10-13T11:45:35.548Z",
+  "generatedAt": "2026-10-14T00:13:25.326Z",
   "criterion": [
     "CONTRACT-001",
     "COMPAT-001",
@@ -21,14 +21,14 @@
     "publishedOperations": 246,
     "sharedOperations": 246,
     "undocumentedLive": 0,
-    "unpublishedRepo": 4,
+    "unpublishedRepo": 3,
     "draftButLive": 2,
     "liveProbed": 2,
     "sharedDrift": 33,
     "draftNotYetPublished": 0,
-    "allowlisted": 8,
+    "allowlisted": 9,
     "lapsedAllowlistEntries": 0,
-    "unmatchedAllowlistEntries": 3
+    "unmatchedAllowlistEntries": 2
   },
   "findings": [
     {
@@ -525,17 +525,6 @@
       ]
     },
     {
-      "path": "/enhance",
-      "method": "POST",
-      "operationId": "enhanceVideo",
-      "xSchemaStatus": null,
-      "xPriceModel": null,
-      "xSkillUrl": null,
-      "direction": "unpublished-repo",
-      "severity": "contract-ahead",
-      "note": "declared in openapi.yaml without x-schema-status: draft, but the published contract does not serve it — either the gateway pin is behind or the operation was promoted before it shipped"
-    },
-    {
       "path": "/render",
       "method": "POST",
       "operationId": "renderVideo",
@@ -591,6 +580,16 @@
       "justification": "Measured live 2026-09-06: this repo declares the operation (no x-schema-status: draft — marking it draft would be a FALSE claim) and the published /openapi.json document does not list it, but the live-behaviour probe tier confirms the gateway genuinely answers for it (not the ROUTE_NOT_MAPPED an absent route returns). The route is live; only the SERVICE's published spec generation has not yet registered it. This is the mirror image of the operations whose real repo descriptions the service overwrites — a gap in what the service publishes, not in what this repo declares. Lapses (and should be deleted) the moment the published document lists this operation."
     },
     {
+      "path": "/enhance",
+      "method": "POST",
+      "operationId": "enhanceVideo",
+      "xSchemaStatus": null,
+      "xPriceModel": null,
+      "xSkillUrl": null,
+      "direction": "unpublished-repo",
+      "justification": "Checked 2026-10-13: the published https://api.wave.online/openapi.json does not list POST /enhance. openapi.yaml documents it on purpose as the one paused enhance operation (x-status: paused): model=espcn only (any other model value 400s), fixed 672x672 output. The studio-ai routes and the other enhance types were removed from openapi.yaml, so this is the only enhance surface left. Exempt while the operation stays paused and unpublished; once the gateway publishes it again, the finding disappears and this entry shows up as unmatched so it gets removed."
+    },
+    {
       "path": "/agent/auth/token",
       "method": "POST",
       "direction": "shared-drift",
@@ -632,10 +631,6 @@
     {
       "key": "shared-drift GET /streams",
       "justification": "The gateway still serves the auto-generated skills-index draft placeholder for this operation (lowercase tag, no operationId, a summary that says 'draft — see api-spec for the full shape' and literally defers to this repo). openapi.yaml has since promoted this to a fully hand-documented /v1 operation (real params, description, Streams tag, operationId listStreams) ahead of the gateway shipping the matching handler. Exempt only while the published operation still has no operationId — the moment the gateway ships the real handler and starts publishing one, this predicate fails and the exemption lapses so the two shapes get compared for real."
-    },
-    {
-      "key": "shared-drift POST /enhance",
-      "justification": "Measured live 2026-09-05: an unauthenticated POST to https://api.wave.online/v1/enhance returns 402 (x402 challenge, atomicAmount 600000 matching this repo's documented wave_enhance_minutes meter), confirming the route is genuinely live and priced. The published /openapi.json document still carries the auto-generated skills-index draft placeholder (x-schema-status: draft, operationId enhance, application/json additionalProperties:true body) because the service's own spec generation has not caught up to the real handler. openapi.yaml has been hand-documented ahead of that (operationId enhanceVideo, binary video body, model/url query params, per-job response headers) from the actual endpoint behavior, not guessed. Exempt only while the published operation still claims x-schema-status: draft; the moment the service promotes it out of draft, the two shapes get compared for real."
     },
     {
       "key": "shared-drift POST /streams",
