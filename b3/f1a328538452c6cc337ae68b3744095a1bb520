@@ -1,0 +1,14 @@
+scripts/ga/compat-001-check.test.mjs
+  h_af5ac1a9798224 53-65,74-77,94,104,114,124,146,163,174,185,195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "b3f1a328538452c6cc337ae68b3744095a1bb520",
+  "prompts": {},
+  "humans": {
+    "h_af5ac1a9798224": {
+      "author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
