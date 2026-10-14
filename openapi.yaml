@@ -3780,11 +3780,12 @@ paths:
       tags: [Enhance]
       summary: Super-resolve a video with an AI model (x402-payable)
       operationId: enhanceVideo
+      x-status: paused
       description: >-
         Upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN
         super-resolution, a fixed exact 3x factor baked into the trained weights — not a runtime
         parameter). Internally every input frame is letterboxed to a fixed working canvas before
-        inference, so the v1 output resolution is fixed regardless of input resolution; a future
+        inference, so the v1 output is always 672x672 regardless of input resolution. Status: paused; a future
         model may support other output shapes. Send either the raw video bytes as the request body
         or a `url` query parameter pointing at an `https` source (the source is fetched
         server-side; redirects are not followed and non-public/loopback/private hosts are
