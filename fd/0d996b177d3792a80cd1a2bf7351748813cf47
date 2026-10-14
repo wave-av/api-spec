@@ -1,0 +1,14 @@
+openapi.yaml
+  h_af5ac1a9798224 91-95,347-348
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "fd0d996b177d3792a80cd1a2bf7351748813cf47",
+  "prompts": {},
+  "humans": {
+    "h_af5ac1a9798224": {
+      "author": "Jake Fineman <jakefineman@gmail.com>"
+    }
+  }
+}
