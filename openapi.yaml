@@ -88,10 +88,11 @@ tags:
       metered per minute (`wave_av_minutes`) plus per transform-second (`wave_av_transform_seconds`).
   - name: Enhance
     description: >-
-      AI video super-resolution. v1 ships one model, `espcn` (ESPCN, a fixed exact 3x upscale) —
-      unrecognized `model` values 400. Requires the `enhance:write` entitlement; x402-payable
-      per-output-minute (`wave_enhance_minutes`, rounded up to the nearest minute of rendered
-      output duration).
+      AI video super-resolution (paused): every call currently returns 503 PRODUCT_PAUSED before
+      auth or payment, and nothing is charged. v1 ships one model, `espcn` (ESPCN, a fixed exact 3x
+      upscale) — unrecognized `model` values 400. Requires the `enhance:write` entitlement; once
+      unpaused, x402-payable per-output-minute (`wave_enhance_minutes`, rounded up to the nearest
+      minute of rendered output duration).
   - name: Braided Audio
     description: >-
       On-demand WAVE Braided Audio publish — mixes multiple named audio sources into one
@@ -343,8 +344,8 @@ tags:
       skills index; the request/response shape is not yet published (draft).
   - name: Enhance
     description: >-
-      WAVE enhance API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+      WAVE enhance API (paused: 503 PRODUCT_PAUSED, nothing charged). See the Enhance tag above for
+      the one documented operation, POST /enhance (espcn, 672x672).
   - name: Example
     description: >-
       WAVE example API — priced capability surface documented from the live gateway
