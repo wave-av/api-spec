@@ -1430,6 +1430,10 @@ export interface paths {
          *     `directory:read` scope (separately grantable; DISTINCT from the compliance `identity:read`
          *     scope that gates Stripe verification sessions).
          *
+         *     Public-directory resolve and gate checks are free forever ($0). Same doctrine as the free
+         *     VRFY check: no priced Stripe/KWH meter event and no x402 charge. Rate limits and the
+         *     gateway daily request quota may still apply. Do not invent a paid price for this path.
+         *
          *     The one documented response variation is the `telephony` service entry, whose identity
          *     carries `org`/`channels`/`numbers`/`keys` (plural credential key names + E.164 numbers)
          *     instead of `email`/`key` — see the oneOf success schema.
