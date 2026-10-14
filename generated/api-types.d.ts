@@ -1322,8 +1322,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Super-resolve a video with an AI model (x402-payable)
-         * @description Upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN super-resolution, a fixed exact 3x factor baked into the trained weights — not a runtime parameter). Internally every input frame is letterboxed to a fixed working canvas before inference, so the v1 output is always 672x672 regardless of input resolution. Status: paused; a future model may support other output shapes. Send either the raw video bytes as the request body or a `url` query parameter pointing at an `https` source (the source is fetched server-side; redirects are not followed and non-public/loopback/private hosts are rejected). Auth is either lane: a bearer API key carrying the `enhance:write` entitlement, or no key at all — an unauthenticated call receives the 402 x402 challenge and is served once paid (pay-per-call). Billed against the `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded up to the next whole minute.
+         * Super-resolve a video with an AI model (paused; x402-payable once unpaused)
+         * @description Paused: every call currently returns 503 PRODUCT_PAUSED before auth or payment; nothing is charged. Once enhance is unpaused: upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN super-resolution, a fixed exact 3x factor baked into the trained weights — not a runtime parameter). Internally every input frame is letterboxed to a fixed working canvas before inference, so the v1 output is always 672x672 regardless of input resolution; a future model may support other output shapes. Send either the raw video bytes as the request body or a `url` query parameter pointing at an `https` source (the source is fetched server-side; redirects are not followed and non-public/loopback/private hosts are rejected). Once unpaused, auth is either lane: a bearer API key carrying the `enhance:write` entitlement, or no key at all — an unauthenticated call receives the 402 x402 challenge and is served once paid (pay-per-call). While paused there is no 402 and no charge. Billed against the `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded up to the next whole minute.
          */
         post: operations["enhanceVideo"];
         delete?: never;
@@ -9214,7 +9214,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authentication failed AND the x402 pay-per-call lane is not armed in this environment. When the pay lane is armed (production default), a missing or unrecognized API key yields the 402 x402 challenge instead — never this 401. A client should treat 401 as "re-authenticate with a valid bearer key" (pay-per-call is unavailable here). */
+            /** @description Once enhance is unpaused (while paused every call is 503 PRODUCT_PAUSED instead): authentication failed AND the x402 pay-per-call lane is not armed in this environment. When the pay lane is armed (the production default once unpaused), a missing or unrecognized API key yields the 402 x402 challenge instead — never this 401. A client should treat 401 as "re-authenticate with a valid bearer key" (pay-per-call is unavailable here). */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -9223,6 +9223,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Only once enhance is unpaused: the x402 payment challenge. While paused this is never returned and nothing is charged; every call is 503 PRODUCT_PAUSED. */
             402: components["responses"]["PaymentRequired"];
             403: components["responses"]["Forbidden"];
             /** @description The source video (request body, or the resolved `?url=` source) exceeds the 200 MiB limit. */
@@ -9254,7 +9255,7 @@ export interface operations {
                 };
             };
             502: components["responses"]["UpstreamError"];
-            /** @description The enhance backend is temporarily unavailable (e.g. cold-start / pool exhaustion). Retryable; honor the `Retry-After` header. */
+            /** @description `PRODUCT_PAUSED`: enhance is paused, and every call returns this 503 before auth or payment, with nothing charged. Not retryable until the product is unpaused. Otherwise (once unpaused) the enhance backend is temporarily unavailable (e.g. cold-start / pool exhaustion); retryable, honor the `Retry-After` header. */
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying. */

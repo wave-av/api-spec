@@ -88,10 +88,11 @@ tags:
       metered per minute (`wave_av_minutes`) plus per transform-second (`wave_av_transform_seconds`).
   - name: Enhance
     description: >-
-      AI video super-resolution. v1 ships one model, `espcn` (ESPCN, a fixed exact 3x upscale) —
-      unrecognized `model` values 400. Requires the `enhance:write` entitlement; x402-payable
-      per-output-minute (`wave_enhance_minutes`, rounded up to the nearest minute of rendered
-      output duration).
+      AI video super-resolution (paused): every call currently returns 503 PRODUCT_PAUSED before
+      auth or payment, and nothing is charged. v1 ships one model, `espcn` (ESPCN, a fixed exact 3x
+      upscale) — unrecognized `model` values 400. Requires the `enhance:write` entitlement; once
+      unpaused, x402-payable per-output-minute (`wave_enhance_minutes`, rounded up to the nearest
+      minute of rendered output duration).
   - name: Braided Audio
     description: >-
       On-demand WAVE Braided Audio publish — mixes multiple named audio sources into one
@@ -343,8 +344,8 @@ tags:
       skills index; the request/response shape is not yet published (draft).
   - name: Enhance
     description: >-
-      WAVE enhance API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+      WAVE enhance API (paused: 503 PRODUCT_PAUSED, nothing charged). See the Enhance tag above for
+      the one documented operation, POST /enhance (espcn, 672x672).
   - name: Example
     description: >-
       WAVE example API — priced capability surface documented from the live gateway
@@ -3778,20 +3779,21 @@ paths:
   /enhance:
     post:
       tags: [Enhance]
-      summary: Super-resolve a video with an AI model (x402-payable)
+      summary: Super-resolve a video with an AI model (paused; x402-payable once unpaused)
       operationId: enhanceVideo
       x-status: paused
       description: >-
-        Upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN
+        Paused: every call currently returns 503 PRODUCT_PAUSED before auth or payment; nothing is
+        charged. Once enhance is unpaused: upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN
         super-resolution, a fixed exact 3x factor baked into the trained weights — not a runtime
         parameter). Internally every input frame is letterboxed to a fixed working canvas before
-        inference, so the v1 output is always 672x672 regardless of input resolution. Status: paused; a future
+        inference, so the v1 output is always 672x672 regardless of input resolution; a future
         model may support other output shapes. Send either the raw video bytes as the request body
         or a `url` query parameter pointing at an `https` source (the source is fetched
         server-side; redirects are not followed and non-public/loopback/private hosts are
-        rejected). Auth is either lane: a bearer API key carrying the `enhance:write`
+        rejected). Once unpaused, auth is either lane: a bearer API key carrying the `enhance:write`
         entitlement, or no key at all — an unauthenticated call receives the 402 x402 challenge
-        and is served once paid (pay-per-call). Billed against the
+        and is served once paid (pay-per-call). While paused there is no 402 and no charge. Billed against the
         `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded
         up to the next whole minute.
       security:
@@ -3879,8 +3881,9 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           description: >-
-            Authentication failed AND the x402 pay-per-call lane is not armed in this environment.
-            When the pay lane is armed (production default), a missing or unrecognized API key
+            Once enhance is unpaused (while paused every call is 503 PRODUCT_PAUSED instead):
+            authentication failed AND the x402 pay-per-call lane is not armed in this environment.
+            When the pay lane is armed (the production default once unpaused), a missing or unrecognized API key
             yields the 402 x402 challenge instead — never this 401. A client should treat 401 as
             "re-authenticate with a valid bearer key" (pay-per-call is unavailable here).
           content:
@@ -3889,6 +3892,9 @@ paths:
                 $ref: '#/components/schemas/Error'
         '402':
           $ref: '#/components/responses/PaymentRequired'
+          description: >-
+            Only once enhance is unpaused: the x402 payment challenge. While paused this is never
+            returned and nothing is charged; every call is 503 PRODUCT_PAUSED.
         '403':
           $ref: '#/components/responses/Forbidden'
         '413':
@@ -3917,8 +3923,10 @@ paths:
           $ref: '#/components/responses/UpstreamError'
         '503':
           description: >-
-            The enhance backend is temporarily unavailable (e.g. cold-start / pool exhaustion).
-            Retryable; honor the `Retry-After` header.
+            `PRODUCT_PAUSED`: enhance is paused, and every call returns this 503 before auth or
+            payment, with nothing charged. Not retryable until the product is unpaused. Otherwise
+            (once unpaused) the enhance backend is temporarily unavailable (e.g. cold-start / pool
+            exhaustion); retryable, honor the `Retry-After` header.
           headers:
             Retry-After:
               schema:
