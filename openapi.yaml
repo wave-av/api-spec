@@ -70,8 +70,6 @@ tags:
     description: Real-time collaboration rooms
   - name: Podcast
     description: Podcast show and episode management
-  - name: Studio AI
-    description: Video enhancement and AI processing
   - name: Transcribe
     description: Speech-to-text transcription
   - name: Sentiment
@@ -90,10 +88,11 @@ tags:
       metered per minute (`wave_av_minutes`) plus per transform-second (`wave_av_transform_seconds`).
   - name: Enhance
     description: >-
-      AI video super-resolution. v1 ships one model, `espcn` (ESPCN, a fixed exact 3x upscale) —
-      unrecognized `model` values 400. Requires the `enhance:write` entitlement; x402-payable
-      per-output-minute (`wave_enhance_minutes`, rounded up to the nearest minute of rendered
-      output duration).
+      AI video super-resolution (paused): every call currently returns 503 PRODUCT_PAUSED before
+      auth or payment, and nothing is charged. v1 ships one model, `espcn` (ESPCN, a fixed exact 3x
+      upscale) — unrecognized `model` values 400. Requires the `enhance:write` entitlement; once
+      unpaused, x402-payable per-output-minute (`wave_enhance_minutes`, rounded up to the nearest
+      minute of rendered output duration).
   - name: Braided Audio
     description: >-
       On-demand WAVE Braided Audio publish — mixes multiple named audio sources into one
@@ -347,8 +346,8 @@ tags:
       skills index; the request/response shape is not yet published (draft).
   - name: Enhance
     description: >-
-      WAVE enhance API — priced capability surface documented from the live gateway
-      skills index; the request/response shape is not yet published (draft).
+      WAVE enhance API (paused: 503 PRODUCT_PAUSED, nothing charged). See the Enhance tag above for
+      the one documented operation, POST /enhance (espcn, 672x672).
   - name: Example
     description: >-
       WAVE example API — priced capability surface documented from the live gateway
@@ -3318,87 +3317,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/PodcastEpisode'
 
-  # Studio AI API
-  /studio-ai/enhancements:
-    get:
-      tags: [Studio AI]
-      summary: List enhancement jobs
-      operationId: listEnhancements
-      parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/PerPageParam'
-        - name: type
-          in: query
-          schema:
-            type: string
-            enum: [upscale, denoise, stabilize, color_correct, super_resolution]
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/JobStatus'
-      responses:
-        '200':
-          description: Paginated list of enhancements
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/PaginatedResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/Enhancement'
-    post:
-      tags: [Studio AI]
-      summary: Create an enhancement job
-      operationId: createEnhancement
-      description: >-
-        Creates an asynchronous, credit-billed enhancement job (including `upscale` and
-        `super_resolution`) against a library video, returning a job envelope to poll. For
-        synchronous, pay-per-call super-resolution of ad-hoc video bytes (billed against
-        `wave_enhance_minutes`), use `POST /enhance` instead.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EnhancementCreate'
-      responses:
-        '201':
-          description: Enhancement created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Enhancement'
-
-  /studio-ai/preview:
-    post:
-      tags: [Studio AI]
-      summary: Generate enhancement preview
-      operationId: previewEnhancement
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EnhancementPreviewRequest'
-      responses:
-        '200':
-          description: Preview generated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  beforeUrl:
-                    type: string
-                    format: uri
-                  afterUrl:
-                    type: string
-                    format: uri
-
   # Transcribe API
   /transcribe:
     get:
@@ -3863,29 +3781,23 @@ paths:
   /enhance:
     post:
       tags: [Enhance]
-      summary: Super-resolve a video with an AI model (x402-payable)
+      summary: Super-resolve a video with an AI model (paused; x402-payable once unpaused)
       operationId: enhanceVideo
+      x-status: paused
       description: >-
-        Upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN
+        Paused: every call currently returns 503 PRODUCT_PAUSED before auth or payment; nothing is
+        charged. Once enhance is unpaused: upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN
         super-resolution, a fixed exact 3x factor baked into the trained weights — not a runtime
         parameter). Internally every input frame is letterboxed to a fixed working canvas before
-        inference, so the v1 output resolution is fixed regardless of input resolution; a future
+        inference, so the v1 output is always 672x672 regardless of input resolution; a future
         model may support other output shapes. Send either the raw video bytes as the request body
         or a `url` query parameter pointing at an `https` source (the source is fetched
         server-side; redirects are not followed and non-public/loopback/private hosts are
-        rejected). Auth is either lane: a bearer API key carrying the `enhance:write`
+        rejected). Once unpaused, auth is either lane: a bearer API key carrying the `enhance:write`
         entitlement, or no key at all — an unauthenticated call receives the 402 x402 challenge
-        and is served once paid (pay-per-call). Billed against the
+        and is served once paid (pay-per-call). While paused there is no 402 and no charge. Billed against the
         `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded
         up to the next whole minute.
-
-
-        Distinct from the Studio AI enhancement surface (`POST /studio-ai/enhancements`, which
-        also offers `upscale`/`super_resolution` job types): Studio AI runs asynchronous,
-        credit-billed jobs against library videos and returns a job envelope, whereas this
-        endpoint synchronously super-resolves ad-hoc video bytes (or an `https` source) and
-        streams the result back, billing `wave_enhance_minutes`. Use Studio AI for library
-        workflows; use this endpoint for direct, pay-per-call enhancement.
       security:
         - {}
         - BearerAuth: []
@@ -3971,8 +3883,9 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           description: >-
-            Authentication failed AND the x402 pay-per-call lane is not armed in this environment.
-            When the pay lane is armed (production default), a missing or unrecognized API key
+            Once enhance is unpaused (while paused every call is 503 PRODUCT_PAUSED instead):
+            authentication failed AND the x402 pay-per-call lane is not armed in this environment.
+            When the pay lane is armed (the production default once unpaused), a missing or unrecognized API key
             yields the 402 x402 challenge instead — never this 401. A client should treat 401 as
             "re-authenticate with a valid bearer key" (pay-per-call is unavailable here).
           content:
@@ -3981,6 +3894,9 @@ paths:
                 $ref: '#/components/schemas/Error'
         '402':
           $ref: '#/components/responses/PaymentRequired'
+          description: >-
+            Only once enhance is unpaused: the x402 payment challenge. While paused this is never
+            returned and nothing is charged; every call is 503 PRODUCT_PAUSED.
         '403':
           $ref: '#/components/responses/Forbidden'
         '413':
@@ -4009,8 +3925,10 @@ paths:
           $ref: '#/components/responses/UpstreamError'
         '503':
           description: >-
-            The enhance backend is temporarily unavailable (e.g. cold-start / pool exhaustion).
-            Retryable; honor the `Retry-After` header.
+            `PRODUCT_PAUSED`: enhance is paused, and every call returns this 503 before auth or
+            payment, with nothing charged. Not retryable until the product is unpaused. Otherwise
+            (once unpaused) the enhance backend is temporarily unavailable (e.g. cold-start / pool
+            exhaustion); retryable, honor the `Retry-After` header.
           headers:
             Retry-After:
               schema:
@@ -13303,70 +13221,6 @@ components:
         publishedAt:
           type: string
           format: date-time
-
-    # Studio AI schemas
-    Enhancement:
-      type: object
-      properties:
-        id:
-          type: string
-        videoId:
-          type: string
-        type:
-          type: string
-          enum: [upscale, denoise, stabilize, color_correct, super_resolution]
-        status:
-          $ref: '#/components/schemas/JobStatus'
-        progress:
-          type: integer
-        inputUrl:
-          type: string
-          format: uri
-        outputUrl:
-          type: string
-          format: uri
-        settings:
-          type: object
-        creditsUsed:
-          type: integer
-        organizationId:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    EnhancementCreate:
-      type: object
-      required: [videoId, type]
-      properties:
-        videoId:
-          type: string
-        type:
-          type: string
-          enum: [upscale, denoise, stabilize, color_correct, super_resolution]
-        settings:
-          type: object
-        priority:
-          type: string
-          enum: [low, normal, high]
-          default: normal
-
-    EnhancementPreviewRequest:
-      type: object
-      required: [videoId, type]
-      properties:
-        videoId:
-          type: string
-        type:
-          type: string
-        timestamp:
-          type: number
-          default: 0
-        settings:
-          type: object
 
     # Transcription schemas
     Transcription:

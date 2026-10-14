@@ -50,6 +50,19 @@ test('splitShellCommand: empty string yields no tokens', () => {
   assert.deepEqual(splitShellCommand(''), []);
 });
 
+// Hermetic git for the scratch repos: ignore the developer's global/system git config. A global
+// trace2 target (e.g. a local git-ai daemon) can write into the scratch .git asynchronously after
+// each git call, which raced rmSync and failed tests with ENOTEMPTY. Child git processes spawned by
+// resolveBaseTag inherit this env too.
+process.env.GIT_CONFIG_GLOBAL = '/dev/null';
+process.env.GIT_CONFIG_NOSYSTEM = '1';
+for (const k of Object.keys(process.env)) if (k.startsWith('GIT_TRACE2')) delete process.env[k];
+
+// Robust temp-dir removal, retrying transient ENOTEMPTY/EBUSY instead of failing the test.
+function cleanup(dir) {
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+}
+
 // ── resolveBaseTag ──────────────────────────────────────────────────────────────────────────────
 
 function scratchGitRepo() {
@@ -58,6 +71,10 @@ function scratchGitRepo() {
   run(['init', '-q']);
   run(['config', 'user.email', 'test@example.com']);
   run(['config', 'user.name', 'test']);
+  // No background git writers inside the scratch repo, so cleanup never races them.
+  run(['config', 'core.fsmonitor', 'false']);
+  run(['config', 'gc.auto', '0']);
+  run(['config', 'maintenance.auto', 'false']);
   writeFileSync(join(dir, 'f.txt'), 'x');
   run(['add', '.']);
   run(['commit', '-q', '-m', 'init']);
@@ -74,7 +91,7 @@ test('resolveBaseTag: no v* tags on the repo returns null', () => {
   try {
     assert.equal(resolveBaseTag(null, dir), null);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    cleanup(dir);
   }
 });
 
@@ -84,7 +101,7 @@ test('resolveBaseTag: a single v* tag is returned', () => {
     spawnSync('git', ['tag', 'v1.0.0'], { cwd: dir });
     assert.equal(resolveBaseTag(null, dir), 'v1.0.0');
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    cleanup(dir);
   }
 });
 
@@ -94,7 +111,7 @@ test('resolveBaseTag: the highest semver v* tag wins over lexical order', () => 
     for (const t of ['v1.2.0', 'v1.10.0', 'v1.9.0']) spawnSync('git', ['tag', t], { cwd: dir });
     assert.equal(resolveBaseTag(null, dir), 'v1.10.0', 'v1.10.0 > v1.9.0 in semver even though "1.10" < "1.9" lexically');
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    cleanup(dir);
   }
 });
 
@@ -104,7 +121,7 @@ test('resolveBaseTag: non-v-prefixed tags are ignored', () => {
     spawnSync('git', ['tag', 'release-1'], { cwd: dir });
     assert.equal(resolveBaseTag(null, dir), null);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    cleanup(dir);
   }
 });
 
@@ -126,7 +143,7 @@ test('resolveOasdiffCmd: GA_OASDIFF_CMD override wins even when PATH has neither
     const env = { PATH: emptyBin, GA_OASDIFF_CMD: 'docker run --rm -v "/p a/x:/data" oasdiff' };
     assert.deepEqual(resolveOasdiffCmd(env), { bin: 'docker', args: ['run', '--rm', '-v', '/p a/x:/data', 'oasdiff'] });
   } finally {
-    rmSync(emptyBin, { recursive: true, force: true });
+    cleanup(emptyBin);
   }
 });
 
@@ -143,7 +160,7 @@ test('resolveOasdiffCmd: neither GA_OASDIFF_CMD nor oasdiff nor go on PATH retur
   try {
     assert.equal(resolveOasdiffCmd({ PATH: `${emptyBin}:${REAL_SH_DIR}` }), null);
   } finally {
-    rmSync(emptyBin, { recursive: true, force: true });
+    cleanup(emptyBin);
   }
 });
 
@@ -154,7 +171,7 @@ test('resolveOasdiffCmd: oasdiff present on PATH is preferred with no extra args
     assert.equal(result.bin, join(bin, 'oasdiff'));
     assert.deepEqual(result.args, []);
   } finally {
-    rmSync(bin, { recursive: true, force: true });
+    cleanup(bin);
   }
 });
 
@@ -165,7 +182,7 @@ test('resolveOasdiffCmd: falls back to "go run <pinned module>" when only go is 
     assert.equal(result.bin, 'go');
     assert.deepEqual(result.args, ['run', 'github.com/oasdiff/oasdiff@v1.29.1']);
   } finally {
-    rmSync(bin, { recursive: true, force: true });
+    cleanup(bin);
   }
 });
 
@@ -175,6 +192,6 @@ test('resolveOasdiffCmd: GA_OASDIFF_GO_MODULE overrides the pinned go module', (
     const result = resolveOasdiffCmd({ PATH: `${bin}:${REAL_SH_DIR}`, GA_OASDIFF_GO_MODULE: 'example.com/other@v9' });
     assert.deepEqual(result.args, ['run', 'example.com/other@v9']);
   } finally {
-    rmSync(bin, { recursive: true, force: true });
+    cleanup(bin);
   }
 });

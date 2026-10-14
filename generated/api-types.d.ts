@@ -1053,44 +1053,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/studio-ai/enhancements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List enhancement jobs */
-        get: operations["listEnhancements"];
-        put?: never;
-        /**
-         * Create an enhancement job
-         * @description Creates an asynchronous, credit-billed enhancement job (including `upscale` and `super_resolution`) against a library video, returning a job envelope to poll. For synchronous, pay-per-call super-resolution of ad-hoc video bytes (billed against `wave_enhance_minutes`), use `POST /enhance` instead.
-         */
-        post: operations["createEnhancement"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/studio-ai/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate enhancement preview */
-        post: operations["previewEnhancement"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/transcribe": {
         parameters: {
             query?: never;
@@ -1360,10 +1322,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Super-resolve a video with an AI model (x402-payable)
-         * @description Upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN super-resolution, a fixed exact 3x factor baked into the trained weights — not a runtime parameter). Internally every input frame is letterboxed to a fixed working canvas before inference, so the v1 output resolution is fixed regardless of input resolution; a future model may support other output shapes. Send either the raw video bytes as the request body or a `url` query parameter pointing at an `https` source (the source is fetched server-side; redirects are not followed and non-public/loopback/private hosts are rejected). Auth is either lane: a bearer API key carrying the `enhance:write` entitlement, or no key at all — an unauthenticated call receives the 402 x402 challenge and is served once paid (pay-per-call). Billed against the `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded up to the next whole minute.
-         *
-         *     Distinct from the Studio AI enhancement surface (`POST /studio-ai/enhancements`, which also offers `upscale`/`super_resolution` job types): Studio AI runs asynchronous, credit-billed jobs against library videos and returns a job envelope, whereas this endpoint synchronously super-resolves ad-hoc video bytes (or an `https` source) and streams the result back, billing `wave_enhance_minutes`. Use Studio AI for library workflows; use this endpoint for direct, pay-per-call enhancement.
+         * Super-resolve a video with an AI model (paused; x402-payable once unpaused)
+         * @description Paused: every call currently returns 503 PRODUCT_PAUSED before auth or payment; nothing is charged. Once enhance is unpaused: upscales a video with an on-graph AI model. v1 ships exactly one model, `espcn` (ESPCN super-resolution, a fixed exact 3x factor baked into the trained weights — not a runtime parameter). Internally every input frame is letterboxed to a fixed working canvas before inference, so the v1 output is always 672x672 regardless of input resolution; a future model may support other output shapes. Send either the raw video bytes as the request body or a `url` query parameter pointing at an `https` source (the source is fetched server-side; redirects are not followed and non-public/loopback/private hosts are rejected). Once unpaused, auth is either lane: a bearer API key carrying the `enhance:write` entitlement, or no key at all — an unauthenticated call receives the 402 x402 challenge and is served once paid (pay-per-call). While paused there is no 402 and no charge. Billed against the `wave_enhance_minutes` meter: the OUTPUT artifact's rendered duration in minutes, rounded up to the next whole minute.
          */
         post: operations["enhanceVideo"];
         delete?: never;
@@ -5551,43 +5511,6 @@ export interface components {
             /** Format: date-time */
             publishedAt?: string;
         };
-        Enhancement: {
-            id?: string;
-            videoId?: string;
-            /** @enum {string} */
-            type?: "upscale" | "denoise" | "stabilize" | "color_correct" | "super_resolution";
-            status?: components["schemas"]["JobStatus"];
-            progress?: number;
-            /** Format: uri */
-            inputUrl?: string;
-            /** Format: uri */
-            outputUrl?: string;
-            settings?: Record<string, never>;
-            creditsUsed?: number;
-            organizationId?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        EnhancementCreate: {
-            videoId: string;
-            /** @enum {string} */
-            type: "upscale" | "denoise" | "stabilize" | "color_correct" | "super_resolution";
-            settings?: Record<string, never>;
-            /**
-             * @default normal
-             * @enum {string}
-             */
-            priority: "low" | "normal" | "high";
-        };
-        EnhancementPreviewRequest: {
-            videoId: string;
-            type: string;
-            /** @default 0 */
-            timestamp: number;
-            settings?: Record<string, never>;
-        };
         Transcription: {
             id?: string;
             sourceId?: string;
@@ -8730,86 +8653,6 @@ export interface operations {
             };
         };
     };
-    listEnhancements: {
-        parameters: {
-            query?: {
-                page?: components["parameters"]["PageParam"];
-                perPage?: components["parameters"]["PerPageParam"];
-                type?: "upscale" | "denoise" | "stabilize" | "color_correct" | "super_resolution";
-                status?: components["schemas"]["JobStatus"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Paginated list of enhancements */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedResponse"] & {
-                        data?: components["schemas"]["Enhancement"][];
-                    };
-                };
-            };
-        };
-    };
-    createEnhancement: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EnhancementCreate"];
-            };
-        };
-        responses: {
-            /** @description Enhancement created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Enhancement"];
-                };
-            };
-        };
-    };
-    previewEnhancement: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EnhancementPreviewRequest"];
-            };
-        };
-        responses: {
-            /** @description Preview generated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** Format: uri */
-                        beforeUrl?: string;
-                        /** Format: uri */
-                        afterUrl?: string;
-                    };
-                };
-            };
-        };
-    };
     listTranscriptions: {
         parameters: {
             query?: {
@@ -9375,7 +9218,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authentication failed AND the x402 pay-per-call lane is not armed in this environment. When the pay lane is armed (production default), a missing or unrecognized API key yields the 402 x402 challenge instead — never this 401. A client should treat 401 as "re-authenticate with a valid bearer key" (pay-per-call is unavailable here). */
+            /** @description Once enhance is unpaused (while paused every call is 503 PRODUCT_PAUSED instead): authentication failed AND the x402 pay-per-call lane is not armed in this environment. When the pay lane is armed (the production default once unpaused), a missing or unrecognized API key yields the 402 x402 challenge instead — never this 401. A client should treat 401 as "re-authenticate with a valid bearer key" (pay-per-call is unavailable here). */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -9384,6 +9227,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Only once enhance is unpaused: the x402 payment challenge. While paused this is never returned and nothing is charged; every call is 503 PRODUCT_PAUSED. */
             402: components["responses"]["PaymentRequired"];
             403: components["responses"]["Forbidden"];
             /** @description The source video (request body, or the resolved `?url=` source) exceeds the 200 MiB limit. */
@@ -9415,7 +9259,7 @@ export interface operations {
                 };
             };
             502: components["responses"]["UpstreamError"];
-            /** @description The enhance backend is temporarily unavailable (e.g. cold-start / pool exhaustion). Retryable; honor the `Retry-After` header. */
+            /** @description `PRODUCT_PAUSED`: enhance is paused, and every call returns this 503 before auth or payment, with nothing charged. Not retryable until the product is unpaused. Otherwise (once unpaused) the enhance backend is temporarily unavailable (e.g. cold-start / pool exhaustion); retryable, honor the `Retry-After` header. */
             503: {
                 headers: {
                     /** @description Seconds to wait before retrying. */
