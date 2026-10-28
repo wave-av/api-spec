@@ -6,5 +6,26 @@
       "pricing.model": "free",
       "auth.scope": null
     }
+  },
+  {
+    "name": "kwh",
+    "justification": "KWH issues metering and signed receipts for active agent work (ontology domains/kwh; ruling documents/d-domain-rulings-oct9). Probed 2026-10-09 6:59 PM ET: every /v1/kwh, GET and POST, on gateway.wave.online answers 503 SPOKE_NOT_LIVE, so there is no served operation to document yet. Add real operations when the KWH spoke has a live origin. Honored only while the index carries no meter.",
+    "expect": {
+      "pricing.meter": null
+    }
+  },
+  {
+    "name": "kya",
+    "justification": "KYA is identity: a public, stranger-checkable agent record, free forever (ontology domains/kya; documents/d-kya-k7-free-with-enterprise). The served free identity op is already documented as identityResolve (/identity/resolve). Probed 2026-10-09 6:59 PM ET: every /v1/kya, GET and POST, on gateway.wave.online answers 503 SPOKE_NOT_LIVE, so there is no served operation to document yet. Honored only while the index carries no meter.",
+    "expect": {
+      "pricing.meter": null
+    }
+  },
+  {
+    "name": "vrfy",
+    "justification": "VRFY only checks receipts and is free forever, with no persistence (ontology domains/vrfy; Orchestrator ruling Oct 9). It issues nothing, so it has no priced operation. Probed 2026-10-09 6:59 PM ET: every /v1/vrfy, GET and POST, on gateway.wave.online answers 503 SPOKE_NOT_LIVE, so there is no served operation to document yet. Honored only while the index carries no meter.",
+    "expect": {
+      "pricing.meter": null
+    }
   }
 ]
