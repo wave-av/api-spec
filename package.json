@@ -7,7 +7,8 @@
   "scripts": {
     "lint": "redocly lint openapi.yaml",
     "gen:types": "openapi-typescript openapi.yaml -o generated/api-types.d.ts",
-    "test:ga": "node --test \"scripts/ga/**/*.test.mjs\""
+    "test:ga": "node --test \"scripts/ga/**/*.test.mjs\"",
+    "test:guard": "bash scripts/public-repo-guard/tests/content-policy.test.sh && bash scripts/public-repo-guard/tests/body-policy.test.sh"
   },
   "devDependencies": {
     "@redocly/cli": "2.40.0",
