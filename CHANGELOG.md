@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- **Public-repo content-policy** — `content-policy.sh` now passes `--no-ignore` to
+  ripgrep (not only `--no-ignore-vcs`), so a pull-request `.rgignore` or `.ignore`
+  cannot empty the tree and green the trade-secret leak gate. Documented
+  `.guardignore` excludes still apply.
+
 ### Removed
 
 - **Studio AI surface** (`openapi.yaml`) — deleted `GET /studio-ai/enhancements`
