@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- **Live-probe userinfo SSRF** (`.github/scripts/published-drift-live.mjs`) — a fork PR can declare
+  a draft operation with a same-origin `servers` override (empty prefix) and a path that does not
+  start with `/`. `${trustedOrigin}${path}` then parses as userinfo (`https://api.wave.online@ssrf.test/leak`)
+  and the required `published-contract-drift` job would fetch the foreign host. Probe joins now
+  refuse any URL that leaves the trusted origin; non-path keys are dropped before they are queued.
+
 ### Removed
 
 - **Studio AI surface** (`openapi.yaml`) — deleted `GET /studio-ai/enhancements`
