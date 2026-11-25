@@ -134,14 +134,48 @@ export function extractBodyCode(text) {
 }
 
 /**
+ * Join `baseUrl` and `path` only when the result stays on `baseUrl`'s origin, with no userinfo.
+ *
+ * The live-behaviour tier concatenates `${origin}${probePath}`. `probePath` is derived from THIS
+ * PR's openapi.yaml, including a same-origin `servers` override that empties the `/v1` prefix.
+ * A path that does not start with `/` (OpenAPI forbids that; js-yaml will still load it) turns
+ * `https://api.wave.online` + `@ssrf.test/leak` into `https://api.wave.online@ssrf.test/leak` —
+ * host `ssrf.test`, username `api.wave.online`. Refuse that join rather than fetch it.
+ *
+ * Returns the href to fetch, or `null` if the join is not a same-origin path.
+ */
+export function trustedProbeHref(baseUrl, path) {
+  if (typeof baseUrl !== 'string' || typeof path !== 'string' || path === '') return null;
+  let expectedOrigin;
+  try {
+    expectedOrigin = new URL(baseUrl).origin;
+  } catch {
+    return null;
+  }
+  if (!path.startsWith('/') || path.startsWith('//')) return null;
+  let url;
+  try {
+    url = new URL(`${baseUrl}${path}`);
+  } catch {
+    return null;
+  }
+  if (url.origin !== expectedOrigin || url.username || url.password) return null;
+  return url.href;
+}
+
+/**
  * Probe one path. Never throws; a failure becomes `status: 0`, which classifies as `unknown`.
  * `baseUrl` comes from the spec's own `servers[0].url`, so this cannot drift from what the spec says.
  */
 export async function probePath(baseUrl, path, doFetch = fetch) {
+  const href = trustedProbeHref(baseUrl, path);
+  if (!href) {
+    return { path, status: 0, bodyCode: 'REFUSED_ORIGIN' };
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LIVE_PROBE_TIMEOUT_MS);
   try {
-    const res = await doFetch(`${baseUrl}${path}`, {
+    const res = await doFetch(href, {
       method: 'GET',
       redirect: 'manual',
       signal: controller.signal,

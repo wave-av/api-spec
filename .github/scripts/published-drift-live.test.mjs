@@ -95,6 +95,31 @@ test('probePath uses GET with no body and no credentials — side-effect-free by
   assert.ok(!('authorization' in Object.fromEntries(Object.entries(seen.init.headers).map(([k, v]) => [k.toLowerCase(), v]))));
 });
 
+test('probePath refuses a userinfo SSRF join and never fetches the foreign host', async () => {
+  // Same-origin servers override empties the prefix, then `${origin}${path}` is parsed as
+  // https://api.wave.online@ssrf.test/leak — host ssrf.test, username api.wave.online.
+  // A fork PR that declares a draft path of that shape must not make CI fetch it.
+  const requested = [];
+  const result = await probePath('https://api.wave.online', '@ssrf.test/leak', async (url) => {
+    requested.push(String(url));
+    return { status: 200, text: async () => 'should-not-run' };
+  });
+  assert.deepEqual(requested, [], 'must not call fetch when the joined URL leaves the trusted origin');
+  assert.equal(result.status, 0);
+  assert.equal(result.bodyCode, 'REFUSED_ORIGIN');
+  assert.equal(new URL('https://api.wave.online@ssrf.test/leak').origin, 'https://ssrf.test');
+});
+
+test('probePath still joins a legitimate absolute path onto the trusted origin', async () => {
+  let seen = null;
+  await probePath('https://api.wave.online', '/root-surface', async (url, init) => {
+    seen = { url, init };
+    return { status: 403, text: async () => JSON.stringify({ error: { code: 'ROUTE_NOT_MAPPED' } }) };
+  });
+  assert.equal(seen.url, 'https://api.wave.online/root-surface');
+  assert.equal(new URL(seen.url).origin, 'https://api.wave.online');
+});
+
 test('probeOperations REFUSES the whole batch when a control answers as live', async () => {
   // A probe with no control is not a measurement. If a path that cannot exist answers, the gateway
   // is answering for everything and no observation in the batch means anything.

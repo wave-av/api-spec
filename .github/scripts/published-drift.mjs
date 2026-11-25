@@ -59,7 +59,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { compare, indexOperations, validateAllowlist } from './published-drift-compare.mjs';
-import { probeOperations } from './published-drift-live.mjs';
+import { probeOperations, trustedProbeHref } from './published-drift-live.mjs';
 import { DIGEST_FIELD, repoFacts } from './published-drift-freshness.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -128,6 +128,9 @@ export function indexSpecPathsByProbePath(repoDoc, livePublished, trustedOrigin,
     if (livePublished.has(`${method.toUpperCase()} ${path}`)) continue;
     const prefix = resolveProbePrefix(op, trustedOrigin, defaultPrefix);
     const probePath = prefix + templateToProbePath(path);
+    // `trustedOrigin` is origin-only (no path). A probe key that does not start with `/` would
+    // make `${trustedOrigin}${probePath}` parse as userinfo and leave this host. Skip it.
+    if (!trustedProbeHref(trustedOrigin, probePath)) continue;
     const specPaths = specPathsByProbePath.get(probePath) ?? [];
     if (!specPaths.includes(path)) specPaths.push(path);
     specPathsByProbePath.set(probePath, specPaths);

@@ -304,6 +304,22 @@ test('indexSpecPathsByProbePath: a per-operation servers override on a FOREIGN o
   assert.deepEqual([...index.keys()], [`${DEFAULT_PREFIX}/looks-innocent`], 'falls back to the trusted default prefix');
 });
 
+test('indexSpecPathsByProbePath: a same-origin empty prefix must not emit a userinfo SSRF probe key', () => {
+  // The servers override to the bare origin is a real shape (root-surface ops). Combined with a
+  // path that does not start with `/`, `${trustedOrigin}${path}` becomes userinfo and the probe
+  // leaves api.wave.online. Drop that key so the live-behaviour tier never fetches it.
+  const draftOp = {
+    'x-schema-status': 'draft',
+    servers: [{ url: 'https://api.wave.online' }],
+    responses: {},
+  };
+  const repoDoc = { openapi: '3.1.0', paths: { '@ssrf.test/leak': { get: draftOp } } };
+  const index = indexSpecPathsByProbePath(repoDoc, new Map(), TRUSTED_ORIGIN, DEFAULT_PREFIX);
+  assert.deepEqual([...index.keys()], []);
+  const joined = `${TRUSTED_ORIGIN}@ssrf.test/leak`;
+  assert.equal(new URL(joined).origin, 'https://ssrf.test', 'the dropped join really would have escaped');
+});
+
 test('a usage error exits UNKNOWN and never reaches the network', async () => {
   assert.equal(await main(['--live']), EXIT_UNKNOWN);
   assert.equal(await main(['--out']), EXIT_UNKNOWN);
