@@ -128,21 +128,44 @@ jobs:
         # changes vs the base branch (removed/renamed paths, removed required params, etc).
         # Breaking changes are allowed only with an explicit "Breaking: yes" marker in the
         # PR body — that is a deliberate, acknowledged contract break (version bump + notice).
+        #
+        # --allow-external-refs=false is load-bearing. oasdiff follows external $ref URLs
+        # and local files by default; this job checks out PR HEAD, so a fork PR can put
+        # `$ref: http://169.254.169.254/...` (or a file:// path) in openapi.yaml and make
+        # the runner fetch it (CI SSRF / runner-file disclosure). The same flag is already
+        # set in scripts/ga/compat-001-check.mjs; this required gate must match. Boolean
+        # false requires the `=` form — a space-separated `false` is parsed as a spec path.
+        # Exit 123 is oasdiff's dedicated "external $ref refused" code and is NEVER a
+        # contract break, so "Breaking: yes" must not launder it.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if oasdiff breaking --fail-on ERR /tmp/base/openapi.yaml "$PWD/openapi.yaml" > /tmp/oasdiff.txt 2>&1; then
+          set +e
+          oasdiff breaking --allow-external-refs=false --fail-on ERR /tmp/base/openapi.yaml "$PWD/openapi.yaml" > /tmp/oasdiff.txt 2>&1
+          code=$?
+          set -e
+          if [ "$code" = "0" ]; then
             echo "No breaking spec changes."
+            exit 0
+          fi
+          if [ "$code" = "123" ]; then
+            echo "::error::oasdiff refused an external \$ref (exit 123). This spec must be self-contained; CI will not fetch PR-controlled URLs or local files."
+            cat /tmp/oasdiff.txt
+            exit 1
+          fi
+          if [ "$code" != "1" ]; then
+            echo "::error::oasdiff exited $code (expected 0, 1, or 123). Treating an unrecognized exit as a failure, not a pass."
+            cat /tmp/oasdiff.txt
+            exit 1
+          fi
+          if gh pr view "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" \
+              --json body --jq '.body' | grep -q "Breaking: yes"; then
+            echo "::warning::Breaking spec changes acknowledged via 'Breaking: yes' marker."
+            cat /tmp/oasdiff.txt
           else
-            if gh pr view "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" \
-                --json body --jq '.body' | grep -q "Breaking: yes"; then
-              echo "::warning::Breaking spec changes acknowledged via 'Breaking: yes' marker."
-              cat /tmp/oasdiff.txt
-            else
-              echo "::error::Breaking spec changes detected. Acknowledge them with 'Breaking: yes' in the PR body."
-              cat /tmp/oasdiff.txt
-              exit 1
-            fi
+            echo "::error::Breaking spec changes detected. Acknowledge them with 'Breaking: yes' in the PR body."
+            cat /tmp/oasdiff.txt
+            exit 1
           fi
 
   # Docs are GENERATED from openapi.yaml, but the gateway's live capability index is the actual

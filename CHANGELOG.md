@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Security
+
+- **`breaking-change` CI SSRF** (`.github/workflows/foundation-gate.yml`) — the required
+  PR gate ran `oasdiff breaking` with oasdiff's default `--allow-external-refs=true`, so a
+  fork PR could put an HTTP/`file://` `$ref` in `openapi.yaml` and make the runner fetch it.
+  The job now passes `--allow-external-refs=false` (same flag `compat-001-check.mjs` already
+  used) and treats oasdiff exit 123 as a hard fail that `"Breaking: yes"` cannot override.
+
 ### Removed
 
 - **Studio AI surface** (`openapi.yaml`) — deleted `GET /studio-ai/enhancements`
